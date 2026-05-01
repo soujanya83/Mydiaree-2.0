@@ -1,0 +1,101 @@
+export const RELATION_OPTIONS = ["Mother", "Father", "Brother", "Sister", "Relative"];
+
+export const AVAILABLE_CHILDREN = [
+  { id: "ch1", name: "adil ali" },
+  { id: "ch2", name: "testchild1 test" },
+  { id: "ch3", name: "testchild2 test" },
+  { id: "ch4", name: "testchild3 test3" },
+  { id: "ch5", name: "testchild4 child4" },
+  { id: "ch6", name: "testchild5 child5" },
+  { id: "ch7", name: "test by apk test" },
+  { id: "ch8", name: "test1 tst" },
+  { id: "ch9", name: "Yuvraj Singh Dhaliwal" },
+  { id: "ch10", name: "Munazzah Ahmed" },
+];
+
+const IMG = (seed) => `https://i.pravatar.cc/150?img=${seed}`;
+
+export const initialParents = [
+  {
+    id: "p1",
+    name: "Test545 Parents",
+    email: "testingparentemail@mydiaree.com",
+    contact: "5487986598",
+    gender: "Male",
+    avatar: IMG(12),
+    centerId: "ct1",
+    children: [],
+  },
+  {
+    id: "p2",
+    name: "Test tabrej",
+    email: "tabrezk2994@gmail.com",
+    contact: "5111111111",
+    gender: "Male",
+    avatar: IMG(13),
+    centerId: "ct1",
+    children: [
+      { childId: "ch1", relation: "Father" },
+      { childId: "ch4", relation: "Father" },
+      { childId: "ch2", relation: "Father" },
+      { childId: "ch7", relation: "Father" },
+      { childId: "ch8", relation: "Father" },
+    ],
+  },
+  {
+    id: "p3",
+    name: "Jane Doe",
+    email: "newparent1@example.com",
+    contact: "9876543210",
+    gender: "Female",
+    avatar: IMG(45),
+    centerId: "ct1",
+    children: [
+      { childId: "ch9", relation: "Mother" },
+      { childId: "ch10", relation: "Mother" },
+    ],
+  },
+  {
+    id: "p4",
+    name: "password",
+    email: "password@gmail.com",
+    contact: "9999999999",
+    gender: "Male",
+    avatar: IMG(15),
+    centerId: "ct1",
+    children: [{ childId: "ch9", relation: "Mother" }],
+  },
+  {
+    id: "p5",
+    name: "pass",
+    email: "passord@gmail.com",
+    contact: "9999999999",
+    gender: "Male",
+    avatar: IMG(12),
+    centerId: "ct1",
+    children: [{ childId: "ch9", relation: "Mother" }],
+  },
+  {
+    id: "p6",
+    name: "Jane Doe",
+    email: "newparentj1@example.com",
+    contact: "9876543210",
+    gender: "Female",
+    avatar: IMG(48),
+    centerId: "ct2",
+    children: [{ childId: "ch2", relation: "Father" }],
+  },
+  {
+    id: "p7",
+    name: "testparent1",
+    email: "testparent1@gmail.com",
+    contact: "8787878787",
+    gender: "Male",
+    avatar: "",
+    centerId: "ct2",
+    children: [
+      { childId: "ch4", relation: "Father" },
+      { childId: "ch1", relation: "Father" },
+    ],
+  },
+];
