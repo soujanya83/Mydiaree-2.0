@@ -3,31 +3,28 @@ import { useNavigate } from "react-router-dom";
 import { Sparkles, Mail, Lock, Loader2, Eye, EyeOff, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/authStore";
-import { authService } from "@/services/authService";
 import { toast } from "sonner";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("admin@nextgen.com.au");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    try {
-      const { user, token } = await authService.login({ email, password });
-      setAuth(user, token);
-      toast.success(`Welcome back, ${user.name.split(" ")[0]}!`);
+    const data = await login({ email, password });
+    if (data.status === "success") {
+      toast.success(`Welcome back, ${data.user.name.split(" ")[0]}!`);
       navigate("/dashboard");
-    } catch {
-      toast.error("Sign in failed. Please try again.");
-    } finally {
-      setLoading(false);
+    } else {
+      toast.error(data.message || "Sign in failed. Please try again.");
     }
+    setLoading(false);
   };
 
   const features = [

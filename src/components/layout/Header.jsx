@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Header() {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
@@ -104,6 +104,12 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 rounded-full p-1 transition hover:bg-muted">
               <Avatar className="h-8 w-8">
+                {user?.imageUrl && (
+                  <AvatarImage
+                    src={`https://mydiaree.com.au/${user.imageUrl}`}
+                    alt={user.name}
+                  />
+                )}
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
                   {initials}
                 </AvatarFallback>
@@ -113,7 +119,7 @@ export function Header() {
                   {user?.name ?? "Nextgen Admin"}
                 </p>
                 <p className="mt-1 text-[10px] capitalize text-muted-foreground">
-                  {user?.role ?? "superadmin"}
+                  {user?.userType ?? "superadmin"}
                 </p>
               </div>
             </button>

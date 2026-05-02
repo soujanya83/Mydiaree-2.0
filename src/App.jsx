@@ -49,8 +49,11 @@ import StaffSettingsPage from "@/pages/StaffSettingsPage";
 import SuperAdminSettingsPage from "@/pages/SuperAdminSettingsPage";
 import ParentSettingsPage from "@/pages/ParentSettingsPage";
 import StyleGuidePage from "@/pages/StyleGuidePage";
+import { useEffect } from "react";
+import { authService } from "./services/authService";
 
 export default function App() {
+
   return (
     <>
       <Routes>

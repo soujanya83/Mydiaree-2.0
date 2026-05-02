@@ -1,21 +1,24 @@
 import { apiClient, USE_MOCKS } from "./apiClient";
+import api from "../api/api";
 
 export const authService = {
   async login(payload) {
-    if (USE_MOCKS) {
-      await new Promise((r) => setTimeout(r, 600));
-      return {
-        token: "mock-jwt-token",
-        user: {
-          id: "u1",
-          name: "Nextgen Admin",
-          email: payload.email,
-          role: "superadmin",
-        },
-      };
-    }
-    const { data } = await apiClient.post("/auth/login", payload);
-    return data;
+    // if (USE_MOCKS) {
+    //   await new Promise((r) => setTimeout(r, 600));
+    //   return {
+    //     token: "mock-jwt-token",
+    //     user: {
+    //       id: "u1",
+    //       name: "Nextgen Admin",
+    //       email: payload.email,
+    //       role: "superadmin",
+    //     },
+    //   };
+    // }
+
+    const res = await api.post("/login", payload);
+    console.log(res.data);
+    return res.data;
   },
 
   async logout() {

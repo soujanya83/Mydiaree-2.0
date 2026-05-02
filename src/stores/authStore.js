@@ -1,16 +1,34 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { authService } from "@/services/authService";
 
-export const useAuthStore = create(
-  persist(
-    (set) => ({
-      user: null,
-      token: null,
-      isAuthenticated: false,
-      setAuth: (user, token) => set({ user, token, isAuthenticated: true }),
-      login: (user) => set({ user, isAuthenticated: true }),
-      logout: () => set({ user: null, token: null, isAuthenticated: false }),
-    }),
-    { name: "mydiaree.auth" }
-  )
-);
+export const useAuthStore = create((set) => ({
+  user: localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")) : null,
+  token: localStorage.getItem("token"),
+  isAuthenticated: localStorage.getItem("user") ? true : false,
+
+  login: async (payload) => {
+    try {
+      const data = await authService.login(payload);
+      if (data.status === "success") {
+        localStorage.setItem("user", JSON.stringify(data.user));
+        localStorage.setItem("token", data.token);
+        set({ user: data.user, token: data.token, isAuthenticated: true });
+      }
+      return data;
+    } catch (error) {
+      return { status: "error", message: error?.response?.data?.message || "Something went wrong" };
+    }
+  },
+
+  setAuth: (user, token) => {
+    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem("token", token);
+    set({ user, token, isAuthenticated: true });
+  },
+
+  logout: () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    set({ user: null, token: null, isAuthenticated: false });
+  },
+}));
