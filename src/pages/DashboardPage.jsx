@@ -97,7 +97,7 @@ function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Welcome back${centre ? `, ${centre.code}` : ""}`}
+        title={`Welcome back${centre ? `, ${centre.name || centre.code}` : ""}`}
         description={centre ? `${centre.name} • ${centre.address}` : "Daily overview at a glance"}
         actions={
           <>

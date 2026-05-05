@@ -17,7 +17,7 @@ export const authService = {
     // }
 
     const res = await api.post("/login", payload);
-    console.log(res.data);
+    //console.log(res.data);
     return res.data;
   },
 

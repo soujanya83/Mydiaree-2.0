@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-const empty = { name: "", street: "", city: "", state: "", zip: "" };
+const empty = { name: "", addressStreet: "", addressCity: "", addressState: "", addressZip: "" };
 
 export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
   const [form, setForm] = useState(empty);
@@ -29,10 +29,10 @@ export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
     onSave({
       id: initial?.id,
       name: form.name.trim(),
-      street: form.street.trim(),
-      city: form.city.trim(),
-      state: form.state.trim(),
-      zip: form.zip.trim(),
+      addressStreet: form.addressStreet.trim(),
+      addressCity: form.addressCity.trim(),
+      addressState: form.addressState.trim(),
+      addressZip: form.addressZip.trim(),
     });
     onOpenChange(false);
   };
@@ -65,32 +65,32 @@ export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
                 <div className="space-y-1.5">
                   <Label className="text-sm font-semibold">Street Address</Label>
                   <Input
-                    value={form.street}
-                    onChange={(e) => set("street", e.target.value)}
+                    value={form.addressStreet}
+                    onChange={(e) => set("addressStreet", e.target.value)}
                     placeholder="Enter street address"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm font-semibold">City</Label>
                   <Input
-                    value={form.city}
-                    onChange={(e) => set("city", e.target.value)}
+                    value={form.addressCity}
+                    onChange={(e) => set("addressCity", e.target.value)}
                     placeholder="Enter city"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm font-semibold">State</Label>
                   <Input
-                    value={form.state}
-                    onChange={(e) => set("state", e.target.value)}
+                    value={form.addressState}
+                    onChange={(e) => set("addressState", e.target.value)}
                     placeholder="Enter state"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-sm font-semibold">ZIP Code</Label>
                   <Input
-                    value={form.zip}
-                    onChange={(e) => set("zip", e.target.value)}
+                    value={form.addressZip}
+                    onChange={(e) => set("addressZip", e.target.value)}
                     placeholder="Enter ZIP code"
                   />
                 </div>

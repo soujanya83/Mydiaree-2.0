@@ -1,20 +1,55 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { centerService } from "@/services/centerService";
 
-const defaultCentres = [
-  { id: "c1", name: "Nextgen Montessori — Truganina", code: "TRG", address: "Truganina, VIC" },
-  { id: "c2", name: "Nextgen Montessori — Tarneit", code: "TRN", address: "Tarneit, VIC" },
-  { id: "c3", name: "Nextgen Montessori — Werribee", code: "WBE", address: "Werribee, VIC" },
-];
+export const useCentreStore = create((set, get) => ({
+  centres: [],
+  activeCentreId: localStorage.getItem("activeCentreId") || null,
+  isLoading: false,
+  error: null,
 
-export const useCentreStore = create(
-  persist(
-    (set) => ({
-      centres: defaultCentres,
-      activeCentreId: defaultCentres[0].id,
-      setCentres: (centres) => set({ centres }),
-      setActiveCentre: (id) => set({ activeCentreId: id }),
-    }),
-    { name: "mydiaree.centre" }
-  )
-);
+  setCentres: (centres) => set({ centres }),
+  setActiveCentre: (id) => {
+    localStorage.setItem("activeCentreId", id);
+    set({ activeCentreId: id });
+  },
+
+  fetchCentres: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await centerService.getAllCenters();
+      if (response.status && response.data) {
+        const mappedCentres = response.data.map((c) => ({
+          id: c.id,
+          name: c.centerName,
+          addressStreet: c.adressStreet, // Mapping the typo
+          addressCity: c.addressCity,
+          addressState: c.addressState,
+          addressZip: c.addressZip,
+          // For backward compatibility with some pages using 'address'
+          address: `${c.adressStreet}, ${c.addressCity}, ${c.addressState} ${c.addressZip}`,
+        }));
+        
+        set({ 
+          centres: mappedCentres, 
+          isLoading: false 
+        });
+
+        // Validate stored ID against fetched centres, fallback to first centre
+        const savedId = get().activeCentreId;
+        const isValid = savedId && mappedCentres.some((c) => c.id === savedId);
+        if (!isValid && mappedCentres.length > 0) {
+          const firstId = mappedCentres[0].id;
+          localStorage.setItem("activeCentreId", firstId);
+          set({ activeCentreId: firstId });
+        }
+      } else {
+        set({ isLoading: false, error: "Failed to fetch centers" });
+      }
+    } catch (error) {
+      set({ 
+        isLoading: false, 
+        error: error?.response?.data?.message || "Something went wrong" 
+      });
+    }
+  },
+}));
