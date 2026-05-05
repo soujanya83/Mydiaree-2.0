@@ -26,7 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockChildren, mockRooms } from "@/services/mocks/data";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import { mockObservations } from "@/components/observation/observationsData";
 import { OBSERVATION_TREE } from "@/components/observation/data";
 import { toast } from "sonner";
@@ -106,6 +107,9 @@ export default function ObservationCreatePage() {
   const [search] = useSearchParams();
   const isEdit = Boolean(id);
 
+  const { rooms: allRooms } = useRoomStore();
+  const { children: allChildren } = useChildrenStore();
+
   const existing = useMemo(
     () => (isEdit ? mockObservations.find((o) => o.id === id) : null),
     [id, isEdit]
@@ -170,7 +174,7 @@ export default function ObservationCreatePage() {
           <div className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs">
             <span className="text-muted-foreground">Child Name:</span>
             <span className="font-semibold text-foreground">
-              {children.length ? mockChildren.find((c) => c.id === children[0])?.firstName : "—"}
+              {children.length ? allChildren.find((c) => String(c.id) === String(children[0]))?.name || "—" : "—"}
             </span>
           </div>
           <Button variant="outline" className="border-sky-500/40 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-950/20">
@@ -505,7 +509,7 @@ export default function ObservationCreatePage() {
       <MultiPickerModal
         open={showRoomsPicker}
         title="Select Rooms"
-        items={mockRooms.map((r) => ({ id: r.id, label: r.name }))}
+        items={allRooms.map((r) => ({ id: r.id, label: r.name }))}
         selected={rooms}
         onClose={() => setShowRoomsPicker(false)}
         onSave={(v) => { setRooms(v); setShowRoomsPicker(false); }}
@@ -513,7 +517,7 @@ export default function ObservationCreatePage() {
       <MultiPickerModal
         open={showChildrenPicker}
         title="Select Children"
-        items={mockChildren.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}` }))}
+        items={allChildren.map((c) => ({ id: c.id, label: c.name }))}
         selected={children}
         onClose={() => setShowChildrenPicker(false)}
         onSave={(v) => { setChildren(v); setShowChildrenPicker(false); }}

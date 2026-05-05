@@ -19,8 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockRooms } from "@/services/mocks/data";
 import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
 import { toast } from "sonner";
 import { HeadCheckPrintView } from "@/components/headcheck/HeadCheckPrintView";
 
@@ -41,15 +41,13 @@ export default function HeadCheckPage() {
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
 
-  const [room, setRoom] = useState("all");
+  const rooms = useRoomStore((s) => s.rooms);
+  const activeRoomId = useRoomStore((s) => s.activeRoomId);
+  const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
+
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [rows, setRows] = useState([newRow(nowHHMM())]);
   const [printOpen, setPrintOpen] = useState(false);
-
-  const roomsForCentre = useMemo(
-    () => mockRooms.filter((r) => r.centreId === activeCentreId),
-    [activeCentreId]
-  );
 
   const addRow = () => setRows((p) => [...p, newRow(nowHHMM())]);
   const removeRow = (id) =>
@@ -57,18 +55,13 @@ export default function HeadCheckPage() {
   const update = (id, patch) =>
     setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
-  const handleCentreChange = (id) => {
-    setActiveCentre(id);
-    setRoom("all");
-  };
-
   const handleSave = () => {
     const incomplete = rows.some((r) => !r.time || !r.count || !r.signature);
     if (incomplete) {
       toast.error("Please fill in time, head count, and signature for every entry.");
       return;
     }
-    console.log("Saving head checks", { date, centreId: activeCentreId, room, rows });
+    console.log("Saving head checks", { date, centreId: activeCentreId, activeRoomId, rows });
     toast.success(`Saved ${rows.length} head check ${rows.length === 1 ? "entry" : "entries"}.`);
   };
 
@@ -82,7 +75,7 @@ export default function HeadCheckPage() {
         breadcrumbs={[{ label: "Head Check" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={activeCentreId} onValueChange={handleCentreChange}>
+            <Select value={activeCentreId} onValueChange={setActiveCentre}>
               <SelectTrigger className="h-9 w-[200px]">
                 <SelectValue placeholder="Centre" />
               </SelectTrigger>
@@ -94,14 +87,13 @@ export default function HeadCheckPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={room} onValueChange={setRoom}>
+            <Select value={activeRoomId} onValueChange={setActiveRoom}>
               <SelectTrigger className="h-9 w-[160px]">
                 <SelectValue placeholder="Room" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All rooms</SelectItem>
-                {roomsForCentre.map((r) => (
-                  <SelectItem key={r.id} value={r.name}>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
                     {r.name}
                   </SelectItem>
                 ))}
@@ -213,7 +205,7 @@ export default function HeadCheckPage() {
         open={printOpen}
         onClose={() => setPrintOpen(false)}
         date={date}
-        roomName={room === "all" ? "All Rooms" : room}
+        roomName={rooms.find(r => r.id === activeRoomId)?.name || "Room"}
         rows={rows}
       />
     </div>

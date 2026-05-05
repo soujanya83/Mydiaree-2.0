@@ -13,9 +13,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { mockChildren, mockRooms } from "@/services/mocks/data";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import { mockReflections } from "@/components/reflection/reflectionsData";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const EYLF_OUTCOMES = [
   "Outcome 1 - 1.1 Children feel safe, secure, and supported",
@@ -33,6 +35,9 @@ export default function DailyReflectionCreatePage() {
   const { id } = useParams();
   const [search] = useSearchParams();
   const isEdit = Boolean(id);
+
+  const { rooms: allRooms } = useRoomStore();
+  const { children: allChildren } = useChildrenStore();
 
   const existing = useMemo(
     () => (isEdit ? mockReflections.find((r) => r.id === id) : null),
@@ -65,7 +70,7 @@ export default function DailyReflectionCreatePage() {
 
   const childName =
     children.length > 0
-      ? mockChildren.find((c) => c.id === children[0])?.firstName?.toUpperCase() || ""
+      ? allChildren.find((c) => String(c.id) === String(children[0]))?.name?.toUpperCase() || ""
       : "";
 
   return (
@@ -111,7 +116,7 @@ export default function DailyReflectionCreatePage() {
         <ChipPickerField
           label="Rooms"
           colour="emerald"
-          values={rooms.map((id) => mockRooms.find((r) => r.id === id)?.name || id)}
+          values={rooms.map((id) => allRooms.find((r) => String(r.id) === String(id))?.name || id)}
           onAdd={() => setPicker("rooms")}
           onRemove={(idx) => setRooms((p) => p.filter((_, i) => i !== idx))}
           chipClass="bg-emerald-500 text-white"
@@ -120,7 +125,7 @@ export default function DailyReflectionCreatePage() {
         <ChipPickerField
           label="Children"
           colour="sky"
-          values={children.map((id) => mockChildren.find((c) => c.id === id)?.firstName || id)}
+          values={children.map((id) => allChildren.find((c) => String(c.id) === String(id))?.name || id)}
           onAdd={() => setPicker("children")}
           onRemove={(idx) => setChildren((p) => p.filter((_, i) => i !== idx))}
           chipClass="bg-sky-500 text-white"
@@ -223,9 +228,9 @@ export default function DailyReflectionCreatePage() {
           }
           options={
             picker === "rooms"
-              ? mockRooms.map((r) => ({ value: r.id, label: r.name }))
+              ? allRooms.map((r) => ({ value: r.id, label: r.name }))
               : picker === "children"
-              ? mockChildren.map((c) => ({ value: c.id, label: `${c.firstName} ${c.lastName}` }))
+              ? allChildren.map((c) => ({ value: c.id, label: c.name }))
               : picker === "staff"
               ? STAFF.map((s) => ({ value: s, label: s }))
               : EYLF_OUTCOMES.map((o) => ({ value: o, label: o }))

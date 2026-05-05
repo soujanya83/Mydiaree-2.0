@@ -93,8 +93,9 @@ export const PROGRESS_TEMPLATE = [
 
 // Stable per-child statuses (deterministic so reloads stay consistent).
 function seededStatus(childId, idx) {
+  const idStr = String(childId || "");
   const order = PROGRESS_STATUSES.map((s) => s.key);
-  const seed = (childId.charCodeAt(0) || 1) + idx * 7;
+  const seed = (idStr.charCodeAt(0) || 1) + idx * 7;
   return order[seed % order.length];
 }
 
@@ -127,7 +128,8 @@ export const CHILD_PHOTOS = [
 ];
 
 export function childPhoto(childId) {
-  const n = childId.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+  const idStr = String(childId || "");
+  const n = idStr.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
   return CHILD_PHOTOS[n % CHILD_PHOTOS.length];
 }
 

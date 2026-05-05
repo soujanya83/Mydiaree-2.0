@@ -4,9 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { EDUCATOR_POOL, mockRoomsList } from "@/components/rooms/roomsData";
+import { EDUCATOR_POOL } from "@/components/rooms/roomsData";
+import { useRoomStore } from "@/stores/roomStore";
 
 export default function SelectEducatorsModal({ open, onOpenChange, initial = [], roomIds = [], onSubmit }) {
+  const { rooms: allStoreRooms } = useRoomStore();
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState(new Set());
 
@@ -21,11 +23,11 @@ export default function SelectEducatorsModal({ open, onOpenChange, initial = [],
   const suggested = useMemo(() => {
     if (!roomIds.length) return EDUCATOR_POOL;
     const map = new Map();
-    mockRoomsList
-      .filter((r) => roomIds.includes(r.id))
-      .forEach((r) => r.educators.forEach((e) => map.set(e.id, e)));
+    allStoreRooms
+      .filter((r) => roomIds.includes(String(r.id)))
+      .forEach((r) => (r.educators || []).forEach((e) => map.set(e.id, e)));
     return map.size ? Array.from(map.values()) : EDUCATOR_POOL;
-  }, [roomIds]);
+  }, [roomIds, allStoreRooms]);
 
   const list = suggested.filter(
     (e) => !search.trim() || e.name.toLowerCase().includes(search.toLowerCase())

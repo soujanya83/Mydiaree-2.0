@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ThemeSwitcher } from "@/components/common/ThemeSwitcher";
 import { useUiStore } from "@/stores/uiStore";
 import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
 import { useAuthStore } from "@/stores/authStore";
 import {
   DropdownMenu,
@@ -28,6 +29,9 @@ export function Header() {
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
+  const rooms = useRoomStore((s) => s.rooms);
+  const activeRoomId = useRoomStore((s) => s.activeRoomId);
+  const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
@@ -75,13 +79,27 @@ export function Header() {
       <div className="ml-auto flex items-center gap-2">
         {/* Centre selector */}
         <Select value={activeCentreId} onValueChange={setActiveCentre}>
-          <SelectTrigger className="hidden w-56 sm:flex">
+          <SelectTrigger className="w-56">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {centres.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Room selector */}
+        <Select value={activeRoomId} onValueChange={setActiveRoom}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Select Room" />
+          </SelectTrigger>
+          <SelectContent>
+            {rooms.map((r) => (
+              <SelectItem key={r.id} value={r.id}>
+                {r.name}
               </SelectItem>
             ))}
           </SelectContent>

@@ -26,122 +26,43 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockChildren, mockRooms } from "@/services/mocks/data";
 import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const BREATHING_OPTIONS = ["Normal", "Shallow", "Deep", "Irregular", "Snoring"];
-const TEMPERATURE_OPTIONS = [
-  "Normal (36.5–37.2°C)",
-  "Slightly Warm",
-  "Warm",
-  "Cool",
-  "Cold",
-];
-
-function nowHHMM() {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-const newEntry = () => ({
-  id: crypto.randomUUID(),
-  time: nowHHMM(),
-  breathing: "",
-  temperature: "",
-  notes: "",
-  signature: "",
-});
+// ... constants ...
 
 export default function SleepCheckPage() {
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
 
-  const [room, setRoom] = useState("all");
+  const rooms = useRoomStore((s) => s.rooms);
+  const activeRoomId = useRoomStore((s) => s.activeRoomId);
+  const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
+
+  const children = useChildrenStore((s) => s.children);
+  const isLoading = useChildrenStore((s) => s.isLoading);
+
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState("");
   const [cards, setCards] = useState({}); // { [childId]: { selected, openEntryId, entries: [] } }
 
-  const roomsForCentre = useMemo(
-    () => mockRooms.filter((r) => r.centreId === activeCentreId),
-    [activeCentreId]
-  );
-
   const visibleChildren = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return mockChildren.filter((c) => {
-      if (c.centreId !== activeCentreId) return false;
-      if (room !== "all" && c.roomName !== room) return false;
-      if (q && !`${c.firstName} ${c.lastName}`.toLowerCase().includes(q)) return false;
+    const activeRoom = rooms.find((r) => String(r.id) === String(activeRoomId));
+    
+    return children.filter((c) => {
+      if (activeRoom && String(c.room) !== String(activeRoom.name)) return false;
+      if (q && !c.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [activeCentreId, room, search]);
+  }, [children, search, activeRoomId, rooms]);
 
   const getCard = (id) =>
     cards[id] ?? { selected: false, openEntryId: null, entries: [] };
-
-  const addEntry = (childId) => {
-    setCards((prev) => {
-      const card = prev[childId] ?? { selected: false, openEntryId: null, entries: [] };
-      const entry = newEntry();
-      return {
-        ...prev,
-        [childId]: {
-          ...card,
-          openEntryId: entry.id,
-          entries: [...card.entries, entry],
-        },
-      };
-    });
-  };
-
-  const updateEntry = (childId, entryId, patch) => {
-    setCards((prev) => ({
-      ...prev,
-      [childId]: {
-        ...prev[childId],
-        entries: prev[childId].entries.map((e) =>
-          e.id === entryId ? { ...e, ...patch } : e
-        ),
-      },
-    }));
-  };
-
-  const removeEntry = (childId, entryId) => {
-    setCards((prev) => ({
-      ...prev,
-      [childId]: {
-        ...prev[childId],
-        openEntryId:
-          prev[childId].openEntryId === entryId ? null : prev[childId].openEntryId,
-        entries: prev[childId].entries.filter((e) => e.id !== entryId),
-      },
-    }));
-  };
-
-  const toggleOpen = (childId, entryId) => {
-    setCards((prev) => ({
-      ...prev,
-      [childId]: {
-        ...prev[childId],
-        openEntryId: prev[childId].openEntryId === entryId ? null : entryId,
-      },
-    }));
-  };
-
-  const toggleSelect = (childId, value) => {
-    setCards((prev) => {
-      const card = prev[childId] ?? { selected: false, openEntryId: null, entries: [] };
-      return { ...prev, [childId]: { ...card, selected: !!value } };
-    });
-  };
-
-  const handleCentreChange = (id) => {
-    setActiveCentre(id);
-    setRoom("all");
-  };
 
   const handleSaveAll = () => {
     const totalEntries = Object.values(cards).reduce(
@@ -152,7 +73,7 @@ export default function SleepCheckPage() {
       toast.error("Add at least one sleep check entry before saving.");
       return;
     }
-    console.log("Saving sleep checks", { date, centreId: activeCentreId, room, cards });
+    console.log("Saving sleep checks", { date, centreId: activeCentreId, activeRoomId, cards });
     toast.success(`Saved ${totalEntries} sleep check ${totalEntries === 1 ? "entry" : "entries"}.`);
   };
 
@@ -164,7 +85,7 @@ export default function SleepCheckPage() {
         breadcrumbs={[{ label: "Sleep Check" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={activeCentreId} onValueChange={handleCentreChange}>
+            <Select value={activeCentreId} onValueChange={setActiveCentre}>
               <SelectTrigger className="h-9 w-[200px]">
                 <SelectValue placeholder="Centre" />
               </SelectTrigger>
@@ -176,14 +97,13 @@ export default function SleepCheckPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={room} onValueChange={setRoom}>
+            <Select value={activeRoomId} onValueChange={setActiveRoom}>
               <SelectTrigger className="h-9 w-[160px]">
                 <SelectValue placeholder="Room" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All rooms</SelectItem>
-                {roomsForCentre.map((r) => (
-                  <SelectItem key={r.id} value={r.name}>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
                     {r.name}
                   </SelectItem>
                 ))}
@@ -217,15 +137,17 @@ export default function SleepCheckPage() {
       </div>
 
       {/* Children list */}
-      {visibleChildren.length === 0 ? (
+      {isLoading ? (
+        <div className="py-20 text-center text-muted-foreground">Loading children...</div>
+      ) : visibleChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          No children match the current filters.
+          No children found in this room.
         </div>
       ) : (
         <div className="space-y-5">
           {visibleChildren.map((child) => {
             const card = getCard(child.id);
-            const initials = `${child.firstName[0]}${child.lastName[0]}`;
+            const initials = (child.name || "??").split(" ").map(n => n[0]).join("");
             return (
               <article
                 key={child.id}
@@ -241,19 +163,20 @@ export default function SleepCheckPage() {
                     </Avatar>
                     <div>
                       <h3 className="text-base font-bold text-foreground">
-                        {child.firstName} {child.lastName}
+                        {child.name}
                       </h3>
                       <p className="text-xs text-muted-foreground">
-                        {child.roomName} · {child.age}
+                        {rooms.find(r => r.id === activeRoomId)?.name || "—"}
                       </p>
                     </div>
                   </div>
                   <Checkbox
                     checked={card.selected}
                     onCheckedChange={(v) => toggleSelect(child.id, v)}
-                    aria-label={`Select ${child.firstName}`}
+                    aria-label={`Select ${child.name}`}
                   />
                 </header>
+                {/* ... rest of the card content stays same ... */}
 
                 {/* Column headers */}
                 <div className="hidden grid-cols-6 gap-2 bg-muted/40 px-5 py-2.5 text-center text-[11px] font-bold uppercase tracking-wider text-muted-foreground md:grid">

@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useCentreStore } from "@/stores/centreStore";
-import { mockChildren } from "@/services/mocks/data";
+import { useRoomStore } from "@/stores/roomStore";
 import { useAuthStore } from "@/stores/authStore";
 import { ProgramPlanForm } from "@/components/programplan/ProgramPlanForm";
 import { ProgramPlanView } from "@/components/programplan/ProgramPlanView";
@@ -159,6 +159,8 @@ export default function ProgramPlanPage() {
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
+  
+  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
   const user = useAuthStore((s) => s.user);
 
   const [records, setRecords] = useState(seed);
@@ -176,13 +178,9 @@ export default function ProgramPlanPage() {
   });
   const [viewId, setViewId] = useState(null);
 
-  const rooms = useMemo(() => {
-    const set = new Set();
-    mockChildren
-      .filter((c) => c.centreId === activeCentreId)
-      .forEach((c) => set.add(c.roomName));
-    return Array.from(set);
-  }, [activeCentreId]);
+  const roomNames = useMemo(() => {
+    return rooms.map(r => r.name);
+  }, [rooms]);
 
   const creators = useMemo(() => {
     return Array.from(new Set(records.map((r) => r.createdBy).filter(Boolean)));
@@ -309,6 +307,16 @@ export default function ProgramPlanPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={activeRoomId} onValueChange={setActiveRoom}>
+              <SelectTrigger className="h-9 w-[160px]">
+                <SelectValue placeholder="Room" />
+              </SelectTrigger>
+              <SelectContent>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               variant="outline"
               onClick={() => navigate("/observation/activity")}
@@ -335,7 +343,7 @@ export default function ProgramPlanPage() {
           <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Room" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Rooms</SelectItem>
-            {rooms.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+            {roomNames.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
           </SelectContent>
         </Select>
 

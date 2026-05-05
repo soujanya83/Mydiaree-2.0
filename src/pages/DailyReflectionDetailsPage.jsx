@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/common/PageHeader";
-import { mockChildren, mockRooms } from "@/services/mocks/data";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import {
   mockReflections,
   formatObsDate,
@@ -20,6 +21,8 @@ import {
 export default function DailyReflectionDetailsPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { rooms: allRooms } = useRoomStore();
+  const { children: allChildren } = useChildrenStore();
 
   const refl = useMemo(() => mockReflections.find((r) => r.id === id), [id]);
 
@@ -37,8 +40,8 @@ export default function DailyReflectionDetailsPage() {
     );
   }
 
-  const childObjs = (refl.childIds || []).map((cid) => mockChildren.find((c) => c.id === cid)).filter(Boolean);
-  const roomObjs = (refl.roomIds || []).map((rid) => mockRooms.find((r) => r.id === rid)).filter(Boolean);
+  const childObjs = (refl.childIds || []).map((cid) => allChildren.find((c) => String(c.id) === String(cid))).filter(Boolean);
+  const roomObjs = (refl.roomIds || []).map((rid) => allRooms.find((r) => String(r.id) === String(rid))).filter(Boolean);
 
   return (
     <div>
@@ -93,7 +96,7 @@ export default function DailyReflectionDetailsPage() {
                   <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                     <UserCircle2 className="h-6 w-6" />
                   </div>
-                  <p className="text-xs font-semibold text-foreground">{c.firstName}</p>
+                  <p className="text-xs font-semibold text-foreground">{c.name}</p>
                 </div>
               ))}
             </div>

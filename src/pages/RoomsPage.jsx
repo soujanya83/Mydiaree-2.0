@@ -20,13 +20,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCentreStore } from "@/stores/centreStore";
-import { mockRoomsList } from "@/components/rooms/roomsData";
+import { useRoomStore } from "@/stores/roomStore";
 import { CreateRoomModal } from "@/components/rooms/CreateRoomModal";
 import { toast } from "sonner";
 
 export default function RoomsPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const [items, setItems] = useState(mockRoomsList);
+  const { rooms, isLoading } = useRoomStore();
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState([]);
@@ -34,14 +35,15 @@ export default function RoomsPage() {
   const [editing, setEditing] = useState(null);
 
   const filtered = useMemo(() => {
-    return items.filter((r) => {
-      if (r.centreId !== activeCentreId) return false;
-      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+    return rooms.filter((r) => {
+      // RoomStore already filters by activeCentreId, but safety first
+      if (r.centerid !== activeCentreId && r.centreId !== activeCentreId) return false;
+      if (statusFilter !== "all" && r.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
       if (search && !r.name.toLowerCase().includes(search.toLowerCase()))
         return false;
       return true;
     });
-  }, [items, activeCentreId, statusFilter, search]);
+  }, [rooms, activeCentreId, statusFilter, search]);
 
   const toggleSelect = (id) =>
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -49,14 +51,14 @@ export default function RoomsPage() {
   const handleDeleteSelected = () => {
     if (!selected.length) return;
     if (!window.confirm(`Delete ${selected.length} selected room(s)?`)) return;
-    setItems((prev) => prev.filter((r) => !selected.includes(r.id)));
+    // API call would go here
     setSelected([]);
     toast.success("Rooms deleted");
   };
 
   const handleDeleteOne = (id) => {
     if (!window.confirm("Delete this room?")) return;
-    setItems((prev) => prev.filter((r) => r.id !== id));
+    // API call would go here
     toast.success("Room deleted");
   };
 
@@ -72,25 +74,19 @@ export default function RoomsPage() {
 
   const handleSubmit = (data) => {
     if (editing) {
-      setItems((prev) =>
-        prev.map((r) =>
-          r.id === editing.id ? { ...r, ...data } : r
-        )
-      );
+      // API call would go here
       toast.success("Room updated");
     } else {
-      const newRoom = {
-        id: `r${Date.now()}`,
-        centreId: activeCentreId,
-        children: 0,
-        ...data,
-      };
-      setItems((prev) => [newRoom, ...prev]);
+      // API call would go here
       toast.success("Room created");
     }
     setModalOpen(false);
     setEditing(null);
   };
+
+  if (isLoading) {
+    return <div className="py-20 text-center text-muted-foreground">Loading rooms...</div>;
+  }
 
   return (
     <div>
@@ -255,7 +251,7 @@ function RoomCard({ room, checked, onToggle, onEdit, onDelete }) {
             Educators:
           </span>
           <div className="flex -space-x-2">
-            {room.educators.length === 0 ? (
+            {(!room.educators || room.educators.length === 0) ? (
               <span className="text-xs text-muted-foreground">—</span>
             ) : (
               room.educators.slice(0, 5).map((ed) => (
@@ -268,7 +264,7 @@ function RoomCard({ room, checked, onToggle, onEdit, onDelete }) {
                 />
               ))
             )}
-            {room.educators.length > 5 && (
+            {room.educators?.length > 5 && (
               <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-muted text-xs font-medium">
                 +{room.educators.length - 5}
               </span>

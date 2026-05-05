@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockChildren } from "@/services/mocks/data";
+import { useChildrenStore } from "@/stores/childrenStore";
 import { SignatureField } from "./SignaturePad";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -130,6 +130,7 @@ const empty = () => ({
 
 export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
   const isEdit = mode === "edit";
+  const { children } = useChildrenStore();
   const [data, setData] = useState(() => ({ ...empty(), ...(initial || {}) }));
 
   useEffect(() => {
@@ -155,11 +156,11 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
   };
 
   const handleChildSelect = (id) => {
-    const child = mockChildren.find((c) => c.id === id);
+    const child = children.find((c) => String(c.id) === String(id));
     if (!child) return;
     set({
       childId: id,
-      childAge: child.age,
+      childAge: child.age || "",
     });
   };
 
@@ -264,9 +265,9 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
                   <SelectValue placeholder="-- Select Children --" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockChildren.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName} · {c.roomName}
+                  {children.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name} · {c.room}
                     </SelectItem>
                   ))}
                 </SelectContent>

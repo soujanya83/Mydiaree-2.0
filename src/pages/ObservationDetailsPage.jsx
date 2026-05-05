@@ -12,12 +12,13 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import {
   mockObservations,
   formatObsDate,
   statusBadgeClasses,
 } from "@/components/observation/observationsData";
-import { mockChildren, mockRooms } from "@/services/mocks/data";
 
 const TABS = [
   { id: "observation", label: "Observation", Icon: Eye },
@@ -30,6 +31,9 @@ const TABS = [
 export default function ObservationDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { rooms: allRooms } = useRoomStore();
+  const { children: allChildren } = useChildrenStore();
+
   const obs = useMemo(() => mockObservations.find((o) => o.id === id), [id]);
   const [tab, setTab] = useState("observation");
 
@@ -45,8 +49,8 @@ export default function ObservationDetailsPage() {
     );
   }
 
-  const child = mockChildren.find((c) => c.id === obs.childId);
-  const room = mockRooms.find((r) => r.id === obs.roomId);
+  const child = allChildren.find((c) => String(c.id) === String(obs.childId));
+  const room = allRooms.find((r) => String(r.id) === String(obs.roomId));
 
   return (
     <div>
@@ -129,7 +133,7 @@ export default function ObservationDetailsPage() {
 
       {tab === "child" && (
         <DetailSection title="Child Information">
-          <Row label="Name">{child ? `${child.firstName} ${child.lastName}` : obs.childName}</Row>
+          <Row label="Name">{child ? child.name : obs.childName}</Row>
           <Row label="Room">{room?.name || "—"}</Row>
           <Row label="Age">{child?.age || "—"}</Row>
           <Row label="Author">{obs.author}</Row>

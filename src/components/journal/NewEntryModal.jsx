@@ -26,7 +26,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { mockChildren } from "@/services/mocks/data";
+import { useChildrenStore } from "@/stores/childrenStore";
 
 const ACTIVITIES = [
   { key: "breakfast", label: "Breakfast", icon: Coffee },
@@ -41,6 +41,7 @@ const ACTIVITIES = [
 ];
 
 export function NewEntryModal({ open, onOpenChange, onSubmit }) {
+  const children = useChildrenStore((s) => s.children);
   const [activity, setActivity] = useState("breakfast");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState("");
@@ -55,11 +56,11 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
 
   const filteredChildren = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return mockChildren;
-    return mockChildren.filter((c) =>
-      `${c.firstName} ${c.lastName}`.toLowerCase().includes(q)
+    if (!q) return children;
+    return children.filter((c) =>
+      c.name.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [search, children]);
 
   const allSelected =
     filteredChildren.length > 0 &&
@@ -221,7 +222,12 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {filteredChildren.map((c) => {
                     const isSel = selected.includes(c.id);
-                    const initials = `${c.firstName[0]}${c.lastName[0]}`;
+                    const initials = (c.name || "CH")
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2);
                     return (
                       <button
                         key={c.id}
@@ -241,10 +247,10 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
                         </Avatar>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium">
-                            {c.firstName} {c.lastName}
+                            {c.name}
                           </p>
                           <p className="truncate text-xs text-muted-foreground">
-                            {c.roomName}
+                            {c.room || "Room"}
                           </p>
                         </div>
                         {isSel && (
@@ -335,11 +341,11 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
                     Logging for:
                   </span>
                   {selected.slice(0, 6).map((id) => {
-                    const c = mockChildren.find((x) => x.id === id);
+                    const c = children.find((x) => x.id === id);
                     if (!c) return null;
                     return (
                       <Badge key={id} variant="secondary">
-                        {c.firstName} {c.lastName}
+                        {c.name}
                       </Badge>
                     );
                   })}

@@ -6,11 +6,12 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
-import { mockChildren } from "@/services/mocks/data";
+import { useChildrenStore } from "@/stores/childrenStore";
 import { toast } from "sonner";
 
 export function AccidentReadOnlyView({ record, onBack, onEdit }) {
-  const child = mockChildren.find((c) => c.id === record.childId);
+  const children = useChildrenStore((s) => s.children);
+  const child = children.find((c) => String(c.id) === String(record.childId));
 
   return (
     <div>
@@ -68,7 +69,7 @@ export function AccidentReadOnlyView({ record, onBack, onEdit }) {
         <Block title="Child details">
           <Pair
             label="Child's full name"
-            value={child ? `${child.firstName} ${child.lastName}` : "—"}
+            value={child ? child.name : "—"}
           />
           <Pair label="Date of birth" value={record.childDob} />
           <Pair label="Age" value={record.childAge} />

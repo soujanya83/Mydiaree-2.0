@@ -4,7 +4,7 @@ import { ArrowLeft, BookOpen } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { mockChildren } from "@/services/mocks/data";
+import { useChildrenStore } from "@/stores/childrenStore";
 import {
   STATUS_MAP,
   buildPlanForChild,
@@ -12,6 +12,7 @@ import {
 } from "@/components/lessonplan/progressData";
 import { StatusTriangle } from "@/components/lessonplan/StatusTriangle";
 import { cn } from "@/lib/utils";
+
 
 const STATUS_BADGE = {
   not_started: "border-slate-300 text-slate-500 bg-slate-50",
@@ -23,7 +24,8 @@ const STATUS_BADGE = {
 export default function ChildProgressPage() {
   const { childId } = useParams();
   const navigate = useNavigate();
-  const child = mockChildren.find((c) => c.id === childId);
+  const children = useChildrenStore((s) => s.children);
+  const child = children.find((c) => String(c.id) === String(childId));
 
   const initial = useMemo(() => buildPlanForChild(childId || "x"), [childId]);
   const [plan, setPlan] = useState(initial);
@@ -45,11 +47,11 @@ export default function ChildProgressPage() {
         ci !== categoryIdx
           ? cat
           : {
-              ...cat,
-              items: cat.items.map((it, ii) =>
-                ii !== itemIdx ? it : { ...it, status: nextStatus(it.status) },
-              ),
-            },
+            ...cat,
+            items: cat.items.map((it, ii) =>
+              ii !== itemIdx ? it : { ...it, status: nextStatus(it.status) },
+            ),
+          },
       ),
     );
   };
@@ -57,11 +59,11 @@ export default function ChildProgressPage() {
   return (
     <div>
       <PageHeader
-        title={`${child.firstName} ${child.lastName} — Progress Plan`}
+        title={`${child.name} — Progress Plan`}
         description="Click the triangle to cycle status: Not started → Introduced → Practicing → Completed."
         breadcrumbs={[
           { label: "Learning & Progress", to: "/learning-progress" },
-          { label: `${child.firstName}'s Plan` },
+          { label: `${child.name}'s Plan` },
         ]}
         actions={
           <Button variant="outline" asChild>
@@ -133,7 +135,7 @@ function Legend() {
       <span className="font-semibold text-muted-foreground">Legend:</span>
       {items.map((i) => (
         <div key={i.key} className="flex items-center gap-2">
-          <StatusTriangle status={i.key} onClick={() => {}} size={28} />
+          <StatusTriangle status={i.key} onClick={() => { }} size={28} />
           <span>{i.label}</span>
         </div>
       ))}

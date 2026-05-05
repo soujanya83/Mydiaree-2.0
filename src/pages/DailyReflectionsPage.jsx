@@ -27,7 +27,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCentreStore } from "@/stores/centreStore";
-import { mockChildren } from "@/services/mocks/data";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import {
   mockReflections,
   STATUS_FILTERS,
@@ -38,6 +39,7 @@ import {
   statusBadgeClasses,
 } from "@/components/reflection/reflectionsData";
 import { NewReflectionTitleModal } from "@/components/reflection/NewReflectionTitleModal";
+import { DoorOpen } from "lucide-react";
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
@@ -47,6 +49,8 @@ const PAGE_SIZE = 10;
 export default function DailyReflectionsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
+  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { children, isLoading } = useChildrenStore();
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [titleModalOpen, setTitleModalOpen] = useState(false);
@@ -58,14 +62,17 @@ export default function DailyReflectionsPage() {
   const [page, setPage] = useState(1);
   const [items, setItems] = useState(mockReflections);
 
-  const childrenInCentre = useMemo(
-    () => mockChildren.filter((c) => c.centreId === activeCentreId),
-    [activeCentreId]
-  );
+  const childrenInRoom = useMemo(() => {
+    if (!activeRoomId) return children;
+    const room = rooms.find((r) => r.id === activeRoomId);
+    if (!room) return [];
+    return children.filter((c) => String(c.room) === String(room.name));
+  }, [children, activeRoomId, rooms]);
 
   const filtered = useMemo(() => {
     return items.filter((r) => {
-      if (r.centreId !== activeCentreId) return false;
+      if (activeCentreId && r.centreId !== activeCentreId) return false;
+      if (activeRoomId && !(r.roomIds || []).includes(activeRoomId)) return false;
       if (status !== "all" && r.status !== status) return false;
       if (author !== "all" && r.author !== author) return false;
       if (childId !== "all" && !(r.childIds || []).includes(childId)) return false;
@@ -73,7 +80,7 @@ export default function DailyReflectionsPage() {
       if (search && !r.title.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [items, activeCentreId, status, author, childId, dateRange, search]);
+  }, [items, activeCentreId, activeRoomId, status, author, childId, dateRange, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -116,14 +123,27 @@ export default function DailyReflectionsPage() {
               Add New
             </Button>
             <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[220px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+              <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
                 <Building2 className="mr-1.5 h-4 w-4" />
-                <SelectValue placeholder={activeCentre?.name} />
+                <SelectValue placeholder="Centre" />
               </SelectTrigger>
               <SelectContent>
                 {centres.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={activeRoomId} onValueChange={setActiveRoom}>
+              <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                <DoorOpen className="mr-1.5 h-4 w-4" />
+                <SelectValue placeholder="Room" />
+              </SelectTrigger>
+              <SelectContent>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -196,9 +216,9 @@ export default function DailyReflectionsPage() {
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All children</SelectItem>
-                  {childrenInCentre.map((c) => (
+                  {childrenInRoom.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName}
+                      {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -314,9 +334,8 @@ function ReflectionCard({ refl, onDelete, onEdit, onOpen }) {
               <span
                 key={i}
                 onClick={(e) => { e.stopPropagation(); setImgIdx(i); }}
-                className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                  i === imgIdx ? "w-5 bg-white" : "w-1.5 bg-white/60"
-                }`}
+                className={`h-1.5 rounded-full transition-all cursor-pointer ${i === imgIdx ? "w-5 bg-white" : "w-1.5 bg-white/60"
+                  }`}
               />
             ))}
           </div>

@@ -37,8 +37,9 @@ import {
 } from "./data";
 import { ActivityPickerModal } from "./ActivityPickerModal";
 import { EylfPickerModal } from "./EylfPickerModal";
-import { mockChildren } from "@/services/mocks/data";
 import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -84,15 +85,8 @@ const SUBJECT_FIELDS = {
 
 export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, defaults }) {
   const centres = useCentreStore((s) => s.centres);
-  const rooms = useMemo(() => {
-    // Use mockChildren room names for available rooms scoped per centre
-    const byCentre = {};
-    mockChildren.forEach((c) => {
-      if (!byCentre[c.centreId]) byCentre[c.centreId] = new Set();
-      byCentre[c.centreId].add(c.roomName);
-    });
-    return byCentre;
-  }, []);
+  const { rooms } = useRoomStore();
+  const { children } = useChildrenStore();
 
   const [data, setData] = useState(() =>
     initial ? { ...empty(), ...initial } : empty(defaults?.centreId, defaults?.roomName)
@@ -115,9 +109,9 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
     });
   };
 
-  const availableRooms = rooms[data.centreId] ? Array.from(rooms[data.centreId]) : [];
-  const availableChildren = mockChildren.filter(
-    (c) => c.centreId === data.centreId && (!data.roomId || c.roomName === data.roomId)
+  const availableRooms = rooms.map((r) => r.name);
+  const availableChildren = children.filter(
+    (c) => !data.roomId || c.room === data.roomId
   );
 
   const handleSubmit = (status) => {
@@ -211,7 +205,7 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
               query={childQuery}
               setQuery={setChildQuery}
               options={availableChildren
-                .map((c) => `${c.firstName} ${c.lastName}`)
+                .map((c) => c.name)
                 .filter((n) => n.toLowerCase().includes(childQuery.toLowerCase()))}
               selected={data.children}
               onToggle={(v) => toggleArr("children", v)}

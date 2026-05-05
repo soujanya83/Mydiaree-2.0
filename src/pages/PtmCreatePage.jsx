@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { mockRoomsList, EDUCATOR_POOL } from "@/components/rooms/roomsData";
-import { mockChildrenList } from "@/components/children/childrenData";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
+import { EDUCATOR_POOL } from "@/components/rooms/roomsData";
 import SelectRoomsModal from "@/components/ptm/SelectRoomsModal";
 import SelectEducatorsModal from "@/components/ptm/SelectEducatorsModal";
 import SelectSlotsModal from "@/components/ptm/SelectSlotsModal";
@@ -47,6 +48,8 @@ function StepCard({ step, title, icon: Icon, locked, done, children }) {
 
 export default function PtmCreatePage() {
   const navigate = useNavigate();
+  const { rooms: allRooms } = useRoomStore();
+  const { children: allChildren } = useChildrenStore();
 
   const [rooms, setRooms] = useState([]); // room ids
   const [educators, setEducators] = useState([]); // educator ids
@@ -65,9 +68,9 @@ export default function PtmCreatePage() {
   const eduDone = educators.length > 0;
   const dateDone = !!date && slots.length > 0;
 
-  const pickedRooms = mockRoomsList.filter((r) => rooms.includes(r.id));
+  const pickedRooms = allRooms.filter((r) => rooms.includes(r.id));
   const pickedEducators = EDUCATOR_POOL.filter((e) => educators.includes(e.id));
-  const pickedChildren = mockChildrenList.filter((c) => children.includes(c.id));
+  const pickedChildren = allChildren.filter((c) => children.includes(c.id));
 
   const submit = (status) => {
     if (!roomsDone) return toast.error("Please select rooms first");
@@ -177,7 +180,7 @@ export default function PtmCreatePage() {
               {pickedChildren.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {pickedChildren.map((c) => (
-                    <Badge key={c.id} variant="secondary">{c.firstName} {c.lastName}</Badge>
+                    <Badge key={c.id} variant="secondary">{c.name}</Badge>
                   ))}
                 </div>
               )}

@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCentreStore } from "@/stores/centreStore";
-import { mockRooms } from "@/services/mocks/data";
+import { useRoomStore } from "@/stores/roomStore";
 import { OBSERVATION_TREE, slugify } from "@/components/observation/data";
 import { AddActivityModal } from "@/components/observation/AddActivityModal";
 import { AddSubActivityModal } from "@/components/observation/AddSubActivityModal";
@@ -20,7 +20,8 @@ const PATTERN_BG =
 
 export default function ObservationActivityPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const [roomId, setRoomId] = useState("all");
+  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+
   const [tree, setTree] = useState(OBSERVATION_TREE);
 
   // Drill-down state
@@ -30,11 +31,6 @@ export default function ObservationActivityPage() {
   // Modals
   const [addActivityOpen, setAddActivityOpen] = useState(false);
   const [addSubActivityOpen, setAddSubActivityOpen] = useState(false);
-
-  const rooms = useMemo(
-    () => mockRooms.filter((r) => r.centreId === activeCentreId),
-    [activeCentreId]
-  );
 
   const breadcrumbs = useMemo(() => {
     const crumbs = [
@@ -195,10 +191,9 @@ export default function ObservationActivityPage() {
         </div>
         <div className="flex items-center gap-2">
           <DoorOpen className="h-4 w-4 text-muted-foreground" />
-          <Select value={roomId} onValueChange={setRoomId}>
+          <Select value={activeRoomId} onValueChange={setActiveRoom}>
             <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All rooms</SelectItem>
               {rooms.map((r) => (
                 <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
               ))}

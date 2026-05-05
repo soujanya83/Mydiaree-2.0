@@ -12,11 +12,10 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { mockChildren, mockRooms } from "@/services/mocks/data";
 import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import {
-  CHILD_DOB,
-  CHILD_GENDER,
   ageFromDob,
   childPhoto,
   formatDob,
@@ -24,29 +23,21 @@ import {
 
 export default function LearningProgressPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const [roomId, setRoomId] = useState("all");
+  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { children, isLoading } = useChildrenStore();
+  
   const [query, setQuery] = useState("");
 
-  const rooms = useMemo(
-    () => mockRooms.filter((r) => r.centreId === activeCentreId),
-    [activeCentreId],
-  );
-
-  const children = useMemo(() => {
-    return mockChildren.filter((c) => {
-      if (c.centreId !== activeCentreId) return false;
-      if (roomId !== "all") {
-        const room = mockRooms.find((r) => r.id === roomId);
-        if (room && c.roomName !== room.name) return false;
-      }
+  const filteredChildren = useMemo(() => {
+    return children.filter((c) => {
       if (query) {
         const q = query.toLowerCase();
-        const fn = `${c.firstName} ${c.lastName}`.toLowerCase();
+        const fn = (c.name || "").toLowerCase();
         if (!fn.includes(q)) return false;
       }
       return true;
     });
-  }, [activeCentreId, roomId, query]);
+  }, [children, query]);
 
   return (
     <div>
@@ -70,10 +61,9 @@ export default function LearningProgressPage() {
         </div>
         <div className="flex-1">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Room</label>
-          <Select value={roomId} onValueChange={setRoomId}>
+          <Select value={activeRoomId} onValueChange={setActiveRoom}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All rooms</SelectItem>
               {rooms.map((r) => (
                 <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
               ))}
@@ -96,13 +86,15 @@ export default function LearningProgressPage() {
 
       <h2 className="mb-4 text-center text-2xl font-semibold text-primary">Children Directory</h2>
 
-      {children.length === 0 ? (
+      {isLoading ? (
+        <div className="py-20 text-center text-muted-foreground">Loading children...</div>
+      ) : filteredChildren.length === 0 ? (
         <div className="rounded-xl border bg-card p-10 text-center text-sm text-muted-foreground">
           No children found for the selected centre and room.
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {children.map((c) => (
+          {filteredChildren.map((c) => (
             <ChildCard key={c.id} child={c} />
           ))}
         </div>
@@ -112,19 +104,19 @@ export default function LearningProgressPage() {
 }
 
 function ChildCard({ child }) {
-  const dob = CHILD_DOB[child.id];
-  const gender = CHILD_GENDER[child.id] || "—";
-  const photo = childPhoto(child.id);
+  const dob = child.dob;
+  const gender = child.gender || "—";
+  const photo = child.image || childPhoto(child.id);
 
   return (
     <div className="overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md">
       <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
-        <img src={photo} alt={`${child.firstName} ${child.lastName}`} className="h-full w-full object-cover" />
+        <img src={photo} alt={child.name} className="h-full w-full object-cover" />
       </div>
       <div className="p-4">
         <div className="mb-3 flex items-center gap-2 text-lg font-semibold">
           <Baby className="h-5 w-5 text-primary" />
-          {child.firstName} {child.lastName}
+          {child.name}
         </div>
         <div className="space-y-2 text-sm">
           <Row icon={Cake} label="DOB" value={formatDob(dob)} />
@@ -135,7 +127,7 @@ function ChildCard({ child }) {
               <span className="flex items-center gap-2">
                 {ageFromDob(dob)}
                 <Badge variant="secondary" className="bg-primary/10 text-primary">
-                  {parseInt(ageFromDob(dob), 10)}y
+                  {parseInt(ageFromDob(dob) || "0", 10)}y
                 </Badge>
               </span>
             }
@@ -147,7 +139,7 @@ function ChildCard({ child }) {
               <Badge
                 variant="secondary"
                 className={
-                  gender === "Female"
+                  gender.toLowerCase() === "female"
                     ? "bg-pink-100 text-pink-700"
                     : "bg-sky-100 text-sky-700"
                 }

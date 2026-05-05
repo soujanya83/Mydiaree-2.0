@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { mockChildrenList } from "@/components/children/childrenData";
-import { mockRoomsList } from "@/components/rooms/roomsData";
+import { useChildrenStore } from "@/stores/childrenStore";
+import { useRoomStore } from "@/stores/roomStore";
 
 function ageString(dob) {
   if (!dob) return "";
@@ -31,6 +31,9 @@ function yearsOf(dob) {
 }
 
 export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit }) {
+  const { children: allStoreChildren } = useChildrenStore();
+  const { rooms: allStoreRooms } = useRoomStore();
+
   const [tab, setTab] = useState("children");
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState(new Set());
@@ -46,13 +49,13 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
   const matchSearch = (c) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    const name = `${c.firstName} ${c.lastName}`.toLowerCase();
+    const name = (c.name || "").toLowerCase();
     return name.includes(q) || ageString(c.dob).toLowerCase().includes(q);
   };
 
   const filteredChildren = useMemo(
-    () => mockChildrenList.filter(matchSearch),
-    [search]
+    () => allStoreChildren.filter(matchSearch),
+    [allStoreChildren, search]
   );
 
   const toggle = (id) => {
@@ -84,12 +87,12 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
     <label className={`flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50 ${indent ? "ml-7" : ""}`}>
       <Checkbox checked={picked.has(c.id)} onCheckedChange={() => toggle(c.id)} />
       <img
-        src={c.image}
-        alt={c.firstName}
+        src={c.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`}
+        alt={c.name}
         className="h-7 w-7 rounded-full border object-cover"
       />
       <span className="text-sm font-medium text-primary">
-        {c.firstName} {c.lastName} <span className="text-muted-foreground font-normal">- {ageString(c.dob)}</span>
+        {c.name} <span className="text-muted-foreground font-normal">- {ageString(c.dob)}</span>
       </span>
     </label>
   );
@@ -150,7 +153,7 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
             <TabsContent value="groups" className="mt-3 max-h-80 overflow-y-auto pr-1">
               <div className="space-y-3">
                 {GROUPS.map((g) => {
-                  const members = mockChildrenList.filter(g.filter).filter(matchSearch);
+                  const members = allStoreChildren.filter(g.filter).filter(matchSearch);
                   const ids = members.map((c) => c.id);
                   const groupChecked = ids.length > 0 && ids.every((id) => picked.has(id));
                   return (
@@ -172,9 +175,9 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
             {/* Rooms */}
             <TabsContent value="rooms" className="mt-3 max-h-80 overflow-y-auto pr-1">
               <div className="space-y-3">
-                {mockRoomsList.map((r) => {
-                  const members = mockChildrenList
-                    .filter((c) => c.roomName === r.name)
+                {allStoreRooms.map((r) => {
+                  const members = allStoreChildren
+                    .filter((c) => c.room === r.name)
                     .filter(matchSearch);
                   const ids = members.map((c) => c.id);
                   const roomChecked = ids.length > 0 && ids.every((id) => picked.has(id));

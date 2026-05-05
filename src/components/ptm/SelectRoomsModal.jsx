@@ -4,9 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { mockRoomsList } from "@/components/rooms/roomsData";
+import { useRoomStore } from "@/stores/roomStore";
 
 export default function SelectRoomsModal({ open, onOpenChange, initial = [], onSubmit }) {
+  const { rooms: allStoreRooms } = useRoomStore();
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState(new Set());
 
@@ -17,7 +18,7 @@ export default function SelectRoomsModal({ open, onOpenChange, initial = [], onS
     }
   }, [open, initial]);
 
-  const rooms = mockRoomsList.filter(
+  const rooms = allStoreRooms.filter(
     (r) => !search.trim() || r.name.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -49,7 +50,7 @@ export default function SelectRoomsModal({ open, onOpenChange, initial = [], onS
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-primary">{r.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {r.fromAge}-{r.toAge} yrs · {r.children} children · {r.educators.length} educators
+                    {r.educators?.length ? `${r.educators.length} educators` : "Room details"}
                   </p>
                 </div>
               </label>

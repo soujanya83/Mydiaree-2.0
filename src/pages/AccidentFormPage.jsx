@@ -13,6 +13,13 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -22,8 +29,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { mockChildren } from "@/services/mocks/data";
 import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import { AccidentFormView } from "@/components/accident/AccidentFormView";
 import { AccidentReadOnlyView } from "@/components/accident/AccidentReadOnlyView";
 import { useAuthStore } from "@/stores/authStore";
@@ -64,6 +72,10 @@ export default function AccidentFormPage() {
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
+  
+  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { children, isLoading } = useChildrenStore();
+
   const user = useAuthStore((s) => s.user);
 
   const [records, setRecords] = useState(seedRecords);
@@ -73,14 +85,14 @@ export default function AccidentFormPage() {
 
   const enriched = useMemo(() => {
     return records.map((r) => {
-      const child = mockChildren.find((c) => c.id === r.childId);
+      const child = children.find((c) => String(c.id) === String(r.childId));
       return {
         ...r,
-        childName: child ? `${child.firstName} ${child.lastName}` : "Unknown child",
-        roomName: child?.roomName,
+        childName: child ? child.name : "Unknown child",
+        roomName: child?.room || "Room",
       };
     });
-  }, [records]);
+  }, [records, children]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -151,17 +163,30 @@ export default function AccidentFormPage() {
         breadcrumbs={[{ label: "Accident Forms" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={activeCentreId}
-              onChange={(e) => setActiveCentre(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              {centres.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <Select value={activeCentreId} onValueChange={setActiveCentre}>
+              <SelectTrigger className="h-9 w-[200px]">
+                <SelectValue placeholder="Centre" />
+              </SelectTrigger>
+              <SelectContent>
+                {centres.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={activeRoomId} onValueChange={setActiveRoom}>
+              <SelectTrigger className="h-9 w-[180px]">
+                <SelectValue placeholder="Room" />
+              </SelectTrigger>
+              <SelectContent>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button onClick={() => setMode({ view: "create" })}>
               <Plus className="mr-1.5 h-4 w-4" />
               Add New Accident

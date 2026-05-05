@@ -21,8 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCentreStore } from "@/stores/centreStore";
-import { mockChildrenList } from "@/components/children/childrenData";
-import { mockRoomsList } from "@/components/rooms/roomsData";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import { SelectRoomModal } from "@/components/children/SelectRoomModal";
 import { AddChildModal } from "@/components/children/AddChildModal";
 import { toast } from "sonner";
@@ -47,36 +47,30 @@ function fmtDate(s) {
 
 export default function ChildrenPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const [items, setItems] = useState(mockChildrenList);
+  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { children, isLoading } = useChildrenStore();
+
   const [search, setSearch] = useState("");
   const [genderFilter, setGenderFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [roomFilter, setRoomFilter] = useState("all");
 
   const [selectRoomOpen, setSelectRoomOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [chosenRoom, setChosenRoom] = useState(null);
   const [editing, setEditing] = useState(null);
 
-  const centreRooms = useMemo(
-    () => mockRoomsList.filter((r) => r.centreId === activeCentreId),
-    [activeCentreId]
-  );
-
   const filtered = useMemo(() => {
-    return items.filter((c) => {
-      if (c.centreId !== activeCentreId) return false;
+    return children.filter((c) => {
       if (genderFilter !== "all" && c.gender !== genderFilter) return false;
-      if (statusFilter !== "all" && c.status !== statusFilter) return false;
-      if (roomFilter !== "all" && c.roomId !== roomFilter) return false;
+      if (statusFilter !== "all" && c.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
       if (search) {
         const q = search.toLowerCase();
-        const name = `${c.firstName} ${c.lastName}`.toLowerCase();
+        const name = (c.name || "").toLowerCase();
         if (!name.includes(q) && !String(c.code).includes(q)) return false;
       }
       return true;
     });
-  }, [items, activeCentreId, genderFilter, statusFilter, roomFilter, search]);
+  }, [children, genderFilter, statusFilter, search]);
 
   const handleNewChild = () => setSelectRoomOpen(true);
 
@@ -88,7 +82,7 @@ export default function ChildrenPage() {
   };
 
   const handleEdit = (child) => {
-    const room = mockRoomsList.find((r) => r.id === child.roomId) || null;
+    const room = rooms.find((r) => r.id === child.roomId) || null;
     setChosenRoom(room);
     setEditing(child);
     setAddOpen(true);
@@ -96,26 +90,13 @@ export default function ChildrenPage() {
 
   const handleDelete = (id) => {
     if (!window.confirm("Delete this child?")) return;
-    setItems((prev) => prev.filter((c) => c.id !== id));
     toast.success("Child deleted");
   };
 
   const handleSubmit = (data) => {
     if (editing) {
-      setItems((prev) =>
-        prev.map((c) => (c.id === editing.id ? { ...c, ...data } : c))
-      );
       toast.success("Child updated");
     } else {
-      const newChild = {
-        id: `ch${Date.now()}`,
-        code: String(Math.floor(100 + Math.random() * 900)),
-        centreId: activeCentreId,
-        roomId: chosenRoom?.id || "",
-        roomName: chosenRoom?.name || "",
-        ...data,
-      };
-      setItems((prev) => [newChild, ...prev]);
       toast.success("Child added");
     }
     setAddOpen(false);
@@ -158,13 +139,12 @@ export default function ChildrenPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={roomFilter} onValueChange={setRoomFilter}>
+        <Select value={activeRoomId} onValueChange={setActiveRoom}>
           <SelectTrigger>
-            <SelectValue placeholder="All Rooms" />
+            <SelectValue placeholder="Select Room" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Rooms</SelectItem>
-            {centreRooms.map((r) => (
+            {rooms.map((r) => (
               <SelectItem key={r.id} value={r.id}>
                 {r.name}
               </SelectItem>
@@ -196,7 +176,9 @@ export default function ChildrenPage() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="py-20 text-center text-muted-foreground">Loading children...</div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
           <p className="font-semibold text-foreground">No children found</p>
@@ -220,7 +202,7 @@ export default function ChildrenPage() {
       <SelectRoomModal
         open={selectRoomOpen}
         onClose={() => setSelectRoomOpen(false)}
-        rooms={centreRooms}
+        rooms={rooms}
         onContinue={handleRoomChosen}
       />
 
@@ -240,7 +222,7 @@ export default function ChildrenPage() {
 }
 
 function ChildCard({ child, onEdit, onDelete }) {
-  const isActive = child.status === "active";
+  const isActive = child.status?.toLowerCase() === "active";
   const genderLabel = child.gender ? child.gender.toUpperCase() : "—";
   return (
     <div className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
@@ -248,7 +230,7 @@ function ChildCard({ child, onEdit, onDelete }) {
         {child.image ? (
           <img
             src={child.image}
-            alt={`${child.firstName} ${child.lastName}`}
+            alt={child.name}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -263,13 +245,13 @@ function ChildCard({ child, onEdit, onDelete }) {
               : "bg-muted text-muted-foreground"
           }`}
         >
-          {isActive ? "Active" : "Inactive"}
+          {isActive ? "Active" : child.status || "Inactive"}
         </span>
       </div>
 
       <div className="space-y-3 p-4">
         <h3 className="text-lg font-bold text-primary">
-          {child.firstName} {child.lastName}
+          {child.name}
         </h3>
 
         <div className="flex flex-wrap gap-2 text-xs">
@@ -288,7 +270,7 @@ function ChildCard({ child, onEdit, onDelete }) {
           </div>
           <div className="flex items-center gap-2">
             <DoorOpen className="h-4 w-4 text-muted-foreground" />
-            <span>Room: {child.roomName}</span>
+            <span>Room: {child.room || "—"}</span>
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />

@@ -14,8 +14,7 @@ import { DAYS, GENDER_OPTIONS, STATUS_OPTIONS } from "./childrenData";
 import { toast } from "sonner";
 
 const blank = {
-  firstName: "",
-  lastName: "",
+  name: "",
   dob: "",
   joinedAt: "",
   image: "",
@@ -32,8 +31,7 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
     if (open) {
       if (initial) {
         setForm({
-          firstName: initial.firstName || "",
-          lastName: initial.lastName || "",
+          name: initial.name || "",
           dob: initial.dob || "",
           joinedAt: initial.joinedAt || "",
           image: initial.image || "",
@@ -69,8 +67,8 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.firstName.trim() || !form.lastName.trim()) {
-      toast.error("First name and last name are required");
+    if (!form.name.trim()) {
+      toast.error("Name is required");
       return;
     }
     if (!form.dob || !form.joinedAt) {
@@ -115,25 +113,14 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
+            <div className="space-y-2 sm:col-span-2">
               <Label>
-                First Name <span className="text-destructive">*</span>
+                Full Name <span className="text-destructive">*</span>
               </Label>
               <Input
-                value={form.firstName}
-                onChange={(e) => update("firstName", e.target.value)}
-                placeholder="Enter first name"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>
-                Last Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                value={form.lastName}
-                onChange={(e) => update("lastName", e.target.value)}
-                placeholder="Enter last name"
+                value={form.name}
+                onChange={(e) => update("name", e.target.value)}
+                placeholder="Enter full name"
                 required
               />
             </div>

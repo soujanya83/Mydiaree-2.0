@@ -12,15 +12,22 @@ import {
 } from "@/components/ui/select";
 import { ChildDiaryCard } from "@/components/journal/ChildDiaryCard";
 import { NewEntryModal } from "@/components/journal/NewEntryModal";
-import { mockChildren, mockRooms } from "@/services/mocks/data";
 import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 
 export default function DailyDiaryPage() {
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
 
-  const [room, setRoom] = useState("all");
+  const rooms = useRoomStore((s) => s.rooms);
+  const activeRoomId = useRoomStore((s) => s.activeRoomId);
+  const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
+
+  const children = useChildrenStore((s) => s.children);
+  const isLoading = useChildrenStore((s) => s.isLoading);
+
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -28,32 +35,19 @@ export default function DailyDiaryPage() {
   // Per-child, per-activity entries: { [childId]: { [activityKey]: {time,item,comments} } }
   const [entriesByChild, setEntriesByChild] = useState({});
 
-  const roomsForCentre = useMemo(
-    () => mockRooms.filter((r) => r.centreId === activeCentreId),
-    [activeCentreId]
-  );
-
   const visibleChildren = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return mockChildren.filter((c) => {
-      if (c.centreId !== activeCentreId) return false;
-      if (room !== "all" && c.roomName !== room) return false;
-      if (q && !`${c.firstName} ${c.lastName}`.toLowerCase().includes(q)) return false;
+    return children.filter((c) => {
+      if (q && !c.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [activeCentreId, room, search]);
+  }, [children, search]);
 
   const handleSaveEntry = (childId, activityKey, payload) => {
     setEntriesByChild((prev) => ({
       ...prev,
       [childId]: { ...(prev[childId] || {}), [activityKey]: payload },
     }));
-  };
-
-  // Reset room when centre changes if it's no longer valid
-  const handleCentreChange = (id) => {
-    setActiveCentre(id);
-    setRoom("all");
   };
 
   return (
@@ -64,7 +58,7 @@ export default function DailyDiaryPage() {
         breadcrumbs={[{ label: "Daily Diary" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={activeCentreId} onValueChange={handleCentreChange}>
+            <Select value={activeCentreId} onValueChange={setActiveCentre}>
               <SelectTrigger className="h-9 w-[200px]">
                 <SelectValue placeholder="Centre" />
               </SelectTrigger>
@@ -76,14 +70,13 @@ export default function DailyDiaryPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={room} onValueChange={setRoom}>
+            <Select value={activeRoomId} onValueChange={setActiveRoom}>
               <SelectTrigger className="h-9 w-[160px]">
                 <SelectValue placeholder="Room" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All rooms</SelectItem>
-                {roomsForCentre.map((r) => (
-                  <SelectItem key={r.id} value={r.name}>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
                     {r.name}
                   </SelectItem>
                 ))}
@@ -129,9 +122,11 @@ export default function DailyDiaryPage() {
         />
       </div>
 
-      {visibleChildren.length === 0 ? (
+      {isLoading ? (
+        <div className="py-20 text-center text-muted-foreground">Loading children...</div>
+      ) : visibleChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          No children match the current filters.
+          No children found in this room.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

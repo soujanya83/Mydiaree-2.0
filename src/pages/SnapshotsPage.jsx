@@ -27,13 +27,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
+import { useChildrenStore } from "@/stores/childrenStore";
 import {
   mockSnapshots,
   STATUS_FILTERS,
   DATE_FILTERS,
   AUTHORS,
   inDateRange,
-  SNAPSHOT_CHILDREN,
 } from "@/components/snapshots/snapshotsData";
 import { NewSnapshotTitleModal } from "@/components/snapshots/NewSnapshotTitleModal";
 
@@ -42,6 +43,8 @@ const PAGE_SIZE = 12;
 export default function SnapshotsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
+  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { children, isLoading } = useChildrenStore();
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [titleModalOpen, setTitleModalOpen] = useState(false);
@@ -106,14 +109,27 @@ export default function SnapshotsPage() {
               Add New
             </Button>
             <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[220px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+              <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
                 <Building2 className="mr-1.5 h-4 w-4" />
-                <SelectValue placeholder={activeCentre?.name} />
+                <SelectValue placeholder="Centre" />
               </SelectTrigger>
               <SelectContent>
                 {centres.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={activeRoomId} onValueChange={setActiveRoom}>
+              <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                <DoorOpen className="mr-1.5 h-4 w-4" />
+                <SelectValue placeholder="Room" />
+              </SelectTrigger>
+              <SelectContent>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -193,7 +209,7 @@ export default function SnapshotsPage() {
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All children</SelectItem>
-                  {SNAPSHOT_CHILDREN.map((c) => (
+                  {children.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>

@@ -131,7 +131,13 @@ function ActivitySection({ def, entry, onSave }) {
 }
 
 export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
-  const initials = `${child.firstName[0]}${child.lastName[0]}`;
+  const initials = (child.name || "Child")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
   const totalActivities = Object.keys(entries).length;
   const meals = ["breakfast", "morning_tea", "lunch", "afternoon_tea", "late_snacks"]
     .filter((k) => entries[k]).length;
@@ -148,7 +154,7 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
         </Avatar>
         <div>
           <h3 className="text-base font-bold">
-            {child.firstName} {child.lastName}
+            {child.name}
           </h3>
           <p className="text-xs text-primary-foreground/90">
             <span className="font-medium">Age:</span> {child.age || "—"}
