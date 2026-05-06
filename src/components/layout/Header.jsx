@@ -59,11 +59,7 @@ export function Header() {
         className="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-md text-foreground hover:bg-muted"
         aria-label="Toggle sidebar"
       >
-        {collapsed ? (
-          <PanelLeftOpen className="h-5 w-5" />
-        ) : (
-          <PanelLeftClose className="h-5 w-5" />
-        )}
+        {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
       </button>
 
       {/* Search */}
@@ -123,10 +119,7 @@ export function Header() {
             <button className="flex items-center gap-2 rounded-full p-1 transition hover:bg-muted">
               <Avatar className="h-8 w-8">
                 {user?.imageUrl && (
-                  <AvatarImage
-                    src={`https://mydiaree.com.au/${user.imageUrl}`}
-                    alt={user.name}
-                  />
+                  <AvatarImage src={`https://mydiaree.com.au/${user.imageUrl}`} alt={user.name} />
                 )}
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
                   {initials}
@@ -145,9 +138,7 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate("/settings")}>
-              Settings
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/settings")}>Settings</DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/style-guide")}>
               Style Guide
             </DropdownMenuItem>

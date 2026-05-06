@@ -147,19 +147,20 @@ export default function DailyDiaryPage() {
         onOpenChange={setModalOpen}
         onSubmit={(payload) => {
           // Apply bulk entry from the multi-child modal to each selected child
+          const { children, notes, ...rest } = payload;
           const data = {
-            time: payload.time,
-            item: payload.item,
-            comments: payload.notes,
+            ...rest,
+            comments: notes,
           };
           setEntriesByChild((prev) => {
             const next = { ...prev };
-            (payload.children || []).forEach((cid) => {
+            (children || []).forEach((cid) => {
               next[cid] = { ...(next[cid] || {}), [payload.activity]: data };
             });
             return next;
           });
         }}
+
       />
     </div>
   );

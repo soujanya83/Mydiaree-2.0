@@ -20,38 +20,90 @@ import { cn } from "@/lib/utils";
 import { ActivityEditModal } from "./ActivityEditModal";
 
 export const ACTIVITY_DEFS = [
-  { key: "breakfast", label: "Breakfast", icon: Coffee },
-  { key: "morning_tea", label: "Morning Tea", icon: CupSoda },
-  { key: "lunch", label: "Lunch", icon: Utensils },
-  { key: "sleep", label: "Sleep", icon: BedDouble },
-  { key: "afternoon_tea", label: "Afternoon Tea", icon: Cookie },
-  { key: "late_snacks", label: "Late Snacks", icon: Apple },
-  { key: "sunscreen", label: "Sunscreen", icon: Sun },
-  { key: "toileting", label: "Toileting", icon: Baby },
-  { key: "bottle", label: "Bottle", icon: Milk },
+  {
+    key: "breakfast",
+    label: "Breakfast",
+    icon: Coffee,
+    emptyStatus: { label: "NO UPDATE", tone: "info" },
+  },
+  {
+    key: "morning_tea",
+    label: "Morning Tea",
+    icon: CupSoda,
+    emptyStatus: { label: "NO UPDATE", tone: "info" },
+  },
+  {
+    key: "lunch",
+    label: "Lunch",
+    icon: Utensils,
+    emptyStatus: { label: "NO UPDATE", tone: "info" },
+  },
+  {
+    key: "sleep",
+    label: "Sleep",
+    icon: BedDouble,
+    emptyStatus: { label: "0 ENTRY", tone: "danger" },
+  },
+  {
+    key: "afternoon_tea",
+    label: "Afternoon Tea",
+    icon: Cookie,
+    emptyStatus: { label: "PENDING", tone: "muted_filled" },
+  },
+  {
+    key: "late_snacks",
+    label: "Late Snacks",
+    icon: Apple,
+    emptyStatus: { label: "PENDING", tone: "muted_filled" },
+  },
+  {
+    key: "sunscreen",
+    label: "Sunscreen",
+    icon: Sun,
+    emptyStatus: { label: "0 APPLICATIONS", tone: "danger" },
+  },
+  {
+    key: "toileting",
+    label: "Toileting",
+    icon: Baby,
+    emptyStatus: { label: "NO UPDATE", tone: "warning" },
+  },
+  {
+    key: "bottle",
+    label: "Bottle",
+    icon: Milk,
+    emptyStatus: { label: "PENDING", tone: "muted_filled" },
+  },
 ];
 
-function statusFor(entry) {
-  if (!entry) return { label: "NO UPDATE", tone: "muted" };
+function statusFor(def, entry) {
+  if (!entry) return def.emptyStatus;
   if (entry.status) return entry.status;
-  if (entry.time && entry.item) return { label: "COMPLETED", tone: "success" };
-  if (entry.time || entry.item) return { label: "IN PROGRESS", tone: "warning" };
-  return { label: "NO UPDATE", tone: "muted" };
+
+  // Generic in-progress/completed logic
+  const hasTime = !!(entry.time || entry.sleepTime);
+  const hasItem = !!entry.item;
+  if (hasTime && hasItem) return { label: "COMPLETED", tone: "success" };
+  if (hasTime || hasItem) return { label: "IN PROGRESS", tone: "warning" };
+
+  return def.emptyStatus;
 }
 
 const toneClasses = {
   muted: "bg-muted text-muted-foreground border-border",
+  muted_filled: "bg-slate-500 text-white border-transparent",
   success: "bg-success/10 text-success border-success/30",
-  warning: "bg-warning/15 text-warning border-warning/30",
-  info: "bg-info/10 text-info border-info/30",
-  danger: "bg-destructive/10 text-destructive border-destructive/30",
+  warning: "bg-warning/10 text-warning border-warning/50",
+  info: "bg-info/10 text-info border-info/50",
+  danger: "bg-destructive/10 text-destructive border-destructive/50",
 };
+
 
 function ActivitySection({ def, entry, onSave }) {
   const [open, setOpen] = useState(def.key === "breakfast");
   const [editOpen, setEditOpen] = useState(false);
   const Icon = def.icon;
-  const status = statusFor(entry);
+  const status = statusFor(def, entry);
 
   return (
     <div className="border-b border-border last:border-0">
@@ -86,20 +138,60 @@ function ActivitySection({ def, entry, onSave }) {
             <span className="absolute left-0 top-2 bottom-2 w-1 rounded-full bg-primary/60" />
             <div className="flex items-start justify-between gap-3">
               <div className="grid flex-1 grid-cols-1 gap-1 text-xs sm:grid-cols-2">
-                <p>
-                  <span className="font-semibold text-foreground">Time: </span>
-                  <span className="text-muted-foreground">
-                    {entry?.time || "No Update"}
-                  </span>
-                </p>
-                <p>
-                  <span className="font-semibold text-foreground">Item: </span>
-                  <span className="text-muted-foreground">
-                    {entry?.item || "No Update"}
-                  </span>
-                </p>
+                {def.key === "sleep" ? (
+                  <>
+                    <p>
+                      <span className="font-semibold text-foreground">
+                        Sleep Time:{" "}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {entry?.sleepTime || "No Update"}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="font-semibold text-foreground">
+                        Wake Time:{" "}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {entry?.wakeTime || "No Update"}
+                      </span>
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    <span className="font-semibold text-foreground">Time: </span>
+                    <span className="text-muted-foreground">
+                      {entry?.time || "No Update"}
+                    </span>
+                  </p>
+                )}
+
+                {["breakfast", "lunch", "late_snacks", "bottle"].includes(
+                  def.key
+                ) && (
+                  <p>
+                    <span className="font-semibold text-foreground">Item: </span>
+                    <span className="text-muted-foreground">
+                      {entry?.item || "No Update"}
+                    </span>
+                  </p>
+                )}
+
+                {def.key === "lunch" && (
+                  <p>
+                    <span className="font-semibold text-foreground">
+                      No of Serve:{" "}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {entry?.noOfServe || "No Update"}
+                    </span>
+                  </p>
+                )}
+
                 <p className="sm:col-span-2">
-                  <span className="font-semibold text-foreground">Comments: </span>
+                  <span className="font-semibold text-foreground">
+                    Comments:{" "}
+                  </span>
                   <span className="text-muted-foreground">
                     {entry?.comments || "No Update"}
                   </span>
@@ -112,12 +204,17 @@ function ActivitySection({ def, entry, onSave }) {
                 onClick={() => setEditOpen(true)}
                 aria-label={entry ? "Edit entry" : "Add entry"}
               >
-                {entry ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                {entry ? (
+                  <Pencil className="h-4 w-4" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>
         </div>
       )}
+
 
       <ActivityEditModal
         open={editOpen}
@@ -138,10 +235,11 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
     .toUpperCase()
     .slice(0, 2);
 
-  const totalActivities = Object.keys(entries).length;
-  const meals = ["breakfast", "morning_tea", "lunch", "afternoon_tea", "late_snacks"]
-    .filter((k) => entries[k]).length;
-  const naps = entries.sleep ? 1 : 0;
+  const totalActivities = ACTIVITY_DEFS.length;
+  const completedActivities = Object.keys(entries).length;
+  const meals = ["breakfast", "lunch", "afternoon_tea"].filter((k) => entries[k])
+    .length;
+  const naps = entries.sleep ? 1 : 0; // Keeping it 1 for now as it's a single category
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">

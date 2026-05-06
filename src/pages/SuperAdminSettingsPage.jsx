@@ -26,23 +26,16 @@ export default function SuperAdminSettingsPage() {
     const q = query.trim().toLowerCase();
     if (!q) return admins;
     return admins.filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) ||
-        a.email.toLowerCase().includes(q),
+      (a) => a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q),
     );
   }, [admins, query]);
 
   const handleSave = (data) => {
     if (data.id) {
-      setAdmins((arr) =>
-        arr.map((a) => (a.id === data.id ? { ...a, ...data } : a)),
-      );
+      setAdmins((arr) => arr.map((a) => (a.id === data.id ? { ...a, ...data } : a)));
       toast.success("Superadmin updated");
     } else {
-      setAdmins((arr) => [
-        ...arr,
-        { ...data, id: `sa${Date.now()}` },
-      ]);
+      setAdmins((arr) => [...arr, { ...data, id: `sa${Date.now()}` }]);
       toast.success("Superadmin added");
     }
   };
@@ -54,10 +47,7 @@ export default function SuperAdminSettingsPage() {
         description="Manage super admin accounts that oversee the platform"
         breadcrumbs={[{ label: "Superadmin Settings" }]}
         actions={
-          <Button
-            onClick={() => setModal({ open: true, initial: null })}
-            className="gap-2"
-          >
+          <Button onClick={() => setModal({ open: true, initial: null })} className="gap-2">
             <Plus className="h-4 w-4" />
             Add Superadmin
           </Button>
@@ -82,9 +72,7 @@ export default function SuperAdminSettingsPage() {
       {filtered.length === 0 ? (
         <div className="rounded-xl border bg-card p-12 text-center">
           <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            No superadmins found.
-          </p>
+          <p className="mt-3 text-sm text-muted-foreground">No superadmins found.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -114,21 +102,15 @@ export default function SuperAdminSettingsPage() {
                     </div>
                   )}
                 </div>
-                <h3 className="mt-3 text-base font-bold text-foreground">
-                  {a.name}
-                </h3>
+                <h3 className="mt-3 text-base font-bold text-foreground">{a.name}</h3>
                 <div className="mt-2 space-y-1 text-xs">
                   <p className="text-foreground">
                     <span className="font-semibold">Email: </span>
-                    <span className="text-muted-foreground break-all">
-                      {a.email}
-                    </span>
+                    <span className="text-muted-foreground break-all">{a.email}</span>
                   </p>
                   <p className="text-foreground">
                     <span className="font-semibold">Contact: </span>
-                    <span className="text-muted-foreground">
-                      {a.contact || "—"}
-                    </span>
+                    <span className="text-muted-foreground">{a.contact || "—"}</span>
                   </p>
                 </div>
                 <button

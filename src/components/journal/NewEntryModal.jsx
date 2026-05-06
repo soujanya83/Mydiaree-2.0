@@ -48,8 +48,10 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
   const [selected, setSelected] = useState([]);
   const [notes, setNotes] = useState("");
   const [time, setTime] = useState("");
+  const [wakeTime, setWakeTime] = useState("");
   const [item, setItem] = useState("");
   const [amount, setAmount] = useState("");
+  const [noOfServe, setNoOfServe] = useState("1");
 
   const current = ACTIVITIES.find((a) => a.key === activity);
   const Icon = current.icon;
@@ -89,20 +91,30 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
     setSelected([]);
     setNotes("");
     setTime("");
+    setWakeTime("");
     setItem("");
     setAmount("");
+    setNoOfServe("1");
   };
 
   const handleSave = () => {
-    onSubmit?.({ activity, date, children: selected, time, item, amount, notes });
+    onSubmit?.({
+      activity,
+      date,
+      children: selected,
+      time,
+      wakeTime,
+      item,
+      amount,
+      noOfServe,
+      notes,
+    });
     reset();
     onOpenChange(false);
   };
 
   const valueLabel =
-    activity === "sleep"
-      ? "Duration"
-      : activity === "toileting"
+    activity === "toileting"
       ? "Type"
       : activity === "sunscreen"
       ? "Brand / SPF"
@@ -112,7 +124,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
 
   const timeLabel =
     activity === "sleep"
-      ? "Sleep Start"
+      ? "Sleep Time"
       : activity === "sunscreen"
       ? "Applied At"
       : `${current.label} Time`;
@@ -281,21 +293,57 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
                     <Label>{timeLabel}</Label>
                     <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>{valueLabel}</Label>
-                    <Input
-                      value={item}
-                      onChange={(e) => setItem(e.target.value)}
-                      placeholder={`e.g. ${
-                        activity === "sleep"
-                          ? "1h 20m"
-                          : activity === "bottle"
-                          ? "120ml formula"
-                          : "Toast with butter"
-                      }`}
-                    />
-                  </div>
+                  {activity === "sleep" ? (
+                    <div className="space-y-1.5">
+                      <Label>Wake Time</Label>
+                      <Input
+                        type="time"
+                        value={wakeTime}
+                        onChange={(e) => setWakeTime(e.target.value)}
+                      />
+                    </div>
+                  ) : (
+                    ["breakfast", "lunch", "late_snacks", "bottle", "sunscreen", "toileting"].includes(activity) && (
+                      <div className="space-y-1.5">
+                        <Label>{valueLabel}</Label>
+                        <Input
+                          value={item}
+                          onChange={(e) => setItem(e.target.value)}
+                          placeholder={`e.g. ${
+                            activity === "bottle"
+                              ? "120ml formula"
+                              : activity === "sunscreen"
+                              ? "Cancer Council SPF 50+"
+                              : "Toast with butter"
+                          }`}
+                        />
+                      </div>
+                    )
+                  )}
                 </div>
+
+                {activity === "lunch" && (
+                  <div className="space-y-1.5">
+                    <Label>No of Serve</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {[1, 2, 3, 4, 5].map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setNoOfServe(String(val))}
+                          className={cn(
+                            "rounded-full border px-4 py-1.5 text-xs font-medium transition",
+                            noOfServe === String(val)
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
+                          )}
+                        >
+                          {val}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {(activity === "breakfast" ||
                   activity === "morning_tea" ||
@@ -334,7 +382,6 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
                   />
                 </div>
               </section>
-
               {selected.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 p-3 text-xs">
                   <span className="font-medium text-muted-foreground">
