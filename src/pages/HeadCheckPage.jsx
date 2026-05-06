@@ -23,6 +23,8 @@ import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { toast } from "sonner";
 import { HeadCheckPrintView } from "@/components/headcheck/HeadCheckPrintView";
+import { headChecksService } from "@/services/daily-operations/headChecksService";
+import { useEffect } from "react";
 
 function nowHHMM() {
   const d = new Date();
@@ -34,6 +36,7 @@ const newRow = (time = "") => ({
   time,
   count: "",
   signature: "",
+  isNew: true,
 });
 
 export default function HeadCheckPage() {
@@ -46,8 +49,51 @@ export default function HeadCheckPage() {
   const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [rows, setRows] = useState([newRow(nowHHMM())]);
+  const [rows, setRows] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
+
+  const fetchHeadChecks = async () => {
+    if (!activeCentreId || !activeRoomId) return;
+    setIsLoading(true);
+    try {
+      const response = await headChecksService.getHeadChecks({
+        centerid: activeCentreId,
+        roomid: activeRoomId,
+        date: date,
+      });
+      if (response.data.status === "success" && response.data.data.headChecks) {
+        const mapped = response.data.data.headChecks.map((hc) => {
+          // Normalize "12h:53mm" or "1h:53mm" to "HH:mm"
+          let normalizedTime = hc.time || "";
+          if (normalizedTime.includes("h:")) {
+            const [h, m] = normalizedTime.split("h:");
+            normalizedTime = `${h.padStart(2, "0")}:${m.replace(/m+/g, "").padStart(2, "0")}`;
+          }
+          return {
+            id: hc.id,
+            time: normalizedTime,
+            count: hc.headcount,
+            signature: hc.signature,
+            isNew: false,
+          };
+        });
+        setRows(mapped.length > 0 ? mapped : [newRow(nowHHMM())]);
+      } else {
+        setRows([newRow(nowHHMM())]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch head checks", error);
+      toast.error("Failed to load head checks");
+      setRows([newRow(nowHHMM())]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHeadChecks();
+  }, [activeCentreId, activeRoomId, date]);
 
   const addRow = () => setRows((p) => [...p, newRow(nowHHMM())]);
   const removeRow = (id) =>
@@ -55,14 +101,73 @@ export default function HeadCheckPage() {
   const update = (id, patch) =>
     setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const incomplete = rows.some((r) => !r.time || !r.count || !r.signature);
     if (incomplete) {
       toast.error("Please fill in time, head count, and signature for every entry.");
       return;
     }
-    console.log("Saving head checks", { date, centreId: activeCentreId, activeRoomId, rows });
-    toast.success(`Saved ${rows.length} head check ${rows.length === 1 ? "entry" : "entries"}.`);
+
+    setIsLoading(true);
+    try {
+      const fd = new FormData();
+      rows.forEach((r) => {
+        // Convert "12:53" back to "12h:53m" if needed, 
+        // but user's example had 1h:54m. 
+        // Let's format it as per their example: "Hh:mm"
+        const [h, m] = r.time.split(":");
+        const formattedTime = `${parseInt(h, 10)}h:${m}m`;
+        
+        fd.append("timePicker[]", formattedTime);
+        fd.append("headCount[]", r.count);
+        fd.append("signature[]", r.signature);
+      });
+      fd.append("roomid", activeRoomId);
+      fd.append("centerid", activeCentreId);
+      fd.append("diarydate", date);
+      // headcheck flag is optional, but common practice to set if replacing
+      // fd.append("headcheck", "1"); 
+
+      const res = await headChecksService.storeHeadChecks(fd);
+      if (res.data.status) {
+        toast.success(res.data.message || "Head check records saved successfully.");
+        fetchHeadChecks(); // Refresh to get real IDs
+      }
+    } catch (error) {
+      console.error("Save failed", error);
+      toast.error("Failed to save head checks");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async (id, isNew) => {
+    if (isNew) {
+      // Local removal for unsaved rows
+      setRows((p) => {
+        const filtered = p.filter((r) => r.id !== id);
+        return filtered.length === 0 ? [newRow(nowHHMM())] : filtered;
+      });
+      return;
+    }
+
+    if (!window.confirm("Are you sure you want to delete this record?")) return;
+
+    setIsLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("headCheckId", id);
+      const res = await headChecksService.deleteHeadCheck(fd);
+      if (res.data.Status === "SUCCESS" || res.data.status === true) {
+        toast.success(res.data.Message || "Record deleted");
+        fetchHeadChecks();
+      }
+    } catch (error) {
+      console.error("Delete failed", error);
+      toast.error("Failed to delete record");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const hasEntries = rows.length > 0;
@@ -118,7 +223,9 @@ export default function HeadCheckPage() {
       </div>
 
       {/* Entries list */}
-      {!hasEntries ? (
+      {isLoading ? (
+        <div className="py-20 text-center text-muted-foreground">Loading head checks...</div>
+      ) : !hasEntries ? (
         <div className="rounded-2xl border-2 border-dashed border-border bg-card p-12 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
             <ClipboardCheck className="h-7 w-7" />
@@ -176,8 +283,7 @@ export default function HeadCheckPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => removeRow(row.id)}
-                  disabled={rows.length === 1}
+                  onClick={() => handleDelete(row.id, row.isNew !== false)}
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="mr-1.5 h-4 w-4" />

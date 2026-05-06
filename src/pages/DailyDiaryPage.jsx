@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { Baby, Plus, Search } from "lucide-react";
+import { toast } from "sonner";
+import dailyDiaryService from "@/services/daily-operations/dailyDiaryService";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,7 @@ import { NewEntryModal } from "@/components/journal/NewEntryModal";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
+import { useEffect } from "react";
 
 export default function DailyDiaryPage() {
   const centres = useCentreStore((s) => s.centres);
@@ -43,11 +46,145 @@ export default function DailyDiaryPage() {
     });
   }, [children, search]);
 
-  const handleSaveEntry = (childId, activityKey, payload) => {
-    setEntriesByChild((prev) => ({
-      ...prev,
-      [childId]: { ...(prev[childId] || {}), [activityKey]: payload },
-    }));
+  const [isFetching, setIsFetching] = useState(false);
+
+  const fetchDiary = async () => {
+    if (!activeCentreId || !activeRoomId) return;
+    setIsFetching(true);
+    try {
+      const response = await dailyDiaryService.listDiary({
+        center_id: activeCentreId,
+        room_id: activeRoomId,
+        selected_date: date,
+      });
+
+      if (response.data.status && response.data.data.children) {
+        const rawChildren = response.data.data.children;
+        const normalized = {};
+
+        rawChildren.forEach((item) => {
+          const cid = item.child.id;
+          const entries = {};
+
+          // Helper to normalize a single activity object
+          const norm = (act, key) => {
+            if (!act) return;
+            // Handle arrays (bottle, sleep, sunscreen, toileting)
+            const a = Array.isArray(act) ? act[0] : act;
+            if (!a) return;
+
+            const res = {
+              id: a.id,
+              comments: a.comments,
+              item: a.item,
+              time: a.startTime,
+            };
+
+            if (key === "sleep") {
+              res.sleepTime = a.startTime;
+              res.wakeTime = a.endTime;
+              delete res.time;
+            }
+
+            if (key === "lunch") {
+              res.server = a.serve || "1";
+            }
+
+            if (a.signature) res.signature = a.signature;
+            if (a.status) res.status = a.status;
+
+            entries[key] = res;
+          };
+
+          norm(item.breakfast, "breakfast");
+          norm(item.morning_tea, "morning_tea");
+          norm(item.lunch, "lunch");
+          norm(item.sleep, "sleep");
+          norm(item.afternoon_tea, "afternoon_tea");
+          norm(item.snacks, "late_snacks");
+          norm(item.sunscreen, "sunscreen");
+          norm(item.toileting, "toileting");
+          norm(item.bottle, "bottle");
+
+          normalized[cid] = entries;
+        });
+
+        setEntriesByChild(normalized);
+      }
+    } catch (error) {
+      console.error("Failed to fetch diary", error);
+      toast.error("Failed to load diary entries");
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDiary();
+  }, [activeRoomId, date]);
+
+  const toFormData = (payload) => {
+    const fd = new FormData();
+    Object.entries(payload).forEach(([key, value]) => {
+      if (key === "child_ids[]" && Array.isArray(value)) {
+        value.forEach((id) => fd.append("child_ids[]", id));
+      } else if (value !== undefined && value !== null) {
+        fd.append(key, value);
+      }
+    });
+    return fd;
+  };
+
+  const handleSaveEntry = async (childId, activityKey, payload) => {
+    try {
+      const apiPayload = {
+        date,
+        "child_ids[]": [childId],
+        ...payload,
+      };
+
+      // Rename specific fields for API if needed
+      if (activityKey === "sleep") {
+        apiPayload.sleep_time = payload.sleepTime;
+        apiPayload.wake_time = payload.wakeTime;
+        delete apiPayload.sleepTime;
+        delete apiPayload.wakeTime;
+      }
+
+      if (activityKey === "toileting" && payload.item) {
+        apiPayload.item = payload.item; // "item" is "Type" in UI for toileting
+      }
+
+      // Omit optional fields if empty
+      if (!apiPayload.comments) delete apiPayload.comments;
+      if (!apiPayload.signature) delete apiPayload.signature;
+
+      const methodMap = {
+        breakfast: dailyDiaryService.storeBreakfast,
+        morning_tea: dailyDiaryService.storeMorningTea,
+        lunch: dailyDiaryService.storeLunch,
+        sleep: dailyDiaryService.storeSleep,
+        afternoon_tea: dailyDiaryService.storeAfternoonTea,
+        late_snacks: dailyDiaryService.storeLateSnacks,
+        sunscreen: dailyDiaryService.storeSunscreen,
+        toileting: dailyDiaryService.storeToileting,
+        bottle: dailyDiaryService.storeBottle,
+      };
+
+      const apiMethod = methodMap[activityKey];
+      if (!apiMethod) throw new Error(`No API method for ${activityKey}`);
+
+      await apiMethod(toFormData(apiPayload));
+
+      setEntriesByChild((prev) => ({
+        ...prev,
+        [childId]: { ...(prev[childId] || {}), [activityKey]: payload },
+      }));
+      toast.success(`${activityKey.replace("_", " ")} saved successfully`);
+    } catch (error) {
+      console.error("Failed to save entry", error);
+      toast.error(`Failed to save ${activityKey.replace("_", " ")}`);
+    }
   };
 
   return (
@@ -122,8 +259,8 @@ export default function DailyDiaryPage() {
         />
       </div>
 
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">Loading children...</div>
+      {isLoading || isFetching ? (
+        <div className="py-20 text-center text-muted-foreground">Loading data...</div>
       ) : visibleChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
           No children found in this room.
@@ -145,22 +282,61 @@ export default function DailyDiaryPage() {
       <NewEntryModal
         open={modalOpen}
         onOpenChange={setModalOpen}
-        onSubmit={(payload) => {
-          // Apply bulk entry from the multi-child modal to each selected child
-          const { children, notes, ...rest } = payload;
-          const data = {
-            ...rest,
-            comments: notes,
-          };
-          setEntriesByChild((prev) => {
-            const next = { ...prev };
-            (children || []).forEach((cid) => {
-              next[cid] = { ...(next[cid] || {}), [payload.activity]: data };
-            });
-            return next;
-          });
-        }}
+        onSubmit={async (payload) => {
+          try {
+            const { children: selectedIds, notes, activity, ...rest } = payload;
+            const data = {
+              ...rest,
+              comments: notes,
+              date: payload.date || date,
+              "child_ids[]": selectedIds,
+            };
 
+            // Mapping for sleep
+            if (activity === "sleep") {
+              data.sleep_time = payload.time;
+              data.wake_time = payload.wakeTime;
+              delete data.time;
+              delete data.wakeTime;
+            }
+
+            // Omit optional fields if empty
+            if (!data.comments) delete data.comments;
+            if (!data.signature) delete data.signature;
+
+            const methodMap = {
+              breakfast: dailyDiaryService.storeBreakfast,
+              morning_tea: dailyDiaryService.storeMorningTea,
+              lunch: dailyDiaryService.storeLunch,
+              sleep: dailyDiaryService.storeSleep,
+              afternoon_tea: dailyDiaryService.storeAfternoonTea,
+              late_snacks: dailyDiaryService.storeLateSnacks,
+              sunscreen: dailyDiaryService.storeSunscreen,
+              toileting: dailyDiaryService.storeToileting,
+              bottle: dailyDiaryService.storeBottle,
+            };
+
+            const apiMethod = methodMap[activity];
+            if (!apiMethod) throw new Error(`No API method for ${activity}`);
+
+            await apiMethod(toFormData(data));
+
+            setEntriesByChild((prev) => {
+              const next = { ...prev };
+              (selectedIds || []).forEach((cid) => {
+                next[cid] = { ...(next[cid] || {}), [activity]: data };
+              });
+              return next;
+            });
+            setModalOpen(false);
+            toast.success(
+              `Bulk ${activity.replace("_", " ")} saved for ${selectedIds.length} children`,
+            );
+          } catch (error) {
+            console.error("Bulk save failed", error);
+            toast.error("Failed to save bulk entry");
+          }
+        }}
       />
     </div>
   );

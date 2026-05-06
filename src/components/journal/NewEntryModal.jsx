@@ -51,7 +51,9 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
   const [wakeTime, setWakeTime] = useState("");
   const [item, setItem] = useState("");
   const [amount, setAmount] = useState("");
-  const [noOfServe, setNoOfServe] = useState("1");
+  const [server, setServer] = useState("1");
+  const [signature, setSignature] = useState("");
+  const [status, setStatus] = useState("wet");
 
   const current = ACTIVITIES.find((a) => a.key === activity);
   const Icon = current.icon;
@@ -94,7 +96,9 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
     setWakeTime("");
     setItem("");
     setAmount("");
-    setNoOfServe("1");
+    setServer("1");
+    setSignature("");
+    setStatus("wet");
   };
 
   const handleSave = () => {
@@ -106,7 +110,9 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
       wakeTime,
       item,
       amount,
-      noOfServe,
+      server,
+      signature,
+      status,
       notes,
     });
     reset();
@@ -324,16 +330,16 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
 
                 {activity === "lunch" && (
                   <div className="space-y-1.5">
-                    <Label>No of Serve</Label>
+                    <Label>No of Serve (Server)</Label>
                     <div className="flex flex-wrap gap-2">
                       {[1, 2, 3, 4, 5].map((val) => (
                         <button
                           key={val}
                           type="button"
-                          onClick={() => setNoOfServe(String(val))}
+                          onClick={() => setServer(String(val))}
                           className={cn(
                             "rounded-full border px-4 py-1.5 text-xs font-medium transition",
-                            noOfServe === String(val)
+                            server === String(val)
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
                           )}
@@ -342,6 +348,40 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
                         </button>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {activity === "toileting" && (
+                  <div className="space-y-1.5">
+                    <Label>Status</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {["wet", "dirty", "dry", "potty", "toilet"].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setStatus(s)}
+                          className={cn(
+                            "rounded-full border px-4 py-1.5 text-xs font-medium capitalize transition",
+                            status === s
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
+                          )}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {["sunscreen", "toileting"].includes(activity) && (
+                  <div className="space-y-1.5">
+                    <Label>Signature (Optional)</Label>
+                    <Input
+                      value={signature}
+                      onChange={(e) => setSignature(e.target.value)}
+                      placeholder="Enter your name"
+                    />
                   </div>
                 )}
 
@@ -373,7 +413,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit }) {
                 )}
 
                 <div className="space-y-1.5">
-                  <Label>Notes</Label>
+                  <Label>Notes (Optional)</Label>
                   <Textarea
                     rows={3}
                     value={notes}

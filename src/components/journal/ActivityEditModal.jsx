@@ -28,9 +28,11 @@ export function ActivityEditModal({
   const [time, setTime] = useState("");
   const [item, setItem] = useState("");
   const [comments, setComments] = useState("");
-  const [noOfServe, setNoOfServe] = useState("1");
+  const [server, setServer] = useState("1");
   const [sleepTime, setSleepTime] = useState("");
   const [wakeTime, setWakeTime] = useState("");
+  const [signature, setSignature] = useState("");
+  const [status, setStatus] = useState("wet");
 
   const key = activityLabel?.toLowerCase().replace(/\s+/g, "_");
 
@@ -39,14 +41,19 @@ export function ActivityEditModal({
       setTime(initial?.time || "");
       setItem(initial?.item || "");
       setComments(initial?.comments || "");
-      setNoOfServe(initial?.noOfServe || "1");
+      setServer(initial?.server || initial?.noOfServe || "1");
       setSleepTime(initial?.sleepTime || "");
       setWakeTime(initial?.wakeTime || "");
+      setSignature(initial?.signature || "");
+      setStatus(initial?.status || "wet");
     }
   }, [open, initial]);
 
   const handleSave = () => {
-    const payload = { comments };
+    const payload = { 
+      comments,
+      ...(initial?.id ? { id: initial.id } : {})
+    };
 
     if (key === "sleep") {
       payload.sleepTime = sleepTime;
@@ -55,14 +62,20 @@ export function ActivityEditModal({
       payload.time = time;
     }
 
-    if (
-      ["breakfast", "lunch", "late_snacks", "bottle"].includes(key)
-    ) {
+    if (["breakfast", "lunch", "late_snacks", "bottle", "sunscreen", "toileting"].includes(key)) {
       payload.item = item;
     }
 
     if (key === "lunch") {
-      payload.noOfServe = noOfServe;
+      payload.server = server;
+    }
+
+    if (["sunscreen", "toileting"].includes(key)) {
+      payload.signature = signature;
+    }
+
+    if (key === "toileting") {
+      payload.status = status;
     }
 
     onSave?.(payload);
@@ -108,21 +121,27 @@ export function ActivityEditModal({
             </div>
           )}
 
-          {["breakfast", "lunch", "late_snacks", "bottle"].includes(key) && (
+          {["breakfast", "lunch", "late_snacks", "bottle", "sunscreen", "toileting"].includes(key) && (
             <div className="space-y-1.5">
-              <Label>Item</Label>
+              <Label>{key === "toileting" ? "Type" : key === "sunscreen" ? "Brand / SPF" : "Item"}</Label>
               <Input
                 value={item}
                 onChange={(e) => setItem(e.target.value)}
-                placeholder="e.g. Toast with butter"
+                placeholder={
+                  key === "bottle"
+                    ? "e.g. 120ml formula"
+                    : key === "sunscreen"
+                    ? "e.g. Cancer Council SPF 50+"
+                    : "e.g. Toast with butter"
+                }
               />
             </div>
           )}
 
           {key === "lunch" && (
             <div className="space-y-1.5">
-              <Label>No of Serve</Label>
-              <Select value={noOfServe} onValueChange={setNoOfServe}>
+              <Label>No of Serve (Server)</Label>
+              <Select value={server} onValueChange={setServer}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select serving size" />
                 </SelectTrigger>
@@ -137,8 +156,37 @@ export function ActivityEditModal({
             </div>
           )}
 
+          {key === "toileting" && (
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {["wet", "dirty", "dry", "potty", "toilet"].map((s) => (
+                    <SelectItem key={s} value={s} className="capitalize">
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {["sunscreen", "toileting"].includes(key) && (
+            <div className="space-y-1.5">
+              <Label>Signature (Optional)</Label>
+              <Input
+                value={signature}
+                onChange={(e) => setSignature(e.target.value)}
+                placeholder="Enter your name"
+              />
+            </div>
+          )}
+
           <div className="space-y-1.5">
-            <Label>Comments</Label>
+            <Label>Comments (Optional)</Label>
             <Textarea
               rows={4}
               value={comments}
