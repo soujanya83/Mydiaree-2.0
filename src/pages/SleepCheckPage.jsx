@@ -31,8 +31,11 @@ import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { sleepChecksService } from "@/services/daily-operations/sleepChecksService";
+import { useEffect } from "react";
 
-// ... constants ...
+const BREATHING_OPTIONS = ["Regular", "Fast", "Difficult"];
+const TEMPERATURE_OPTIONS = ["Normal", "Warm", "Hot"];
 
 export default function SleepCheckPage() {
   const centres = useCentreStore((s) => s.centres);
@@ -48,34 +51,222 @@ export default function SleepCheckPage() {
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState("");
+  const [fetchedChildren, setFetchedChildren] = useState([]);
   const [cards, setCards] = useState({}); // { [childId]: { selected, openEntryId, entries: [] } }
+  const [isFetching, setIsFetching] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const visibleChildren = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const activeRoom = rooms.find((r) => String(r.id) === String(activeRoomId));
-    
-    return children.filter((c) => {
-      if (activeRoom && String(c.room) !== String(activeRoom.name)) return false;
+    return fetchedChildren.filter((c) => {
       if (q && !c.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [children, search, activeRoomId, rooms]);
+  }, [fetchedChildren, search]);
 
   const getCard = (id) =>
     cards[id] ?? { selected: false, openEntryId: null, entries: [] };
 
-  const handleSaveAll = () => {
-    const totalEntries = Object.values(cards).reduce(
-      (n, c) => n + (c.entries?.length || 0),
-      0
-    );
-    if (totalEntries === 0) {
-      toast.error("Add at least one sleep check entry before saving.");
+  const fetchSleepChecks = async () => {
+    if (!activeCentreId || !activeRoomId) return;
+    setIsFetching(true);
+    try {
+      const res = await sleepChecksService.getSleepChecks({
+        centerid: activeCentreId,
+        roomid: activeRoomId,
+        date: date,
+      });
+      if (res.data.status && res.data.children) {
+        setFetchedChildren(res.data.children);
+        const newCards = {};
+        res.data.children.forEach((child) => {
+          newCards[child.id] = {
+            selected: false,
+            openEntryId: null,
+            entries: (child.sleepchecks || []).map((sc) => ({
+              id: sc.id,
+              time: sc.time,
+              breathing: sc.breathing,
+              temperature: sc.body_temperature,
+              notes: sc.notes,
+              signature: sc.signature,
+              isNew: false,
+            })),
+          };
+        });
+        setCards(newCards);
+      }
+    } catch (error) {
+      console.error("Failed to fetch sleep checks", error);
+      toast.error("Failed to load sleep checks");
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSleepChecks();
+  }, [activeCentreId, activeRoomId, date]);
+
+  const formatDateForSave = (dateStr) => {
+    // Convert YYYY-MM-DD to DD-MM-YYYY
+    const [y, m, d] = dateStr.split("-");
+    return `${d}-${m}-${y}`;
+  };
+
+  const toFormData = (payload) => {
+    const fd = new FormData();
+    Object.entries(payload).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) fd.append(k, v);
+    });
+    return fd;
+  };
+
+  const handleSaveSingle = async (childId, entry) => {
+    setIsSaving(true);
+    try {
+      const payload = {
+        childid: childId,
+        diarydate: formatDateForSave(date),
+        roomid: activeRoomId,
+        time: entry.time,
+        breathing: entry.breathing,
+        body_temperature: entry.temperature,
+        notes: entry.notes,
+        signature: entry.signature,
+      };
+
+      let res;
+      if (entry.isNew === false) {
+        payload.id = entry.id;
+        res = await sleepChecksService.updateSleepCheck(toFormData(payload));
+      } else {
+        res = await sleepChecksService.saveSleepCheck(toFormData(payload));
+      }
+
+      if (res.data.status) {
+        toast.success(res.data.message || "Saved successfully");
+        fetchSleepChecks();
+      }
+    } catch (error) {
+      console.error("Save failed", error);
+      toast.error("Failed to save sleep check");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteEntry = async (childId, entryId, isNew) => {
+    if (isNew) {
+      setCards((p) => {
+        const card = { ...p[childId] };
+        card.entries = card.entries.filter((e) => e.id !== entryId);
+        return { ...p, [childId]: card };
+      });
       return;
     }
-    console.log("Saving sleep checks", { date, centreId: activeCentreId, activeRoomId, cards });
-    toast.success(`Saved ${totalEntries} sleep check ${totalEntries === 1 ? "entry" : "entries"}.`);
+
+    if (!window.confirm("Delete this sleep check entry?")) return;
+
+    try {
+      const res = await sleepChecksService.deleteSleepCheck(toFormData({ id: entryId }));
+      if (res.data.status) {
+        toast.success("Entry deleted");
+        fetchSleepChecks();
+      }
+    } catch (error) {
+      console.error("Delete failed", error);
+      toast.error("Failed to delete sleep check");
+    }
   };
+
+  const handleSaveAll = async () => {
+    const newEntries = [];
+    Object.entries(cards).forEach(([childId, card]) => {
+      card.entries.forEach((e) => {
+        if (e.isNew !== false) {
+          newEntries.push({ childId, entry: e });
+        }
+      });
+    });
+
+    if (newEntries.length === 0) {
+      toast.info("No new entries to save.");
+      return;
+    }
+
+    toast.loading("Saving all new entries...", { id: "save-all" });
+    setIsSaving(true);
+    try {
+      for (const item of newEntries) {
+        const payload = {
+          childid: item.childId,
+          diarydate: formatDateForSave(date),
+          roomid: activeRoomId,
+          time: item.entry.time,
+          breathing: item.entry.breathing,
+          body_temperature: item.entry.temperature,
+          notes: item.entry.notes,
+          signature: item.entry.signature,
+        };
+        await sleepChecksService.saveSleepCheck(toFormData(payload));
+      }
+      toast.success("All new entries saved", { id: "save-all" });
+      fetchSleepChecks();
+    } catch (error) {
+      toast.error("Some entries failed to save", { id: "save-all" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const toggleSelect = (childId, selected) => {
+    setCards((p) => {
+      const card = { ...getCard(childId), selected };
+      return { ...p, [childId]: card };
+    });
+  };
+
+  const toggleOpen = (childId, entryId) => {
+    setCards((p) => {
+      const card = { ...getCard(childId) };
+      card.openEntryId = card.openEntryId === entryId ? null : entryId;
+      return { ...p, [childId]: card };
+    });
+  };
+
+  const addEntry = (childId) => {
+    const entry = {
+      id: crypto.randomUUID(),
+      time: nowHHMM(),
+      breathing: "Regular",
+      temperature: "Normal",
+      notes: "",
+      signature: "",
+      isNew: true,
+    };
+    setCards((p) => {
+      const card = { ...getCard(childId) };
+      card.entries = [...card.entries, entry];
+      card.openEntryId = entry.id; // Open it immediately
+      return { ...p, [childId]: card };
+    });
+  };
+
+  const updateEntry = (childId, entryId, patch) => {
+    setCards((p) => {
+      const card = { ...getCard(childId) };
+      card.entries = card.entries.map((e) =>
+        e.id === entryId ? { ...e, ...patch } : e
+      );
+      return { ...p, [childId]: card };
+    });
+  };
+
+  function nowHHMM() {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
 
   return (
     <div>
@@ -137,8 +328,8 @@ export default function SleepCheckPage() {
       </div>
 
       {/* Children list */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">Loading children...</div>
+      {isFetching ? (
+        <div className="py-20 text-center text-muted-foreground">Loading data...</div>
       ) : visibleChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
           No children found in this room.
@@ -222,9 +413,15 @@ export default function SleepCheckPage() {
                             {entry.signature || "—"}
                           </div>
                           <div className="hidden items-center justify-center md:flex">
+                            <span className={cn(
+                              "inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                              entry.isNew === false ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                            )}>
+                              {entry.isNew === false ? "Saved" : "New"}
+                            </span>
                             <ChevronDown
                               className={cn(
-                                "h-4 w-4 text-muted-foreground transition-transform",
+                                "ml-2 h-4 w-4 text-muted-foreground transition-transform",
                                 open && "rotate-180"
                               )}
                             />
@@ -307,17 +504,18 @@ export default function SleepCheckPage() {
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => removeEntry(child.id, entry.id)}
+                                onClick={() => handleDeleteEntry(child.id, entry.id, entry.isNew !== false)}
                               >
                                 <Trash2 className="mr-1.5 h-4 w-4" />
                                 Remove
                               </Button>
                               <Button
                                 size="sm"
-                                onClick={() => toggleOpen(child.id, entry.id)}
+                                onClick={() => handleSaveSingle(child.id, entry)}
+                                disabled={isSaving}
                               >
                                 <Save className="mr-1.5 h-4 w-4" />
-                                Save
+                                {entry.isNew === false ? "Update" : "Save"}
                               </Button>
                             </div>
                           </div>
@@ -343,9 +541,9 @@ export default function SleepCheckPage() {
       {/* Footer */}
       {visibleChildren.length > 0 && (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-border pt-6">
-          <Button onClick={handleSaveAll} className="min-w-[200px]">
+          <Button onClick={handleSaveAll} className="min-w-[200px]" disabled={isSaving}>
             <Save className="mr-1.5 h-4 w-4" />
-            Save All Sleep Checks
+            {isSaving ? "Saving..." : "Save All Sleep Checks"}
           </Button>
         </div>
       )}
