@@ -2,7 +2,6 @@
 // Statuses cycle: not_started -> introduced -> practicing -> completed
 
 export const PROGRESS_STATUSES = [
-  { key: "not_started", label: "Not started", color: "slate" },
   { key: "introduced", label: "Introduced", color: "amber" },
   { key: "practicing", label: "Practicing", color: "sky" },
   { key: "completed", label: "Completed", color: "emerald" },
