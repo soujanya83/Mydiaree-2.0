@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EDUCATOR_POOL } from "@/components/rooms/roomsData";
+import { useRoomStore } from "@/stores/roomStore";
 
 const empty = {
   name: "",
@@ -17,10 +17,12 @@ const empty = {
   fromAge: "",
   toAge: "",
   status: "active",
+  color: "#25176F",
   educatorIds: [],
 };
 
 export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
+  const { roomStaffs, isSubmitting } = useRoomStore();
   const [form, setForm] = useState(empty);
 
   useEffect(() => {
@@ -30,10 +32,11 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
           ? {
               name: initial.name || "",
               capacity: initial.capacity ?? "",
-              fromAge: initial.fromAge ?? "",
-              toAge: initial.toAge ?? "",
+              fromAge: initial.ageFrom ?? initial.fromAge ?? "",
+              toAge: initial.ageTo ?? initial.toAge ?? "",
               status: initial.status || "active",
-              educatorIds: (initial.educators || []).map((e) => e.id),
+              color: initial.color || "#25176F",
+              educatorIds: (initial.educators || []).map((e) => String(e.userid || e.id)),
             }
           : empty
       );
@@ -46,9 +49,9 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
   const toggleEd = (id) =>
     set(
       "educatorIds",
-      form.educatorIds.includes(id)
-        ? form.educatorIds.filter((x) => x !== id)
-        : [...form.educatorIds, id]
+      form.educatorIds.includes(String(id))
+        ? form.educatorIds.filter((x) => x !== String(id))
+        : [...form.educatorIds, String(id)]
     );
 
   const canSubmit =
@@ -59,16 +62,14 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-    const educators = EDUCATOR_POOL.filter((e) =>
-      form.educatorIds.includes(e.id)
-    );
     onSubmit({
       name: form.name.trim(),
       capacity: Number(form.capacity),
-      fromAge: Number(form.fromAge),
-      toAge: Number(form.toAge),
+      ageFrom: Number(form.fromAge),
+      ageTo: Number(form.toAge),
       status: form.status,
-      educators,
+      color: form.color,
+      educatorIds: form.educatorIds,
     });
   };
 
@@ -133,35 +134,55 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Educators">
+          <Field label="Room Color">
+             <div className="flex items-center gap-3">
+               <input 
+                type="color" 
+                value={form.color} 
+                onChange={(e) => set("color", e.target.value)}
+                className="h-10 w-20 cursor-pointer rounded border border-input bg-background p-1"
+               />
+               <Input 
+                value={form.color} 
+                onChange={(e) => set("color", e.target.value)}
+                placeholder="#000000"
+                className="font-mono"
+               />
+             </div>
+          </Field>
+          <Field label="Educators" className="sm:col-span-2">
             <div className="max-h-44 space-y-1.5 overflow-y-auto rounded-md border border-input bg-background p-2">
-              {EDUCATOR_POOL.map((ed) => {
-                const checked = form.educatorIds.includes(ed.id);
-                return (
-                  <label
-                    key={ed.id}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-muted"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleEd(ed.id)}
-                      className="h-4 w-4 accent-primary"
-                    />
-                    <span className="text-sm text-foreground">{ed.name}</span>
-                  </label>
-                );
-              })}
+              {roomStaffs.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">No educators found for this center.</p>
+              ) : (
+                roomStaffs.map((ed) => {
+                  const checked = form.educatorIds.includes(String(ed.staffid));
+                  return (
+                    <label
+                      key={ed.staffid}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-muted"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleEd(ed.staffid)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      <span className="text-sm text-foreground">{ed.name}</span>
+                    </label>
+                  );
+                })
+              )}
             </div>
           </Field>
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button disabled={!canSubmit} onClick={handleSubmit}>
-            Submit
+          <Button disabled={!canSubmit || isSubmitting} onClick={handleSubmit}>
+            {isSubmitting ? "Submitting..." : (initial ? "Update" : "Submit")}
           </Button>
         </div>
       </div>
@@ -169,9 +190,9 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, children, className }) {
   return (
-    <div>
+    <div className={className}>
       <label className="mb-1.5 block text-sm font-semibold text-foreground">
         {label}
       </label>

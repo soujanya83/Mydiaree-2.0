@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,12 +13,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  mockSnapshots,
-  SNAPSHOT_ROOMS,
-  SNAPSHOT_CHILDREN,
-  SNAPSHOT_STAFF,
-} from "@/components/snapshots/snapshotsData";
+import { snapshotService } from "@/services/learning-documentation/snapshotService";
+import { childrenService } from "@/services/childrenService";
+import { useCentreStore } from "@/stores/centreStore";
 import { toast } from "sonner";
 
 export default function SnapshotCreatePage() {
@@ -27,36 +24,128 @@ export default function SnapshotCreatePage() {
   const [search] = useSearchParams();
   const isEdit = Boolean(id);
 
-  const existing = useMemo(
-    () => (isEdit ? mockSnapshots.find((s) => s.id === id) : null),
-    [id, isEdit]
-  );
+  const { activeCentreId } = useCentreStore();
 
-  const initialTitle = existing?.title || search.get("title") || "";
+  const [isLoading, setIsLoading] = useState(false);
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [availableStaff, setAvailableStaff] = useState([]);
+  const [availableChildren, setAvailableChildren] = useState([]);
 
-  const [rooms, setRooms] = useState(existing?.roomIds || []);
-  const [children, setChildren] = useState(existing?.childIds || []);
-  const [staff, setStaff] = useState(existing?.educators || []);
-  const [title, setTitle] = useState(initialTitle);
-  const [details, setDetails] = useState(existing?.details || "");
-  const [media, setMedia] = useState(
-    (existing?.media || []).map((m) => ({ id: m.id, url: m.url, name: "existing", type: "image" }))
-  );
+  const [rooms, setRooms] = useState([]);
+  const [children, setChildren] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [title, setTitle] = useState(search.get("title") || "");
+  const [details, setDetails] = useState("");
+  const [media, setMedia] = useState([]);
+  const [existingMedia, setExistingMedia] = useState([]);
 
-  const [picker, setPicker] = useState(null); // 'rooms' | 'children' | 'staff'
+  const [picker, setPicker] = useState(null);
   const fileInputRef = useRef(null);
 
-  const handleSave = (status) => {
+  // Fetch initial data (rooms, staff)
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (!activeCentreId) return;
+      try {
+        const data = await snapshotService.getRoomsAndStaff(activeCentreId);
+        if (data.status) {
+          setAvailableRooms(data.rooms || []);
+          setAvailableStaff(data.roomStaffs || []);
+        }
+      } catch (error) {
+        console.error("Failed to load rooms and staff:", error);
+      }
+    };
+    loadInitialData();
+  }, [activeCentreId]);
+
+  // Fetch children when rooms change
+  useEffect(() => {
+    const loadChildren = async () => {
+      if (rooms.length === 0) {
+        setAvailableChildren([]);
+        return;
+      }
+      try {
+        const allChildren = [];
+        for (const roomId of rooms) {
+          const res = await childrenService.getChildrenByRoomId(roomId);
+          if (res.status && res.children) {
+            allChildren.push(...res.children);
+          }
+        }
+        // De-duplicate if needed
+        const uniqueChildren = Array.from(new Map(allChildren.map(c => [c.id, c])).values());
+        setAvailableChildren(uniqueChildren);
+      } catch (error) {
+        console.error("Failed to load children:", error);
+      }
+    };
+    loadChildren();
+  }, [rooms]);
+
+  // Fetch existing snapshot if editing
+  useEffect(() => {
+    const loadSnapshot = async () => {
+      if (!isEdit || !id) return;
+      try {
+        // Since list API returns all details, we can find it there or fetch details if there was a detail API
+        // For now finding in list as provided in user request
+        const res = await snapshotService.getAllSnapshots(activeCentreId);
+        const item = res.snapshots?.find(s => String(s.id) === String(id));
+        if (item) {
+          setTitle(item.title.replace(/<[^>]*>/g, ""));
+          setDetails(item.about.replace(/<[^>]*>/g, ""));
+          setRooms((item.rooms || []).map(r => r.id));
+          setStaff((item.educators || "").split(",").filter(Boolean));
+          setChildren((item.children || []).map(c => c.childid));
+          setExistingMedia(item.media || []);
+        }
+      } catch (error) {
+        console.error("Failed to load snapshot:", error);
+      }
+    };
+    loadSnapshot();
+  }, [isEdit, id, activeCentreId]);
+
+  const handleSave = async (status) => {
     if (!title.trim()) {
       toast.error("Please enter a title");
       return;
     }
-    toast.success(
-      isEdit
-        ? `Snapshot updated (${status})`
-        : `Snapshot ${status === "published" ? "published" : "saved as draft"}`
-    );
-    navigate("/snapshots");
+    
+    setIsLoading(true);
+    const formData = new FormData();
+    if (isEdit) formData.append("id", id);
+    formData.append("center_id", activeCentreId);
+    formData.append("selected_rooms", rooms.join(","));
+    formData.append("title", title);
+    formData.append("selected_children", children.join(","));
+    formData.append("selected_staff", staff.join(","));
+    formData.append("about", details);
+    formData.append("status", status === "published" ? "Published" : "Draft");
+
+    // Add new media files
+    media.forEach((m) => {
+      if (m.file) {
+        formData.append("media[]", m.file);
+      }
+    });
+
+    try {
+      const res = await snapshotService.storeSnapshot(formData);
+      if (res.status) {
+        toast.success(isEdit ? "Snapshot updated" : "Snapshot created");
+        navigate("/snapshots");
+      } else {
+        toast.error(res.message || "Failed to save snapshot");
+      }
+    } catch (error) {
+      console.error("Save error:", error);
+      toast.error("An error occurred while saving");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleFiles = (fileList) => {
@@ -74,6 +163,7 @@ export default function SnapshotCreatePage() {
       url: URL.createObjectURL(f),
       name: f.name,
       type: f.type.startsWith("video/") ? "video" : "image",
+      file: f,
     }));
     setMedia((prev) => [...prev, ...newOnes]);
   };
@@ -114,11 +204,10 @@ export default function SnapshotCreatePage() {
         </h2>
       </div>
 
-      {/* Rooms / Children */}
       <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
         <ChipPickerField
           label="Rooms"
-          values={rooms.map((id) => SNAPSHOT_ROOMS.find((r) => r.id === id)?.name || id)}
+          values={rooms.map((rid) => availableRooms.find((r) => String(r.id) === String(rid))?.name || rid)}
           onAdd={() => setPicker("rooms")}
           onRemove={(idx) => setRooms((p) => p.filter((_, i) => i !== idx))}
           chipClass="bg-emerald-500 text-white"
@@ -126,7 +215,7 @@ export default function SnapshotCreatePage() {
         />
         <ChipPickerField
           label="Children"
-          values={children.map((id) => SNAPSHOT_CHILDREN.find((c) => c.id === id)?.name || id)}
+          values={children.map((cid) => availableChildren.find((c) => String(c.id) === String(cid))?.name || cid)}
           onAdd={() => setPicker("children")}
           onRemove={(idx) => setChildren((p) => p.filter((_, i) => i !== idx))}
           chipClass="bg-sky-500 text-white"
@@ -138,7 +227,7 @@ export default function SnapshotCreatePage() {
       <div className="mb-6">
         <ChipPickerField
           label="Educators"
-          values={staff}
+          values={staff.map(sid => availableStaff.find(s => String(s.staffid) === String(sid))?.name || sid)}
           onAdd={() => setPicker("staff")}
           onRemove={(idx) => setStaff((p) => p.filter((_, i) => i !== idx))}
           chipClass="bg-rose-400 text-white"
@@ -204,12 +293,23 @@ export default function SnapshotCreatePage() {
             </p>
           </div>
 
-          {media.length > 0 && (
+          { (existingMedia.length > 0 || media.length > 0) && (
             <div className="mt-6">
               <h4 className="mb-3 text-sm font-semibold text-foreground">
-                Uploaded Images/Videos ({media.length}/10)
+                Images/Videos ({existingMedia.length + media.length}/10)
               </h4>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {existingMedia.map((m) => (
+                  <div key={m.id} className="group relative overflow-hidden rounded-lg border border-border bg-muted/30">
+                    <div className="aspect-video w-full">
+                      <img 
+                        src={`https://mydiaree.com.au/${m.mediaUrl}`} 
+                        alt="existing" 
+                        className="h-full w-full object-cover" 
+                      />
+                    </div>
+                  </div>
+                ))}
                 {media.map((m) => (
                   <div
                     key={m.id}
@@ -248,19 +348,30 @@ export default function SnapshotCreatePage() {
       {/* Footer actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <div className="flex items-center gap-2">
-          <Button onClick={() => handleSave("draft")} className="bg-slate-700 text-white hover:bg-slate-800">
-            <FileText className="mr-1.5 h-4 w-4" /> Make Draft
+          <Button 
+            onClick={() => handleSave("draft")} 
+            className="bg-slate-700 text-white hover:bg-slate-800"
+            disabled={isLoading}
+          >
+            <FileText className="mr-1.5 h-4 w-4" /> {isLoading ? "Saving..." : "Make Draft"}
           </Button>
-          <Button onClick={() => handleSave("published")} className="bg-emerald-600 hover:bg-emerald-700">
-            <Save className="mr-1.5 h-4 w-4" /> Publish Now
+          <Button 
+            onClick={() => handleSave("published")} 
+            className="bg-emerald-600 hover:bg-emerald-700"
+            disabled={isLoading}
+          >
+            <Save className="mr-1.5 h-4 w-4" /> {isLoading ? "Publishing..." : "Publish Now"}
           </Button>
         </div>
-        <Button onClick={() => handleSave("draft")} className="bg-emerald-600 hover:bg-emerald-700">
-          Submit <ArrowRight className="ml-1.5 h-4 w-4" />
+        <Button 
+          onClick={() => handleSave("draft")} 
+          className="bg-emerald-600 hover:bg-emerald-700"
+          disabled={isLoading}
+        >
+          {isLoading ? "Submitting..." : "Submit"} <ArrowRight className="ml-1.5 h-4 w-4" />
         </Button>
       </div>
 
-      {/* Picker modal */}
       {picker && (
         <PickerModal
           title={
@@ -269,10 +380,10 @@ export default function SnapshotCreatePage() {
           }
           options={
             picker === "rooms"
-              ? SNAPSHOT_ROOMS.map((r) => ({ value: r.id, label: r.name }))
+              ? availableRooms.map((r) => ({ value: r.id, label: r.name }))
               : picker === "children"
-              ? SNAPSHOT_CHILDREN.map((c) => ({ value: c.id, label: c.name }))
-              : SNAPSHOT_STAFF.map((s) => ({ value: s, label: s }))
+              ? availableChildren.map((c) => ({ value: c.id, label: c.name }))
+              : availableStaff.map((s) => ({ value: s.staffid, label: s.name }))
           }
           selected={
             picker === "rooms" ? rooms :

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -9,26 +9,16 @@ import {
   X,
   Search,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useRoomStore } from "@/stores/roomStore";
-import { useChildrenStore } from "@/stores/childrenStore";
-import { mockReflections } from "@/components/reflection/reflectionsData";
+import { useCentreStore } from "@/stores/centreStore";
+import { childrenService } from "@/services/childrenService";
+import { reflectionService } from "@/services/learning-documentation/reflectionService";
+import { DailyReflectionEylfModal } from "@/components/reflection/DailyReflectionEylfModal";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-
-const EYLF_OUTCOMES = [
-  "Outcome 1 - 1.1 Children feel safe, secure, and supported",
-  "Outcome 1 - 1.2 Children develop their emerging autonomy",
-  "Outcome 2 - 2.1 Children develop a sense of belonging",
-  "Outcome 3 - 3.1 Children become strong in their wellbeing",
-  "Outcome 4 - 4.1 Children develop dispositions for learning",
-  "Outcome 5 - 5.1 Children interact verbally and non-verbally",
-];
-
-const STAFF = ["testtt 2", "Sarah Lee", "Mia Chen", "Daniel Park", "Priya Nair"];
 
 export default function DailyReflectionCreatePage() {
   const navigate = useNavigate();
@@ -36,42 +26,155 @@ export default function DailyReflectionCreatePage() {
   const [search] = useSearchParams();
   const isEdit = Boolean(id);
 
-  const { rooms: allRooms } = useRoomStore();
-  const { children: allChildren } = useChildrenStore();
+  const { activeCentreId } = useCentreStore();
 
-  const existing = useMemo(
-    () => (isEdit ? mockReflections.find((r) => r.id === id) : null),
-    [id, isEdit]
-  );
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const initialTitle = existing?.title || search.get("title") || "";
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [availableStaff, setAvailableStaff] = useState([]);
+  const [availableChildren, setAvailableChildren] = useState([]);
 
-  const [rooms, setRooms] = useState(existing?.roomIds || []);
-  const [children, setChildren] = useState(existing?.childIds || []);
-  const [staff, setStaff] = useState(existing?.educators || []);
-  const [eylf, setEylf] = useState(existing?.eylf || []);
-  const [title, setTitle] = useState(initialTitle);
-  const [reflection, setReflection] = useState(existing?.reflection || "");
+  const [rooms, setRooms] = useState([]);
+  const [children, setChildren] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [eylf, setEylf] = useState([]);
+  const [title, setTitle] = useState(search.get("title") || "");
+  const [reflection, setReflection] = useState("");
+  const [media, setMedia] = useState([]);
 
   const [picker, setPicker] = useState(null); // 'rooms' | 'children' | 'staff' | 'eylf'
 
-  const handleSave = (status) => {
+  useEffect(() => {
+    const loadInitialData = async () => {
+      if (!activeCentreId) return;
+      setIsLoadingData(true);
+      try {
+        const data = await reflectionService.getRoomsAndStaff(activeCentreId);
+        if (data.status) {
+          setAvailableRooms(data.rooms || data.data?.rooms || []);
+          setAvailableStaff(
+            data.roomStaffs || data.staff || data.data?.roomStaffs || data.data?.staff || [],
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load rooms and staff:", error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadInitialData();
+  }, [activeCentreId]);
+
+  useEffect(() => {
+    const loadReflection = async () => {
+      if (!isEdit || !id || !activeCentreId) return;
+      try {
+        const reflRes = await reflectionService.getAllReflections(activeCentreId);
+        const existing = reflRes.data?.reflection?.data?.find((r) => String(r.id) === String(id));
+        if (existing) {
+          setTitle(existing.title?.replace(/<[^>]*>/g, "") || "");
+          setReflection(existing.about?.replace(/<[^>]*>/g, "") || "");
+          setRooms(existing.roomids ? String(existing.roomids).split(",").filter(Boolean) : []);
+          setStaff(existing.staff?.map((s) => String(s.staffid)) || []);
+          setChildren(existing.children?.map((c) => String(c.childid)) || []);
+          setEylf(existing.eylf ? String(existing.eylf).split(/\r?\n/).filter(Boolean) : []);
+        }
+      } catch (error) {
+        console.error("Failed to load reflection:", error);
+      }
+    };
+
+    loadReflection();
+  }, [isEdit, id, activeCentreId]);
+
+  useEffect(() => {
+    const loadChildren = async () => {
+      if (rooms.length === 0) {
+        setAvailableChildren([]);
+        setChildren([]);
+        return;
+      }
+
+      try {
+        const allChildren = [];
+        for (const roomId of rooms) {
+          const res = await childrenService.getChildrenByRoomId(roomId);
+          const childrenRows = res.children || res.data || [];
+          if (res.status && childrenRows.length > 0) {
+            allChildren.push(...childrenRows);
+          }
+        }
+
+        const uniqueChildren = Array.from(
+          new Map(allChildren.map((child) => [child.id, child])).values(),
+        );
+        setAvailableChildren(uniqueChildren);
+        setChildren((selected) =>
+          selected.filter((childId) =>
+            uniqueChildren.some((child) => String(child.id) === String(childId)),
+          ),
+        );
+      } catch (error) {
+        console.error("Failed to load children:", error);
+      }
+    };
+
+    loadChildren();
+  }, [rooms]);
+
+  const handleSave = async (status) => {
     if (!title.trim()) {
       toast.error("Please enter a title");
       return;
     }
-    toast.success(
-      isEdit
-        ? `Reflection updated (${status})`
-        : `Reflection ${status === "published" ? "published" : "saved as draft"}`
-    );
-    navigate("/daily-reflections");
+    setIsSaving(true);
+    try {
+      const formData = new FormData();
+      if (isEdit) formData.append("id", id);
+      formData.append("center_id", activeCentreId);
+      formData.append("title", title);
+      formData.append("about", reflection);
+      formData.append("status", status.toUpperCase());
+      formData.append("selected_rooms", rooms.join(","));
+      formData.append("selected_children", children.join(","));
+      formData.append("selected_staff", staff.join(","));
+      formData.append("eylf", eylf.join("\r\n"));
+
+      media.forEach((file) => {
+        formData.append("media[]", file);
+      });
+
+      const res = await reflectionService.storeReflection(formData);
+      if (res.status) {
+        toast.success(isEdit ? "Reflection updated" : "Reflection stored");
+        navigate("/daily-reflections");
+      } else {
+        toast.error(res.message || "Failed to save");
+      }
+    } catch (err) {
+      console.error("Save error:", err);
+      toast.error("An error occurred");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const childName =
     children.length > 0
-      ? allChildren.find((c) => String(c.id) === String(children[0]))?.name?.toUpperCase() || ""
+      ? availableChildren.find((c) => String(c.id) === String(children[0]))?.name?.toUpperCase() ||
+        ""
       : "";
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    if (media.length + files.length > 10) {
+      toast.error("Maximum 10 files allowed");
+      return;
+    }
+    setMedia((prev) => [...prev, ...files]);
+  };
 
   return (
     <div>
@@ -82,7 +185,9 @@ export default function DailyReflectionCreatePage() {
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Back
           </Button>
           <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Link to="/daily-reflections" className="hover:text-foreground">Reflection</Link>
+            <Link to="/daily-reflections" className="hover:text-foreground">
+              Reflection
+            </Link>
             <span>/</span>
             <span className="text-foreground">{isEdit ? "Edit" : "Store"}</span>
           </nav>
@@ -95,11 +200,29 @@ export default function DailyReflectionCreatePage() {
               {childName || "—"}
             </span>
           </div>
-          <Button onClick={() => handleSave("published")} className="bg-emerald-600 hover:bg-emerald-700">
-            <Save className="mr-1.5 h-4 w-4" /> Publish Now
+          <Button
+            onClick={() => handleSave("published")}
+            disabled={isSaving}
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
+            {isSaving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-1.5 h-4 w-4" />
+            )}
+            Publish Now
           </Button>
-          <Button onClick={() => handleSave("draft")} className="bg-amber-500 text-amber-950 hover:bg-amber-600">
-            <FileText className="mr-1.5 h-4 w-4" /> Make Draft
+          <Button
+            onClick={() => handleSave("draft")}
+            disabled={isSaving}
+            className="bg-amber-500 text-amber-950 hover:bg-amber-600"
+          >
+            {isSaving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-1.5 h-4 w-4" />
+            )}
+            Make Draft
           </Button>
         </div>
       </div>
@@ -116,7 +239,9 @@ export default function DailyReflectionCreatePage() {
         <ChipPickerField
           label="Rooms"
           colour="emerald"
-          values={rooms.map((id) => allRooms.find((r) => String(r.id) === String(id))?.name || id)}
+          values={rooms.map(
+            (rid) => availableRooms.find((r) => String(r.id) === String(rid))?.name || rid,
+          )}
           onAdd={() => setPicker("rooms")}
           onRemove={(idx) => setRooms((p) => p.filter((_, i) => i !== idx))}
           chipClass="bg-emerald-500 text-white"
@@ -125,7 +250,9 @@ export default function DailyReflectionCreatePage() {
         <ChipPickerField
           label="Children"
           colour="sky"
-          values={children.map((id) => allChildren.find((c) => String(c.id) === String(id))?.name || id)}
+          values={children.map(
+            (cid) => availableChildren.find((c) => String(c.id) === String(cid))?.name || cid,
+          )}
           onAdd={() => setPicker("children")}
           onRemove={(idx) => setChildren((p) => p.filter((_, i) => i !== idx))}
           chipClass="bg-sky-500 text-white"
@@ -138,11 +265,14 @@ export default function DailyReflectionCreatePage() {
         <ChipPickerField
           label="Staff"
           colour="rose"
-          values={staff}
+          values={staff.map(
+            (sid) =>
+              availableStaff.find((s) => String(s.staffid ?? s.id) === String(sid))?.name || sid,
+          )}
           onAdd={() => setPicker("staff")}
           onRemove={(idx) => setStaff((p) => p.filter((_, i) => i !== idx))}
           chipClass="bg-rose-400 text-white"
-          buttonClass="border-sky-500 text-sky-600"
+          buttonClass="border-rose-500 text-rose-600"
         />
       </div>
 
@@ -179,13 +309,23 @@ export default function DailyReflectionCreatePage() {
       </div>
 
       {/* Title / Reflection */}
-      <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-6">
         <FormBlock label="Title">
-          <Textarea value={title} onChange={(e) => setTitle(e.target.value)} rows={3} />
+          <Textarea
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            rows={3}
+            placeholder="Enter title…"
+          />
           <RefineButton />
         </FormBlock>
         <FormBlock label="Reflection">
-          <Textarea value={reflection} onChange={(e) => setReflection(e.target.value)} rows={3} />
+          <Textarea
+            value={reflection}
+            onChange={(e) => setReflection(e.target.value)}
+            rows={3}
+            placeholder="Enter reflection…"
+          />
           <RefineButton />
         </FormBlock>
       </div>
@@ -194,9 +334,39 @@ export default function DailyReflectionCreatePage() {
       <div className="mb-6">
         <h3 className="mb-2 text-base font-bold text-foreground">Media Upload Section</h3>
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 px-6 py-10">
-          <Button variant="outline" className="border-sky-500/40 text-sky-700">
+          <input
+            type="file"
+            id="media-upload"
+            multiple
+            accept="image/*,video/*"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <Button
+            variant="outline"
+            className="border-sky-500/40 text-sky-700"
+            onClick={() => document.getElementById("media-upload").click()}
+          >
             <ImageIcon className="mr-1.5 h-4 w-4" /> Select up to 10 Images/Videos
           </Button>
+          {media.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {media.map((file, i) => (
+                <div
+                  key={i}
+                  className="group relative h-16 w-16 overflow-hidden rounded-md border border-border"
+                >
+                  <img src={URL.createObjectURL(file)} className="h-full w-full object-cover" />
+                  <button
+                    onClick={() => setMedia((prev) => prev.filter((_, j) => j !== i))}
+                    className="absolute right-0 top-0 hidden bg-rose-500 p-0.5 text-white group-hover:block"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <p className="mt-2 text-xs text-muted-foreground">
             Only images and videos are allowed. Max 10 files.
           </p>
@@ -206,10 +376,16 @@ export default function DailyReflectionCreatePage() {
       {/* Footer actions */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <div className="flex items-center gap-2">
-          <Button onClick={() => handleSave("draft")} className="bg-slate-700 text-white hover:bg-slate-800">
+          <Button
+            onClick={() => handleSave("draft")}
+            className="bg-slate-700 text-white hover:bg-slate-800"
+          >
             <FileText className="mr-1.5 h-4 w-4" /> Make Draft
           </Button>
-          <Button onClick={() => handleSave("published")} className="bg-emerald-600 hover:bg-emerald-700">
+          <Button
+            onClick={() => handleSave("published")}
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
             <Save className="mr-1.5 h-4 w-4" /> Publish Now
           </Button>
         </div>
@@ -219,36 +395,46 @@ export default function DailyReflectionCreatePage() {
       </div>
 
       {/* Picker modal */}
-      {picker && (
-        <PickerModal
-          title={
-            picker === "rooms" ? "Select Rooms" :
-            picker === "children" ? "Select Children" :
-            picker === "staff" ? "Select Staff" : "Select EYLF Outcomes"
-          }
-          options={
-            picker === "rooms"
-              ? allRooms.map((r) => ({ value: r.id, label: r.name }))
-              : picker === "children"
-              ? allChildren.map((c) => ({ value: c.id, label: c.name }))
-              : picker === "staff"
-              ? STAFF.map((s) => ({ value: s, label: s }))
-              : EYLF_OUTCOMES.map((o) => ({ value: o, label: o }))
-          }
-          selected={
-            picker === "rooms" ? rooms :
-            picker === "children" ? children :
-            picker === "staff" ? staff : eylf
-          }
+      {picker === "eylf" ? (
+        <DailyReflectionEylfModal
+          open={true}
+          selected={eylf}
           onClose={() => setPicker(null)}
           onSave={(vals) => {
-            if (picker === "rooms") setRooms(vals);
-            else if (picker === "children") setChildren(vals);
-            else if (picker === "staff") setStaff(vals);
-            else setEylf(vals);
+            setEylf(vals);
             setPicker(null);
           }}
         />
+      ) : (
+        picker && (
+          <PickerModal
+            title={
+              picker === "rooms"
+                ? "Select Rooms"
+                : picker === "children"
+                  ? "Select Children"
+                  : "Select Staff"
+            }
+            options={
+              picker === "rooms"
+                ? availableRooms.map((r) => ({ value: String(r.id), label: r.name }))
+                : picker === "children"
+                  ? availableChildren.map((c) => ({ value: String(c.id), label: c.name }))
+                  : availableStaff.map((s) => ({
+                      value: String(s.staffid ?? s.id),
+                      label: s.name,
+                    }))
+            }
+            selected={picker === "rooms" ? rooms : picker === "children" ? children : staff}
+            onClose={() => setPicker(null)}
+            onSave={(vals) => {
+              if (picker === "rooms") setRooms(vals);
+              else if (picker === "children") setChildren(vals);
+              else setStaff(vals);
+              setPicker(null);
+            }}
+          />
+        )
       )}
     </div>
   );
@@ -313,7 +499,8 @@ function PickerModal({ title, options, selected, onClose, onSave }) {
   const toggle = (v) => {
     setChosen((prev) => {
       const next = new Set(prev);
-      if (next.has(v)) next.delete(v); else next.add(v);
+      if (next.has(v)) next.delete(v);
+      else next.add(v);
       return next;
     });
   };
@@ -322,7 +509,10 @@ function PickerModal({ title, options, selected, onClose, onSave }) {
       <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-lg font-bold text-foreground">{title}</h2>
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted">
+          <button
+            onClick={onClose}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -334,7 +524,9 @@ function PickerModal({ title, options, selected, onClose, onSave }) {
                 <label
                   key={o.value}
                   className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${
-                    checked ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30" : "border-border hover:bg-muted/50"
+                    checked
+                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30"
+                      : "border-border hover:bg-muted/50"
                   }`}
                 >
                   <input
@@ -350,8 +542,13 @@ function PickerModal({ title, options, selected, onClose, onSave }) {
           </div>
         </div>
         <div className="flex justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSave(Array.from(chosen))} className="bg-emerald-600 hover:bg-emerald-700">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => onSave(Array.from(chosen))}
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
             Save
           </Button>
         </div>

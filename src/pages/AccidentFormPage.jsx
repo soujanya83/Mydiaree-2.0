@@ -213,26 +213,155 @@ export default function AccidentFormPage() {
     return records.filter((r) => r.childName.toLowerCase().includes(q));
   }, [records, search]);
 
-  const handleCreate = (data) => {
-    const id = crypto.randomUUID();
-    setRecords((p) => [
-      { id, ...data, createdAt: new Date().toISOString().slice(0, 10) },
-      ...p,
-    ]);
-    toast.success("Accident record created.");
-    setMode({ view: "list" });
+  const mapToApiPayload = (data) => {
+    const payload = {
+      centerid: activeCentreId,
+      roomid: activeRoomId,
+      childid: data.childId,
+      child_name: children.find(c => String(c.id) === String(data.childId))?.name || data.childName || "",
+      child_dob: data.childDob,
+      child_age: data.childAge,
+      gender: data.childGender?.toLowerCase(),
+      person_name: data.recorderName,
+      person_role: data.recorderPosition,
+      date: data.recordDate,
+      time: data.recordTime,
+      incident_date: data.incidentDate,
+      incident_time: data.incidentTime,
+      incident_location: data.serviceLocation,
+      location_of_incident: data.incidentLocation,
+      witness_name: data.witnessName,
+      witness_date: data.witnessDate,
+      gen_actyvt: data.details,
+      cause: data.circumstances,
+      missing_unaccounted: data.missingCircumstances,
+      taken_removed: data.removedCircumstances,
+      action_taken: data.actionDetails,
+      med_attention_details: data.yesDetails,
+      prevention_step_1: data.preventionSteps,
+      emrg_serv_attend: data.emergencyAttended === "yes" ? "yes" : "no",
+      med_attention: data.medicalSought === "yes" ? "yes" : "no",
+      
+      parent1_name: data.parentName,
+      contact1_date: data.parentDate,
+      contact1_time: data.parentTime,
+      
+      responsible_person_name: data.directorName,
+      nsv_date: data.directorDate,
+      nsv_time: data.directorTime,
+
+      otheragency: data.otherAgency,
+      enor_date: data.otherAgencyDate,
+      enor_time: data.otherAgencyTime,
+
+      regulatoryauthority: data.regulatoryAuthority,
+      enra_date: data.regDate,
+      enra_time: data.regTime,
+
+      ack_parent_name: data.ackName,
+      ack_date: data.ackDate,
+      ack_time: data.ackTime,
+
+      add_notes: data.additionalNotes,
+      person_sign: data.recorderSignature,
+      witness_sign: data.witnessSignature,
+      final_sign: data.finalSignature,
+    };
+
+    const natureMap = {
+      "Abrasion / Scrape": "abrasion",
+      "Allergic Reaction": "allergic_reaction",
+      "Amputation": "amputation",
+      "Anaphylaxis": "anaphylaxis",
+      "Asthma / Respiratory": "asthma",
+      "Bite Wound": "bite_wound",
+      "Broken Bone / Fracture / Dislocation": "broken_bone",
+      "Burn / Sunburn": "burn",
+      "Choking": "choking",
+      "Concussion": "concussion",
+      "Crush / Jam": "crush",
+      "Cut / Open Wound": "cut",
+      "Drowning (Nonfatal)": "drowning",
+      "Eye Injury": "eye_injury",
+      "Electric Shock": "electric_shock",
+      "High Temperature": "high_temperature",
+      "Infectious Disease": "infectious_disease",
+      "Ingestion / Inhalation / Insertion": "ingestion",
+      "Internal Injury / Infection": "internal_injury",
+      "Poisoning": "poisoning",
+      "Rash": "rash",
+      "Respiratory": "respiratory",
+      "Seizure / Unconscious / Convulsion": "seizure",
+      "Sprain / Swelling": "sprain",
+      "Stabbing / Piercing": "stabbing",
+      "Tooth": "tooth",
+      "Venomous Bite / Sting": "venomous_bite",
+      "Other (Please specify)": "other"
+    };
+
+    Object.keys(natureMap).forEach(label => {
+      if (data.natures?.includes(label)) {
+        payload[natureMap[label]] = "1";
+      } else {
+        payload[natureMap[label]] = "0";
+      }
+    });
+
+    if (mode.id) {
+      payload.id = mode.id;
+    }
+
+    return payload;
   };
 
-  const handleUpdate = (data) => {
-    setRecords((p) => p.map((r) => (r.id === mode.id ? { ...r, ...data } : r)));
-    toast.success("Accident record updated.");
-    setMode({ view: "list" });
+  const handleCreate = async (data) => {
+    try {
+      const payload = mapToApiPayload(data);
+      const res = await accidentService.saveAccident(toFormData(payload));
+      if (res.data.status) {
+        toast.success("Accident record created.");
+        fetchAccidents();
+        setMode({ view: "list" });
+      } else {
+        toast.error(res.data.message || "Failed to create record");
+      }
+    } catch (error) {
+      console.error("Failed to create accident", error);
+      toast.error("Failed to create accident record");
+    }
   };
 
-  const handleDelete = () => {
-    setRecords((p) => p.filter((r) => r.id !== confirmId));
-    toast.success("Record deleted.");
-    setConfirmId(null);
+  const handleUpdate = async (data) => {
+    try {
+      const payload = mapToApiPayload(data);
+      const res = await accidentService.saveAccident(toFormData(payload));
+      if (res.data.status) {
+        toast.success("Accident record updated.");
+        fetchAccidents();
+        setMode({ view: "list" });
+      } else {
+        toast.error(res.data.message || "Failed to update record");
+      }
+    } catch (error) {
+      console.error("Failed to update accident", error);
+      toast.error("Failed to update accident record");
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      const res = await accidentService.deleteAccident(toFormData({ id: confirmId }));
+      if (res.data.status) {
+        toast.success("Record deleted.");
+        fetchAccidents();
+        setConfirmId(null);
+      } else {
+        toast.error(res.data.message || "Failed to delete record");
+      }
+    } catch (error) {
+      console.error("Failed to delete accident", error);
+      toast.error("Failed to delete record");
+    }
   };
 
   // Form views

@@ -6,8 +6,10 @@ export const useRoomStore = create(
   persist(
     (set, get) => ({
       rooms: [],
+      roomStaffs: [],
       activeRoomId: null,
       isLoading: false,
+      isSubmitting: false,
       error: null,
 
       setActiveRoom: (id) => set({ activeRoomId: id }),
@@ -16,20 +18,37 @@ export const useRoomStore = create(
         if (!centerId) return;
         set({ isLoading: true, error: null });
         try {
-          const response = await roomService.getRoomsByCenterId(centerId);
+          const response = await roomService.fetchRooms(centerId);
           if (response.status && response.rooms) {
-            const newRooms = response.rooms;
+            const newRooms = response.rooms.map((r) => ({
+              ...r,
+              id: r.id || r.roomid,
+              centerid: r.centerid,
+              ageFrom: r.ageFrom,
+              ageTo: r.ageTo,
+              educators: (r.educators || []).filter((e) => e.userid != null),
+              children: r.children || [],
+            }));
+
+            const staffList = (response.roomStaffs || []).map((s) => ({
+              staffid: String(s.staffid),
+              name: s.name,
+            }));
+
             const currentActiveId = get().activeRoomId;
-            
-            set({ 
-              rooms: newRooms, 
-              isLoading: false 
+
+            set({
+              rooms: newRooms,
+              roomStaffs: staffList,
+              isLoading: false,
             });
 
             // If current active room exists in the new list, keep it.
             // Otherwise, default to the first room if available.
-            const roomStillExists = newRooms.some(r => String(r.id) === String(currentActiveId));
-            
+            const roomStillExists = newRooms.some(
+              (r) => String(r.id) === String(currentActiveId)
+            );
+
             if (roomStillExists && currentActiveId) {
               // Keep current active room
             } else if (newRooms.length > 0) {
@@ -38,13 +57,51 @@ export const useRoomStore = create(
               set({ activeRoomId: null });
             }
           } else {
-            set({ rooms: [], isLoading: false, error: "Failed to fetch rooms" });
+            set({ rooms: [], roomStaffs: [], isLoading: false, error: "Failed to fetch rooms" });
           }
         } catch (error) {
-          set({ 
-            isLoading: false, 
-            error: error?.response?.data?.message || "Something went wrong" 
+          set({
+            isLoading: false,
+            error: error?.response?.data?.message || "Something went wrong",
           });
+        }
+      },
+
+      createRoom: async (payload) => {
+        set({ isSubmitting: true, error: null });
+        try {
+          const response = await roomService.createRoom(payload);
+          if (response.status) {
+            // Re-fetch rooms list to get updated data
+            await get().fetchRooms(payload.centerId);
+          }
+          set({ isSubmitting: false });
+          return response;
+        } catch (error) {
+          set({
+            isSubmitting: false,
+            error: error?.response?.data?.message || "Failed to create room",
+          });
+          throw error;
+        }
+      },
+
+      bulkDeleteRooms: async (roomIds, centerId) => {
+        set({ isSubmitting: true, error: null });
+        try {
+          const response = await roomService.bulkDeleteRooms(roomIds);
+          if (response.status) {
+            // Re-fetch rooms list to get updated data
+            await get().fetchRooms(centerId);
+          }
+          set({ isSubmitting: false });
+          return response;
+        } catch (error) {
+          set({
+            isSubmitting: false,
+            error: error?.response?.data?.message || "Failed to delete rooms",
+          });
+          throw error;
         }
       },
     }),

@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   Building2,
   Plus,
@@ -29,14 +30,15 @@ import {
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
+import { snapshotService } from "@/services/learning-documentation/snapshotService";
 import {
-  mockSnapshots,
   STATUS_FILTERS,
   DATE_FILTERS,
   AUTHORS,
   inDateRange,
 } from "@/components/snapshots/snapshotsData";
 import { NewSnapshotTitleModal } from "@/components/snapshots/NewSnapshotTitleModal";
+import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 
 const PAGE_SIZE = 12;
 
@@ -44,7 +46,8 @@ export default function SnapshotsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { children, isLoading } = useChildrenStore();
+  const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
+  const [items, setItems] = useState([]);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [titleModalOpen, setTitleModalOpen] = useState(false);
@@ -54,16 +57,51 @@ export default function SnapshotsPage() {
   const [author, setAuthor] = useState("all");
   const [childId, setChildId] = useState("all");
   const [page, setPage] = useState(1);
-  const [items, setItems] = useState(mockSnapshots);
+
+  const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const fetchSnapshots = async () => {
+    if (!activeCentreId) return;
+    setIsLoadingSnapshots(true);
+    try {
+      const response = await snapshotService.getAllSnapshots(activeCentreId);
+      if (response.status) {
+        setItems(response.snapshots || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch snapshots:", error);
+    } finally {
+      setIsLoadingSnapshots(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSnapshots();
+  }, [activeCentreId]);
+
+  const authors = useMemo(() => {
+    const set = new Set(items.map(s => s.creator?.name).filter(Boolean));
+    return Array.from(set);
+  }, [items]);
 
   const filtered = useMemo(() => {
     return items.filter((s) => {
-      if (s.centreId !== activeCentreId) return false;
-      if (status !== "all" && s.status !== status) return false;
-      if (author !== "all" && s.author !== author) return false;
-      if (childId !== "all" && !(s.childIds || []).includes(childId)) return false;
-      if (!inDateRange(s.createdAt, dateRange)) return false;
-      if (search && !s.title.toLowerCase().includes(search.toLowerCase())) return false;
+      // API already filters by centerId, but we double check
+      if (activeCentreId && String(s.centerid) !== String(activeCentreId)) return false;
+      
+      if (status !== "all" && s.status.toLowerCase() !== status.toLowerCase()) return false;
+      // Author in API is creator.name
+      if (author !== "all" && s.creator?.name !== author) return false;
+      // Child filtering
+      if (childId !== "all") {
+        const hasChild = s.children?.some(c => String(c.childid) === String(childId));
+        if (!hasChild) return false;
+      }
+      if (!inDateRange(s.created_at, dateRange)) return false;
+      
+      const cleanTitle = (s.title || "").replace(/<[^>]*>/g, "");
+      if (search && !cleanTitle.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
   }, [items, activeCentreId, status, author, childId, dateRange, search]);
@@ -77,9 +115,24 @@ export default function SnapshotsPage() {
     navigate(`/snapshots/create?title=${encodeURIComponent(title)}`);
   };
 
-  const handleDelete = (id) => {
-    if (!window.confirm("Delete this snapshot?")) return;
-    setItems((prev) => prev.filter((s) => s.id !== id));
+  const handleDelete = async () => {
+    if (!deleteModal.id) return;
+    setIsDeleting(true);
+    try {
+      const res = await snapshotService.deleteSnapshot(deleteModal.id);
+      if (res.status) {
+        toast.success("Snapshot deleted successfully");
+        setItems((prev) => prev.filter((s) => s.id !== deleteModal.id));
+        setDeleteModal({ open: false, id: null });
+      } else {
+        toast.error(res.message || "Failed to delete snapshot");
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("An error occurred while deleting");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const activeCentre = centres.find((c) => c.id === activeCentreId);
@@ -197,7 +250,7 @@ export default function SnapshotsPage() {
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All authors</SelectItem>
-                  {AUTHORS.map((a) => (
+                  {authors.map((a) => (
                     <SelectItem key={a} value={a}>{a}</SelectItem>
                   ))}
                 </SelectContent>
@@ -219,7 +272,11 @@ export default function SnapshotsPage() {
         </div>
       )}
 
-      {pageItems.length === 0 ? (
+      {isLoadingSnapshots ? (
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+        </div>
+      ) : pageItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
           <Camera className="mb-3 h-10 w-10 text-muted-foreground/50" />
           <h3 className="text-base font-semibold text-foreground">No snapshots found</h3>
@@ -236,7 +293,7 @@ export default function SnapshotsPage() {
             <SnapshotCard
               key={s.id}
               snap={s}
-              onDelete={() => handleDelete(s.id)}
+              onDelete={() => setDeleteModal({ open: true, id: s.id })}
               onEdit={() => navigate(`/snapshots/${s.id}/edit`)}
               onOpen={() => navigate(`/snapshots/${s.id}`)}
             />
@@ -281,67 +338,125 @@ export default function SnapshotsPage() {
         onClose={() => setTitleModalOpen(false)}
         onSubmit={handleSubmitTitle}
       />
+
+      <DeleteConfirmationModal
+        open={deleteModal.open}
+        isLoading={isDeleting}
+        onClose={() => setDeleteModal({ open: false, id: null })}
+        onConfirm={handleDelete}
+        title="Delete Snapshot?"
+        description="This will permanently remove this snapshot and its shared media. Families will no longer be able to view it."
+      />
     </div>
   );
 }
 
 function SnapshotCard({ snap, onDelete, onEdit, onOpen }) {
   const images = snap.media || [];
-  const cover = images[0];
-  const childTags = snap.childTags || [];
-  const roomTags = snap.roomTags || [];
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentIdx((prev) => (prev + 1) % images.length);
+    }, 3000); // Change image every 3 seconds
+    return () => clearInterval(interval);
+  }, [images.length]);
+
+  const cover = images[currentIdx];
+  const childTags = snap.children || [];
+  const roomTags = snap.rooms || [];
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
       {/* Header strip */}
       <div className="flex items-center justify-between bg-emerald-500/80 px-4 py-2.5 text-white">
-        <h3 className="truncate text-sm font-bold">{snap.title}</h3>
+        <h3 className="truncate text-sm font-bold" dangerouslySetInnerHTML={{ __html: snap.title }}></h3>
         <span className="rounded-full bg-emerald-200/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
           {snap.status}
         </span>
       </div>
 
-      {/* Image */}
-      <button
-        type="button"
-        onClick={onOpen}
-        className="relative block h-40 w-full overflow-hidden bg-muted/40"
-      >
-        {cover ? (
-          <img
-            src={cover.url}
-            alt={snap.title}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
-          </div>
+      {/* Image Container */}
+      <div className="group relative h-40 w-full overflow-hidden bg-muted/40">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="block h-full w-full"
+        >
+          {cover ? (
+            <div className="relative h-full w-full">
+              <img
+                key={cover.id}
+                src={cover.mediaUrl.startsWith("http") ? cover.mediaUrl : `https://mydiaree.com.au/${cover.mediaUrl}`}
+                alt={snap.title}
+                className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
+                loading="lazy"
+              />
+            </div>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+            </div>
+          )}
+        </button>
+
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIdx((prev) => (prev - 1 + images.length) % images.length);
+              }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIdx((prev) => (prev + 1) % images.length);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+              {images.map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-1 w-1 rounded-full transition-all ${i === currentIdx ? "w-3 bg-white" : "bg-white/50"}`}
+                />
+              ))}
+            </div>
+          </>
         )}
         <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-2 py-0.5 text-[10px] font-bold text-white">
-          <ImageIcon className="h-3 w-3" /> {images.length}/{images.length}
+          <ImageIcon className="h-3 w-3" /> {currentIdx + 1}/{images.length}
         </span>
-      </button>
+      </div>
 
       {/* Body */}
       <div className="p-4">
-        <p className="mb-3 line-clamp-2 text-sm text-foreground">{snap.details}</p>
+        <div 
+          className="mb-3 line-clamp-2 text-sm text-foreground"
+          dangerouslySetInnerHTML={{ __html: snap.about }}
+        />
 
         <div className="mb-3">
           <h4 className="mb-1.5 inline-flex items-center gap-1 text-xs font-bold text-foreground">
             <UserCircle2 className="h-3.5 w-3.5" /> Children
           </h4>
           <div className="flex flex-wrap gap-1.5">
-            {childTags.map((c) => (
+            {(snap.children || []).map((c) => (
               <span
                 key={c.id}
                 className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700"
               >
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-300 text-[8px] text-white">
-                  {c.name.charAt(0)}
+                  {c.child?.name?.charAt(0) || "?"}
                 </span>
-                {c.name}
+                {c.child?.name}
               </span>
             ))}
           </div>
@@ -352,7 +467,7 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen }) {
             <DoorOpen className="h-3.5 w-3.5" /> Rooms
           </h4>
           <div className="flex flex-wrap gap-1.5">
-            {roomTags.map((r) => (
+            {(snap.rooms || []).map((r) => (
               <span
                 key={r.id}
                 className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Save,
@@ -28,20 +28,26 @@ import {
 import {
   MONTHS,
   YEARS,
-  SUBJECT_TREE,
   ACTIVITY_SUBJECTS,
   RICH_SUBJECTS,
   ADDITIONAL_FIELDS,
-  EDUCATORS,
   EYLF_OUTCOMES,
 } from "./data";
 import { ActivityPickerModal } from "./ActivityPickerModal";
 import { EylfPickerModal } from "./EylfPickerModal";
 import { useCentreStore } from "@/stores/centreStore";
-import { useRoomStore } from "@/stores/roomStore";
-import { useChildrenStore } from "@/stores/childrenStore";
+import { childrenService } from "@/services/childrenService";
+import { programPlanService } from "@/services/learning-documentation/programPlanService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+const SUBJECT_MAP = {
+  "practical-life": "Practical Life",
+  math: "Maths",
+  sensorial: "Sensorial",
+  culture: "Cultural",
+  language: "Language",
+};
 
 const empty = (centreId, roomId) => ({
   centreId: centreId || "",
@@ -83,19 +89,28 @@ const SUBJECT_FIELDS = {
   culture: "culture",
 };
 
-export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, defaults }) {
+export function ProgramPlanForm({
+  mode = "create",
+  initial,
+  onCancel,
+  onSubmit,
+  onSaveAsNew,
+  defaults,
+  isSaving = false,
+}) {
   const centres = useCentreStore((s) => s.centres);
-  const { rooms } = useRoomStore();
-  const { children } = useChildrenStore();
 
   const [data, setData] = useState(() =>
-    initial ? { ...empty(), ...initial } : empty(defaults?.centreId, defaults?.roomName)
+    initial ? { ...empty(), ...initial } : empty(defaults?.centreId, defaults?.roomId),
   );
 
   const [picker, setPicker] = useState(null); // subjectKey
   const [eylfOpen, setEylfOpen] = useState(false);
   const [educatorQuery, setEducatorQuery] = useState("");
   const [childQuery, setChildQuery] = useState("");
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [availableEducators, setAvailableEducators] = useState([]);
+  const [availableChildren, setAvailableChildren] = useState([]);
 
   const update = (k, v) => setData((p) => ({ ...p, [k]: v }));
 
@@ -109,14 +124,77 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
     });
   };
 
-  const availableRooms = rooms.map((r) => r.name);
-  const availableChildren = children.filter(
-    (c) => !data.roomId || c.room === data.roomId
+  useEffect(() => {
+    const loadRoomsAndStaff = async () => {
+      if (!data.centreId) return;
+      try {
+        const response = await programPlanService.getRoomsAndStaff(data.centreId);
+        if (response.status) {
+          setAvailableRooms(response.rooms || response.data?.rooms || []);
+          setAvailableEducators(
+            response.roomStaffs ||
+              response.staff ||
+              response.data?.roomStaffs ||
+              response.data?.staff ||
+              [],
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load program plan rooms/staff:", error);
+      }
+    };
+
+    loadRoomsAndStaff();
+  }, [data.centreId]);
+
+  useEffect(() => {
+    const loadChildren = async () => {
+      if (!data.roomId) {
+        setAvailableChildren([]);
+        return;
+      }
+      try {
+        const response = await childrenService.getChildrenByRoomId(data.roomId);
+        setAvailableChildren(response.children || response.data || []);
+      } catch (error) {
+        console.error("Failed to load program plan children:", error);
+      }
+    };
+
+    loadChildren();
+  }, [data.roomId]);
+
+  const roomOptions = availableRooms.map((room) => ({
+    value: String(room.id),
+    label: room.name,
+  }));
+  const educatorOptions = availableEducators.map((educator) => ({
+    value: String(educator.staffid ?? educator.id),
+    label: educator.name,
+  }));
+  const childOptions = availableChildren.map((child) => ({
+    value: String(child.id),
+    label: child.name,
+  }));
+
+  const filteredEducatorOptions = educatorOptions.filter((educator) =>
+    educator.label.toLowerCase().includes(educatorQuery.toLowerCase()),
+  );
+  const filteredChildOptions = childOptions.filter((child) =>
+    child.label.toLowerCase().includes(childQuery.toLowerCase()),
   );
 
   const handleSubmit = (status) => {
     if (!data.centreId || !data.roomId) {
       toast.error("Please select a centre and room.");
+      return;
+    }
+    if (data.educators.length === 0) {
+      toast.error("Please select at least one educator.");
+      return;
+    }
+    if (data.children.length === 0) {
+      toast.error("Please select at least one child.");
       return;
     }
     onSubmit({ ...data, status });
@@ -132,7 +210,7 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
           { label: mode === "edit" ? "Edit" : "Create" },
         ]}
         actions={
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} disabled={isSaving}>
             <ArrowLeft className="mr-1.5 h-4 w-4" />
             Back
           </Button>
@@ -149,40 +227,84 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
         <Section icon={Calendar} title="Plan Details">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Field label="Centre" icon={Building2}>
-              <Select value={data.centreId} onValueChange={(v) => update("centreId", v)}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Select centre" /></SelectTrigger>
+              <Select
+                value={data.centreId}
+                onValueChange={(v) => {
+                  setData((previous) => ({
+                    ...previous,
+                    centreId: v,
+                    roomId: "",
+                    educators: [],
+                    children: [],
+                  }));
+                }}
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select centre" />
+                </SelectTrigger>
                 <SelectContent>
                   {centres.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </Field>
             <Field label="Room" icon={DoorOpen}>
-              <Select value={data.roomId} onValueChange={(v) => update("roomId", v)}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Select room" /></SelectTrigger>
+              <Select
+                value={data.roomId}
+                onValueChange={(v) =>
+                  setData((previous) => ({
+                    ...previous,
+                    roomId: v,
+                    children: [],
+                  }))
+                }
+              >
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Select room" />
+                </SelectTrigger>
                 <SelectContent>
-                  {availableRooms.length === 0 ? (
-                    <SelectItem value="__none" disabled>No rooms for this centre</SelectItem>
-                  ) : availableRooms.map((r) => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
+                  {roomOptions.length === 0 ? (
+                    <SelectItem value="__none" disabled>
+                      No rooms for this centre
+                    </SelectItem>
+                  ) : (
+                    roomOptions.map((room) => (
+                      <SelectItem key={room.value} value={room.value}>
+                        {room.label}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </Field>
             <Field label="Month" icon={Calendar}>
               <Select value={data.month} onValueChange={(v) => update("month", v)}>
-                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {MONTHS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  {MONTHS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
             <Field label="Year" icon={Calendar}>
               <Select value={String(data.year)} onValueChange={(v) => update("year", Number(v))}>
-                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {YEARS.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                  {YEARS.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Field>
@@ -196,7 +318,7 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
               label="Select Educators"
               query={educatorQuery}
               setQuery={setEducatorQuery}
-              options={EDUCATORS.filter((e) => e.toLowerCase().includes(educatorQuery.toLowerCase()))}
+              options={filteredEducatorOptions}
               selected={data.educators}
               onToggle={(v) => toggleArr("educators", v)}
             />
@@ -204,9 +326,7 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
               label="Select Children"
               query={childQuery}
               setQuery={setChildQuery}
-              options={availableChildren
-                .map((c) => c.name)
-                .filter((n) => n.toLowerCase().includes(childQuery.toLowerCase()))}
+              options={filteredChildOptions}
               selected={data.children}
               onToggle={(v) => toggleArr("children", v)}
               emptyHint="Pick a centre & room first"
@@ -231,16 +351,16 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
           <div className="space-y-4">
             {ACTIVITY_SUBJECTS.map((key) => {
               const field = SUBJECT_FIELDS[key];
-              const subj = SUBJECT_TREE[key];
-              const selected = data[field] || [];
+              const selected = data[field] || []; // Array of { activity, items }
               return (
                 <div key={key} className="rounded-xl border border-border bg-background/60 p-4">
                   <div className="mb-2 flex items-center justify-between">
-                    <Label className="text-sm font-semibold text-primary">{subj.label}</Label>
+                    <Label className="text-sm font-semibold text-primary">{SUBJECT_MAP[key]}</Label>
                     <Button
                       type="button"
                       size="sm"
                       onClick={() => setPicker(key)}
+                      disabled={isSaving}
                       className="bg-primary hover:bg-primary/90"
                     >
                       <Search className="mr-1.5 h-4 w-4" />
@@ -251,21 +371,39 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
                     {selected.length === 0 ? (
                       <p className="text-xs text-muted-foreground">No activities selected.</p>
                     ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {selected.map((a) => (
-                          <span
-                            key={a}
-                            className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-xs font-medium text-primary"
-                          >
-                            {a}
-                            <button
-                              type="button"
-                              onClick={() => update(field, selected.filter((x) => x !== a))}
-                              className="hover:text-destructive"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
+                      <div className="space-y-3">
+                        {selected.map((group) => (
+                          <div key={group.activity} className="space-y-1">
+                            <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                              {group.activity}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {group.items.map((item) => (
+                                <span
+                                  key={item}
+                                  className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2.5 py-1 text-xs font-medium text-primary"
+                                >
+                                  {item}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const next = selected
+                                        .map((g) =>
+                                          g.activity === group.activity
+                                            ? { ...g, items: g.items.filter((i) => i !== item) }
+                                            : g,
+                                        )
+                                        .filter((g) => g.items.length > 0);
+                                      update(field, next);
+                                    }}
+                                    className="hover:text-destructive ml-0.5"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -294,7 +432,7 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
           <div className="mb-5 rounded-xl border border-border bg-background/60 p-4">
             <div className="mb-2 flex items-center justify-between">
               <Label className="text-sm font-semibold text-primary">EYLF Outcomes</Label>
-              <Button type="button" size="sm" onClick={() => setEylfOpen(true)}>
+              <Button type="button" size="sm" onClick={() => setEylfOpen(true)} disabled={isSaving}>
                 <Search className="mr-1.5 h-4 w-4" />
                 Select EYLF
               </Button>
@@ -303,24 +441,49 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
               {data.eylf.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No outcomes selected.</p>
               ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {data.eylf.map((code) => {
-                    const outcome = EYLF_OUTCOMES.find((o) => o.code === code);
+                <div className="space-y-3">
+                  {Array.from(
+                    new Set(
+                      data.eylf.map((code) => EYLF_OUTCOMES.find((o) => o.code === code)?.outcome),
+                    ),
+                  ).map((outcomeTitle) => {
+                    const groupItems = data.eylf.filter(
+                      (code) =>
+                        EYLF_OUTCOMES.find((o) => o.code === code)?.outcome === outcomeTitle,
+                    );
+                    if (groupItems.length === 0) return null;
                     return (
-                      <span
-                        key={code}
-                        title={outcome?.label}
-                        className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground"
-                      >
-                        EYLF {code}
-                        <button
-                          type="button"
-                          onClick={() => update("eylf", data.eylf.filter((x) => x !== code))}
-                          className="hover:text-destructive"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
+                      <div key={outcomeTitle} className="space-y-1">
+                        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                          {outcomeTitle}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {groupItems.map((code) => {
+                            const outcome = EYLF_OUTCOMES.find((o) => o.code === code);
+                            return (
+                              <span
+                                key={code}
+                                title={outcome?.label}
+                                className="inline-flex items-center gap-1 rounded-full bg-accent/30 border border-accent/50 px-2.5 py-1 text-xs font-medium text-accent-foreground"
+                              >
+                                EYLF {code}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    update(
+                                      "eylf",
+                                      data.eylf.filter((x) => x !== code),
+                                    )
+                                  }
+                                  className="hover:text-destructive ml-0.5"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -348,11 +511,12 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
             <button
               type="button"
               onClick={() => update("status", "draft")}
+              disabled={isSaving}
               className={cn(
                 "rounded-full px-5 py-2 text-sm font-semibold transition-all",
                 data.status === "draft"
                   ? "bg-destructive text-destructive-foreground shadow"
-                  : "border border-border bg-background text-muted-foreground hover:bg-muted"
+                  : "border border-border bg-background text-muted-foreground hover:bg-muted",
               )}
             >
               Draft
@@ -360,11 +524,12 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
             <button
               type="button"
               onClick={() => update("status", "published")}
+              disabled={isSaving}
               className={cn(
                 "rounded-full px-5 py-2 text-sm font-semibold transition-all",
                 data.status === "published"
                   ? "bg-emerald-600 text-white shadow"
-                  : "border border-border bg-background text-muted-foreground hover:bg-muted"
+                  : "border border-border bg-background text-muted-foreground hover:bg-muted",
               )}
             >
               Published
@@ -376,22 +541,38 @@ export function ProgramPlanForm({ mode = "create", initial, onCancel, onSubmit, 
         <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-border pt-6">
           <Button
             onClick={() => handleSubmit(data.status)}
+            disabled={isSaving}
             className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"
           >
             <Save className="mr-1.5 h-4 w-4" />
-            {mode === "edit" ? "Update" : "Save"}
+            {isSaving ? "Saving..." : mode === "edit" ? "Update" : "Save"}
           </Button>
           {mode === "edit" && (
             <Button
-              onClick={() => handleSubmit(data.status)}
+              onClick={() => {
+                if (!data.centreId || !data.roomId) {
+                  toast.error("Please select a centre and room.");
+                  return;
+                }
+                if (data.educators.length === 0) {
+                  toast.error("Please select at least one educator.");
+                  return;
+                }
+                if (data.children.length === 0) {
+                  toast.error("Please select at least one child.");
+                  return;
+                }
+                onSaveAsNew?.({ ...data, status: data.status });
+              }}
+              disabled={isSaving}
               variant="default"
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               <Save className="mr-1.5 h-4 w-4" />
-              Save as New
+              {isSaving ? "Saving..." : "Save as New"}
             </Button>
           )}
-          <Button variant="destructive" onClick={onCancel}>
+          <Button variant="destructive" onClick={onCancel} disabled={isSaving}>
             <X className="mr-1.5 h-4 w-4" />
             Cancel
           </Button>
@@ -469,20 +650,22 @@ function ChipPicker({ label, query, setQuery, options, selected, onToggle, empty
             <p className="px-1 text-xs text-muted-foreground">{emptyHint || "No matches"}</p>
           ) : (
             options.map((opt) => {
-              const isSel = selected.includes(opt);
+              const value = typeof opt === "string" ? opt : opt.value;
+              const labelText = typeof opt === "string" ? opt : opt.label;
+              const isSel = selected.includes(value);
               return (
                 <button
-                  key={opt}
+                  key={value}
                   type="button"
-                  onClick={() => onToggle(opt)}
+                  onClick={() => onToggle(value)}
                   className={cn(
                     "rounded-full px-2.5 py-1 text-xs font-medium transition-all",
                     isSel
                       ? "bg-primary text-primary-foreground shadow-sm"
-                      : "border border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                      : "border border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
                   )}
                 >
-                  {opt}
+                  {labelText}
                 </button>
               );
             })

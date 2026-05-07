@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -22,22 +22,32 @@ import {
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { CreateRoomModal } from "@/components/rooms/CreateRoomModal";
+import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 import { toast } from "sonner";
 
 export default function RoomsPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const { rooms, isLoading } = useRoomStore();
+  const { rooms, isLoading, isSubmitting, fetchRooms, createRoom, bulkDeleteRooms } = useRoomStore();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState({ open: false, ids: [] });
+
+  // Fetch rooms whenever the active center changes
+  useEffect(() => {
+    if (activeCentreId) {
+      fetchRooms(activeCentreId);
+    }
+  }, [activeCentreId, fetchRooms]);
 
   const filtered = useMemo(() => {
     return rooms.filter((r) => {
-      // RoomStore already filters by activeCentreId, but safety first
-      if (r.centerid !== activeCentreId && r.centreId !== activeCentreId) return false;
+      if (String(r.centerid) !== String(activeCentreId)) return false;
       if (statusFilter !== "all" && r.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
       if (search && !r.name.toLowerCase().includes(search.toLowerCase()))
         return false;
@@ -50,16 +60,22 @@ export default function RoomsPage() {
 
   const handleDeleteSelected = () => {
     if (!selected.length) return;
-    if (!window.confirm(`Delete ${selected.length} selected room(s)?`)) return;
-    // API call would go here
-    setSelected([]);
-    toast.success("Rooms deleted");
+    setDeleteModal({ open: true, ids: selected });
   };
 
   const handleDeleteOne = (id) => {
-    if (!window.confirm("Delete this room?")) return;
-    // API call would go here
-    toast.success("Room deleted");
+    setDeleteModal({ open: true, ids: [id] });
+  };
+
+  const confirmDelete = async () => {
+    try {
+      await bulkDeleteRooms(deleteModal.ids, activeCentreId);
+      setSelected((prev) => prev.filter(id => !deleteModal.ids.includes(id)));
+      toast.success(deleteModal.ids.length > 1 ? "Rooms deleted successfully" : "Room deleted successfully");
+      setDeleteModal({ open: false, ids: [] });
+    } catch (error) {
+      toast.error(error.message || "Failed to delete room(s)");
+    }
   };
 
   const handleEdit = (room) => {
@@ -72,19 +88,25 @@ export default function RoomsPage() {
     setModalOpen(true);
   };
 
-  const handleSubmit = (data) => {
-    if (editing) {
-      // API call would go here
-      toast.success("Room updated");
-    } else {
-      // API call would go here
-      toast.success("Room created");
+  const handleSubmit = async (data) => {
+    try {
+      if (editing) {
+        toast.info("Update room functionality to be implemented if required by API");
+      } else {
+        await createRoom({
+          ...data,
+          centerId: activeCentreId
+        });
+        toast.success("Room created successfully");
+      }
+      setModalOpen(false);
+      setEditing(null);
+    } catch (error) {
+      toast.error(error.message || "Operation failed");
     }
-    setModalOpen(false);
-    setEditing(null);
   };
 
-  if (isLoading) {
+  if (isLoading && rooms.length === 0) {
     return <div className="py-20 text-center text-muted-foreground">Loading rooms...</div>;
   }
 
@@ -181,14 +203,32 @@ export default function RoomsPage() {
         onSubmit={handleSubmit}
         initial={editing}
       />
+
+      <DeleteConfirmationModal
+        open={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, ids: [] })}
+        onConfirm={confirmDelete}
+        isLoading={isSubmitting}
+        title={deleteModal.ids.length > 1 ? `Delete ${deleteModal.ids.length} rooms?` : "Delete this room?"}
+        description="This action will remove the selected room(s) and cannot be undone."
+      />
     </div>
   );
 }
 
 function RoomCard({ room, checked, onToggle, onEdit, onDelete }) {
-  const isActive = room.status === "active";
+  const isActive = room.status === "active" || room.status === "Active";
+  const educators = room.educators || [];
+  
   return (
     <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+      {room.color && (
+        <div 
+          className="absolute left-0 top-0 h-1 w-full" 
+          style={{ backgroundColor: room.color }}
+        />
+      )}
+      
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <input
@@ -234,12 +274,12 @@ function RoomCard({ room, checked, onToggle, onEdit, onDelete }) {
         <div className="flex items-center gap-2">
           <Users2 className="h-4 w-4 text-primary" />
           <span>
-            Age Group (years): {room.fromAge} to {room.toAge}
+            Age Group (years): {room.ageFrom} to {room.ageTo}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <Baby className="h-4 w-4 text-primary" />
-          <span>Children: {room.children}</span>
+          <span>Children: {room.children?.length || 0}</span>
         </div>
         <div className="flex items-center gap-2">
           <GraduationCap className="h-4 w-4 text-primary" />
@@ -251,22 +291,22 @@ function RoomCard({ room, checked, onToggle, onEdit, onDelete }) {
             Educators:
           </span>
           <div className="flex -space-x-2">
-            {(!room.educators || room.educators.length === 0) ? (
+            {educators.length === 0 ? (
               <span className="text-xs text-muted-foreground">—</span>
             ) : (
-              room.educators.slice(0, 5).map((ed) => (
+              educators.slice(0, 5).map((ed) => (
                 <img
-                  key={ed.id}
-                  src={ed.avatar}
+                  key={ed.userid || Math.random()}
+                  src={ed.imageUrl ? `https://mydiaree.com.au/${ed.imageUrl}` : `https://ui-avatars.com/api/?name=${ed.name}`}
                   alt={ed.name}
                   title={ed.name}
-                  className="h-7 w-7 rounded-full border-2 border-card object-cover"
+                  className="h-7 w-7 rounded-full border-2 border-card object-cover bg-muted"
                 />
               ))
             )}
-            {room.educators?.length > 5 && (
+            {educators.length > 5 && (
               <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-muted text-xs font-medium">
-                +{room.educators.length - 5}
+                +{educators.length - 5}
               </span>
             )}
           </div>
