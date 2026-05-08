@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCentreStore } from "@/stores/centreStore";
 import { AddCenterModal } from "@/components/centers/AddCenterModal";
+import { centerService } from "@/services/centerService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +19,7 @@ import {
 import { toast } from "sonner";
 
 export default function SettingsPage() {
-  const { centres, isLoading } = useCentreStore();
+  const { centres, isLoading, fetchCentres } = useCentreStore();
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState({ open: false, initial: null });
   const [confirm, setConfirm] = useState({ open: false, id: null });
@@ -28,18 +29,48 @@ export default function SettingsPage() {
     return q ? centres.filter((c) => c.name.toLowerCase().includes(q)) : centres;
   }, [centres, query]);
 
-  const handleSave = (data) => {
-    // These would normally call the API via centerService and then refresh the store
-    if (data.id) {
-      toast.success("Center update simulated");
-    } else {
-      toast.success("Center addition simulated");
+  const handleSave = async (data) => {
+    try {
+      const formData = new FormData();
+      if (data.id) formData.append("id", data.id);
+      formData.append("centerName", data.name);
+      formData.append("adressStreet", data.addressStreet);
+      formData.append("addressCity", data.addressCity);
+      formData.append("addressState", data.addressState);
+      formData.append("addressZip", data.addressZip);
+
+      const res = data.id
+        ? await centerService.updateCenter(formData)
+        : await centerService.createCenter(formData);
+
+      if (res.status) {
+        toast.success(res.message || `Center ${data.id ? "updated" : "created"} successfully.`);
+        fetchCentres();
+      } else {
+        toast.error(res.message || "Failed to save center.");
+      }
+    } catch (error) {
+      toast.error("An error occurred while saving the center.");
+      console.error(error);
     }
   };
 
-  const handleDelete = () => {
-    setConfirm({ open: false, id: null });
-    toast.success("Center deletion simulated");
+  const handleDelete = async () => {
+    if (!confirm.id) return;
+    try {
+      const res = await centerService.deleteCenter(confirm.id);
+      if (res.status) {
+        toast.success(res.message || "Center deleted successfully.");
+        fetchCentres();
+      } else {
+        toast.error(res.message || "Failed to delete center.");
+      }
+    } catch (error) {
+      toast.error("An error occurred while deleting the center.");
+      console.error(error);
+    } finally {
+      setConfirm({ open: false, id: null });
+    }
   };
 
   return (

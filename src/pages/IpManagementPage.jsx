@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/common/Loader";
 import {
   Table,
   TableHeader,
@@ -22,16 +23,54 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { initialIps } from "@/components/ipmanagement/ipsData";
 import { AddIpModal } from "@/components/ipmanagement/AddIpModal";
+import { ipManagementService } from "@/services/ipManagementService";
+
+const normalizeStatus = (status) => {
+  if (status === 1 || status === "1" || String(status).toLowerCase() === "active") {
+    return "active";
+  }
+  return "inactive";
+};
+
+const normalizeIp = (ip) => ({
+  id: ip.id,
+  ip: ip.wifi_ip || "",
+  name: ip.wifi_name || "",
+  location: ip.wifi_address || "",
+  status: normalizeStatus(ip.status),
+});
+
+const getErrorMessage = (error, fallback) =>
+  error?.response?.data?.message || error?.message || fallback;
 
 export default function IpManagementPage() {
-  const [ips, setIps] = useState(initialIps);
+  const [ips, setIps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
   const rows = useMemo(() => ips, [ips]);
+
+  const fetchIps = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await ipManagementService.getIps();
+      setIps(Array.isArray(res.data) ? res.data.map(normalizeIp) : []);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to load IP list"));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchIps();
+  }, [fetchIps]);
 
   const openAdd = () => {
     setEditing(null);
@@ -43,26 +82,64 @@ export default function IpManagementPage() {
     setModalOpen(true);
   };
 
-  const handleSave = (data) => {
-    if (data.id) {
-      setIps((arr) => arr.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
-      toast.success("IP updated");
-    } else {
-      setIps((arr) => [...arr, { ...data, id: `ip${Date.now()}` }]);
-      toast.success("IP added");
+  const handleSave = async (data) => {
+    setSaving(true);
+    try {
+      const res = data.id
+        ? await ipManagementService.updateIp(data.id, data)
+        : await ipManagementService.createIp(data);
+
+      if (res.data) {
+        const saved = normalizeIp(res.data);
+        setIps((arr) =>
+          data.id ? arr.map((x) => (x.id === saved.id ? saved : x)) : [saved, ...arr],
+        );
+      } else {
+        await fetchIps();
+      }
+
+      toast.success(res.message || (data.id ? "IP updated" : "IP added"));
+      return true;
+    } catch (error) {
+      toast.error(getErrorMessage(error, data.id ? "Failed to update IP" : "Failed to add IP"));
+      return false;
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDelete = () => {
-    setIps((arr) => arr.filter((x) => x.id !== deleteId));
-    setDeleteId(null);
-    toast.success("IP deleted");
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      const res = await ipManagementService.deleteIp(deleteId);
+      setIps((arr) => arr.filter((x) => x.id !== deleteId));
+      setDeleteId(null);
+      toast.success(res.message || "IP deleted");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to delete IP"));
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const toggleStatus = (row) => {
-    const next = row.status === "active" ? "inactive" : "active";
-    setIps((arr) => arr.map((x) => (x.id === row.id ? { ...x, status: next } : x)));
-    toast.success(`IP marked ${next}`);
+  const toggleStatus = async (row) => {
+    setTogglingId(row.id);
+    try {
+      const res = await ipManagementService.toggleIpStatus(row.id);
+      if (res.data) {
+        const updated = normalizeIp(res.data);
+        setIps((arr) => arr.map((x) => (x.id === updated.id ? updated : x)));
+        toast.success(res.message || `IP marked ${updated.status}`);
+      } else {
+        await fetchIps();
+        toast.success(res.message || "IP status updated");
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to update IP status"));
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   return (
@@ -72,7 +149,7 @@ export default function IpManagementPage() {
         description="Allowed networks and restrictions"
         breadcrumbs={[{ label: "Setting" }, { label: "IP List" }]}
         actions={
-          <Button onClick={openAdd} variant="outline">
+          <Button onClick={openAdd} variant="outline" disabled={loading}>
             <Plus className="h-4 w-4" />
             Add New IP
           </Button>
@@ -92,7 +169,13 @@ export default function IpManagementPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 ? (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6}>
+                  <Loader className="py-10" label="Loading IPs..." />
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
                   No IPs added yet.
@@ -109,11 +192,13 @@ export default function IpManagementPage() {
                     <button
                       type="button"
                       onClick={() => toggleStatus(row)}
+                      disabled={togglingId === row.id}
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                        "disabled:pointer-events-none disabled:opacity-60",
                         row.status === "active"
                           ? "bg-primary/10 text-primary hover:bg-primary/20"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80",
                       )}
                     >
                       <Eye className="h-3 w-3" />
@@ -127,6 +212,7 @@ export default function IpManagementPage() {
                         variant="ghost"
                         className="h-8 w-8"
                         onClick={() => openEdit(row)}
+                        disabled={togglingId === row.id}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -135,6 +221,7 @@ export default function IpManagementPage() {
                         variant="ghost"
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={() => setDeleteId(row.id)}
+                        disabled={togglingId === row.id}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -152,6 +239,7 @@ export default function IpManagementPage() {
         onOpenChange={setModalOpen}
         initial={editing}
         onSave={handleSave}
+        saving={saving}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
@@ -164,7 +252,9 @@ export default function IpManagementPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

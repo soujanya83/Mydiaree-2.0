@@ -2,8 +2,6 @@ import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucid
 import { useNavigate } from "react-router-dom";
 import { ThemeSwitcher } from "@/components/common/ThemeSwitcher";
 import { useUiStore } from "@/stores/uiStore";
-import { useCentreStore } from "@/stores/centreStore";
-import { useRoomStore } from "@/stores/roomStore";
 import { useAuthStore } from "@/stores/authStore";
 import {
   DropdownMenu,
@@ -13,25 +11,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Header() {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleMobile = useUiStore((s) => s.toggleMobileSidebar);
-  const centres = useCentreStore((s) => s.centres);
-  const activeCentreId = useCentreStore((s) => s.activeCentreId);
-  const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
-  const rooms = useRoomStore((s) => s.rooms);
-  const activeRoomId = useRoomStore((s) => s.activeRoomId);
-  const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
@@ -73,34 +58,6 @@ export function Header() {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        {/* Centre selector */}
-        <Select value={activeCentreId} onValueChange={setActiveCentre}>
-          <SelectTrigger className="w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {centres.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Room selector */}
-        <Select value={activeRoomId} onValueChange={setActiveRoom}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Select Room" />
-          </SelectTrigger>
-          <SelectContent>
-            {rooms.map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                {r.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         {/* Theme switcher */}
         <ThemeSwitcher />
 

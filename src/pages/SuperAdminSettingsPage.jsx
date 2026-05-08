@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Filter, ShieldAlert } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Search, Pencil, Filter, ShieldAlert, Trash2, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { initialSuperAdmins } from "@/components/superadmin/superAdminsData";
 import { AddSuperAdminModal } from "@/components/superadmin/AddSuperAdminModal";
+import { superAdminService } from "@/services/superAdminService";
 import { toast } from "sonner";
 
 function getInitials(name) {
@@ -18,9 +18,44 @@ function getInitials(name) {
 }
 
 export default function SuperAdminSettingsPage() {
-  const [admins, setAdmins] = useState(initialSuperAdmins);
+  const [admins, setAdmins] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState({ open: false, initial: null });
+
+  useEffect(() => {
+    fetchAdmins();
+  }, []);
+
+  const fetchAdmins = async () => {
+    try {
+      setLoading(true);
+      const res = await superAdminService.getSuperAdmins();
+      if (res.status) {
+        const mappedAdmins = res.data.map((admin) => ({
+          id: admin.id,
+          name: admin.name || "",
+          email: admin.email || "",
+          contact: admin.contactNo || "",
+          gender: admin.gender || "",
+          avatar: admin.imageUrl
+            ? admin.imageUrl.startsWith("http")
+              ? admin.imageUrl
+              : `https://mydiaree.com.au/${admin.imageUrl}`
+            : "",
+          originalData: admin,
+        }));
+        setAdmins(mappedAdmins);
+      } else {
+        toast.error(res.message || "Failed to fetch superadmins");
+      }
+    } catch (error) {
+      toast.error("An error occurred while fetching superadmins");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -30,13 +65,50 @@ export default function SuperAdminSettingsPage() {
     );
   }, [admins, query]);
 
-  const handleSave = (data) => {
-    if (data.id) {
-      setAdmins((arr) => arr.map((a) => (a.id === data.id ? { ...a, ...data } : a)));
-      toast.success("Superadmin updated");
-    } else {
-      setAdmins((arr) => [...arr, { ...data, id: `sa${Date.now()}` }]);
-      toast.success("Superadmin added");
+  const handleSave = async (data) => {
+    try {
+      const formData = new FormData();
+      if (data.id) formData.append("id", data.id);
+      formData.append("name", data.name);
+      formData.append("email", data.email);
+      formData.append("contactNo", data.contactNo);
+      formData.append("gender", data.gender || "");
+
+      if (data.password) formData.append("password", data.password);
+      if (data.centerName) formData.append("centerName", data.centerName);
+      if (data.adressStreet) formData.append("adressStreet", data.adressStreet);
+      if (data.addressCity) formData.append("addressCity", data.addressCity);
+      if (data.addressState) formData.append("addressState", data.addressState);
+      if (data.addressZip) formData.append("addressZip", data.addressZip);
+      if (data.avatarFile) formData.append("imageUrl", data.avatarFile);
+
+      const res = await superAdminService.createSuperAdmin(formData);
+      if (res.status === false) {
+        toast.error(res.message || "Validation failed");
+        return;
+      }
+
+      toast.success(`Superadmin ${data.id ? "updated" : "added"} successfully`);
+      fetchAdmins();
+    } catch (error) {
+      toast.error("Failed to save superadmin");
+      console.error(error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this superadmin?")) return;
+    try {
+      const res = await superAdminService.deleteSuperAdmin(id);
+      if (res.status === false) {
+        toast.error(res.message || "Failed to delete");
+        return;
+      }
+      toast.success("Superadmin deleted successfully");
+      fetchAdmins();
+    } catch (error) {
+      toast.error("Failed to delete superadmin");
+      console.error(error);
     }
   };
 
@@ -69,7 +141,11 @@ export default function SuperAdminSettingsPage() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-xl border bg-card p-12 text-center">
           <ShieldAlert className="mx-auto h-10 w-10 text-muted-foreground" />
           <p className="mt-3 text-sm text-muted-foreground">No superadmins found.</p>
@@ -113,14 +189,24 @@ export default function SuperAdminSettingsPage() {
                     <span className="text-muted-foreground">{a.contact || "—"}</span>
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setModal({ open: true, initial: a })}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit
-                </button>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModal({ open: true, initial: a })}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(a.id)}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground shadow-sm hover:opacity-90"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           ))}

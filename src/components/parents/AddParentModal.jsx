@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AVAILABLE_CHILDREN, RELATION_OPTIONS } from "./parentsData";
+import { RELATION_OPTIONS } from "./parentsData";
 
 const empty = {
   name: "",
@@ -29,7 +29,7 @@ const empty = {
   children: [{ childId: "", relation: "" }],
 };
 
-export function AddParentModal({ open, onOpenChange, initial, onSave }) {
+export function AddParentModal({ open, onOpenChange, initial, onSave, availableChildren = [] }) {
   const [form, setForm] = useState(empty);
   const fileRef = useRef(null);
   const isEdit = !!initial?.id;
@@ -43,7 +43,10 @@ export function AddParentModal({ open, onOpenChange, initial, onSave }) {
             ...initial,
             password: "",
             children: initial.children?.length
-              ? initial.children.map((c) => ({ ...c }))
+              ? initial.children.map((c) => ({
+                  childId: c.childId ? String(c.childId) : "",
+                  relation: c.relation || "",
+                }))
               : [{ childId: "", relation: "" }],
           }
         : empty,
@@ -78,10 +81,11 @@ export function AddParentModal({ open, onOpenChange, initial, onSave }) {
       email: form.email.trim(),
       contact: form.contact.trim(),
       gender: form.gender,
+      password: form.password,
       avatar: form.avatar,
+      avatarFile: form.avatarFile,
       children: form.children.filter((c) => c.childId && c.relation),
     });
-    onOpenChange(false);
   };
 
   return (
@@ -193,10 +197,7 @@ export function AddParentModal({ open, onOpenChange, initial, onSave }) {
               <h3 className="text-sm font-semibold text-foreground mb-4">Link Children</h3>
               <div className="space-y-3">
                 {form.children.map((row, i) => (
-                  <div
-                    key={i}
-                    className="relative rounded-lg border border-border bg-muted/20 p-4"
-                  >
+                  <div key={i} className="relative rounded-lg border border-border bg-muted/20 p-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label className="text-sm font-semibold">Child</Label>
@@ -208,9 +209,9 @@ export function AddParentModal({ open, onOpenChange, initial, onSave }) {
                             <SelectValue placeholder="Select Child" />
                           </SelectTrigger>
                           <SelectContent>
-                            {AVAILABLE_CHILDREN.map((c) => (
-                              <SelectItem key={c.id} value={c.id}>
-                                {c.name}
+                            {availableChildren.map((c) => (
+                              <SelectItem key={c.id} value={String(c.id)}>
+                                {c.name} {c.lastname || ""}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -230,7 +231,7 @@ export function AddParentModal({ open, onOpenChange, initial, onSave }) {
                               <SelectItem key={r} value={r}>
                                 {r}
                               </SelectItem>
-                                ))}
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

@@ -41,6 +41,7 @@ export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
   const handleFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    set("avatarFile", file);
     const reader = new FileReader();
     reader.onload = () => set("avatar", reader.result);
     reader.readAsDataURL(file);
@@ -55,9 +56,10 @@ export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
       email: form.email.trim(),
       contact: form.contact.trim(),
       gender: form.gender,
+      password: form.password,
       avatar: form.avatar,
+      avatarFile: form.avatarFile,
     });
-    onOpenChange(false);
   };
 
   return (
@@ -72,14 +74,10 @@ export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
         <form onSubmit={handleSubmit}>
           <div className="px-6 py-5 space-y-6">
             <div>
-              <h3 className="text-sm font-semibold text-foreground mb-4">
-                Staff Details
-              </h3>
+              <h3 className="text-sm font-semibold text-foreground mb-4">Staff Details</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-sm font-semibold">
-                    {isEdit ? "Name" : "Staff Name"}
-                  </Label>
+                  <Label className="text-sm font-semibold">{isEdit ? "Name" : "Staff Name"}</Label>
                   <Input
                     value={form.name}
                     onChange={(e) => set("name", e.target.value)}

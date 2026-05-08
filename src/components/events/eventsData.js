@@ -1,4 +1,4 @@
-export const eventTypes = ["Annoucement", "Events", "Public Holiday"];
+export const eventTypes = ["Announcement", "Events", "Public Holiday"];
 export const accessOptions = ["All", "Parents", "Staff"];
 
 export const initialEvents = [
@@ -115,8 +115,18 @@ export const initialHolidays = [
 
 export const months = [
   "All Months",
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 export function formatDate(iso) {

@@ -50,6 +50,7 @@ export function AddSuperAdminModal({ open, onOpenChange, initial, onSave }) {
   const handleFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    set("avatarFile", file);
     const reader = new FileReader();
     reader.onload = () => set("avatar", reader.result);
     reader.readAsDataURL(file);
@@ -62,9 +63,15 @@ export function AddSuperAdminModal({ open, onOpenChange, initial, onSave }) {
       id: initial?.id,
       name: form.name.trim(),
       email: form.email.trim(),
-      contact: form.contact.trim(),
+      contactNo: form.contact.trim(),
       gender: form.gender,
-      avatar: form.avatar,
+      password: form.password,
+      avatarFile: form.avatarFile,
+      centerName: form.centerName,
+      adressStreet: form.streetAddress,
+      addressCity: form.city,
+      addressState: form.state,
+      addressZip: form.zipCode,
     });
     onOpenChange(false);
   };

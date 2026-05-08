@@ -14,7 +14,7 @@ import { toast } from "sonner";
 
 const emptyForm = { ip: "", name: "", location: "", status: "active" };
 
-export function AddIpModal({ open, onOpenChange, initial, onSave }) {
+export function AddIpModal({ open, onOpenChange, initial, onSave, saving = false }) {
   const [form, setForm] = useState(emptyForm);
   const [yourIp, setYourIp] = useState("");
   const [checking, setChecking] = useState(false);
@@ -47,14 +47,16 @@ export function AddIpModal({ open, onOpenChange, initial, onSave }) {
     if (yourIp) update("ip", yourIp);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.ip.trim() || !form.name.trim()) {
       toast.error("IP and Name are required");
       return;
     }
-    onSave({ ...form, id: initial?.id });
-    onOpenChange(false);
+    const didSave = await onSave({ ...form, id: initial?.id });
+    if (didSave !== false) {
+      onOpenChange(false);
+    }
   };
 
   return (
@@ -75,24 +77,23 @@ export function AddIpModal({ open, onOpenChange, initial, onSave }) {
                   onChange={(e) => update("ip", e.target.value)}
                   placeholder="Enter IP"
                   className="flex-1"
+                  disabled={saving}
                 />
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={handleCheckIp}
-                  disabled={checking}
+                  disabled={checking || saving}
                 >
                   {checking ? "..." : "Check IP"}
                 </Button>
                 {yourIp && (
-                  <Button type="button" onClick={handlePaste}>
+                  <Button type="button" onClick={handlePaste} disabled={saving}>
                     Paste
                   </Button>
                 )}
               </div>
-              {yourIp && (
-                <p className="text-xs text-muted-foreground">Your IP: {yourIp}</p>
-              )}
+              {yourIp && <p className="text-xs text-muted-foreground">Your IP: {yourIp}</p>}
             </div>
 
             <div className="space-y-2">
@@ -101,6 +102,7 @@ export function AddIpModal({ open, onOpenChange, initial, onSave }) {
                 value={form.name}
                 onChange={(e) => update("name", e.target.value)}
                 placeholder="Enter IP Name"
+                disabled={saving}
               />
             </div>
 
@@ -110,6 +112,7 @@ export function AddIpModal({ open, onOpenChange, initial, onSave }) {
                 value={form.location}
                 onChange={(e) => update("location", e.target.value)}
                 placeholder="Enter IP Location"
+                disabled={saving}
               />
             </div>
 
@@ -119,6 +122,7 @@ export function AddIpModal({ open, onOpenChange, initial, onSave }) {
                 value={form.status}
                 onValueChange={(v) => update("status", v)}
                 className="flex items-center gap-6"
+                disabled={saving}
               >
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="active" id="ip-active" />
@@ -136,7 +140,9 @@ export function AddIpModal({ open, onOpenChange, initial, onSave }) {
             </div>
           </div>
           <DialogFooter className="border-t bg-muted/30 px-5 py-3">
-            <Button type="submit">{isEdit ? "Update IP" : "Save IP"}</Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : isEdit ? "Update IP" : "Save IP"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

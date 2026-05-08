@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, CalendarDays, Filter as FilterIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -7,23 +7,59 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { initialEvents, eventTypes } from "@/components/events/eventsData";
+import { eventTypes } from "@/components/events/eventsData";
 import { EventCard } from "@/components/events/EventCard";
+import { announcementService } from "@/services/announcementService";
+import { useCentreStore } from "@/stores/centreStore";
+import { mapAnnouncementRecord } from "@/components/events/eventMappers";
 
 export default function EventsPage() {
   const navigate = useNavigate();
-  const [events, setEvents] = useState(initialEvents);
+  const { centres, activeCentreId, setActiveCentre } = useCentreStore();
+  const [events, setEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [deleteId, setDeleteId] = useState(null);
+
+  const fetchEvents = useCallback(async () => {
+    if (!activeCentreId) return;
+    setIsLoading(true);
+    try {
+      const res = await announcementService.getAnnouncements(activeCentreId);
+      if (res.status) {
+        setEvents((res.data?.records || []).map(mapAnnouncementRecord));
+      } else {
+        toast.error(res.message || "Failed to fetch events");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to fetch events");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeCentreId]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const filtered = useMemo(() => {
     return events.filter((e) => {
@@ -36,13 +72,26 @@ export default function EventsPage() {
   }, [events, type, status, title, date]);
 
   const reset = () => {
-    setType("all"); setStatus("all"); setTitle(""); setDate("");
+    setType("all");
+    setStatus("all");
+    setTitle("");
+    setDate("");
   };
 
-  const handleDelete = () => {
-    setEvents((arr) => arr.filter((e) => e.id !== deleteId));
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    try {
+      const res = await announcementService.deleteAnnouncement(deleteId);
+      if (res.status === false) {
+        toast.error(res.message || "Failed to delete event");
+        return;
+      }
+      setEvents((arr) => arr.filter((e) => e.id !== String(deleteId)));
+      toast.success(res.message || "Event deleted");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to delete event");
+    }
     setDeleteId(null);
-    toast.success("Event deleted");
   };
 
   return (
@@ -72,14 +121,35 @@ export default function EventsPage() {
           Filters
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {centres.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs">Centre</Label>
+              <Select value={String(activeCentreId || "")} onValueChange={setActiveCentre}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select centre" />
+                </SelectTrigger>
+                <SelectContent>
+                  {centres.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs">Type</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 {eventTypes.map((t) => (
-                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -87,7 +157,9 @@ export default function EventsPage() {
           <div className="space-y-1">
             <Label className="text-xs">Status</Label>
             <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="All" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="published">Published</SelectItem>
@@ -97,7 +169,11 @@ export default function EventsPage() {
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Title</Label>
-            <Input placeholder="Search title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input
+              placeholder="Search title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Date</Label>
@@ -121,7 +197,11 @@ export default function EventsPage() {
         </span>
       </div>
 
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="rounded-lg border bg-card p-10 text-center text-muted-foreground">
+          Loading events...
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="rounded-lg border bg-card p-10 text-center text-muted-foreground">
           No events match your filters.
         </div>
