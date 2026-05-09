@@ -44,7 +44,7 @@ import { useRoomStore } from "@/stores/roomStore";
 import { ProgramPlanForm } from "@/components/programplan/ProgramPlanForm";
 import { ProgramPlanView } from "@/components/programplan/ProgramPlanView";
 import { MONTHS, YEARS } from "@/components/programplan/data";
-import { programPlanService } from "@/services/learning-documentation/programPlanService";
+import { programPlanService } from "@/services/learning/programPlanService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 

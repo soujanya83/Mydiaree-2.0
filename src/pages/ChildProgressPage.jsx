@@ -11,7 +11,7 @@ import {
 } from "@/components/lessonplan/progressData";
 import { StatusTriangle } from "@/components/lessonplan/StatusTriangle";
 import { cn } from "@/lib/utils";
-import { learningProgressService } from "@/services/learning-documentation/learningProgressService";
+import { learningProgressService } from "@/services/learning/learningProgressService";
 
 const STATUS_BADGE = {
   introduced: "border-amber-300 text-amber-600 bg-amber-50",

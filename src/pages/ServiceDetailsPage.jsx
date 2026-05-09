@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { serviceDetailsService } from "@/services/serviceDetailsService";
+import { serviceDetailsService } from "@/services/centre/serviceDetailsService";
 import { useCentreStore } from "@/stores/centreStore";
 
 function Section({ icon: Icon, title, children, accent = "primary", tinted = false }) {

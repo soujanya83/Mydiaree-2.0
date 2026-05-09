@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { authService } from "@/services/authService";
+import { authService } from "@/services/auth/authService";
 
 export const useAuthStore = create((set) => ({
   user: localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")) : null,

@@ -2,17 +2,19 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MENU_ITEM_LIBRARY } from "./menuData";
 
-export function AddMenuItemsModal({ open, onOpenChange, mealId, mealLabel, dayLabel, selectedIds = [], onSave }) {
+
+export function AddMenuItemsModal({ open, onOpenChange, mealId, mealLabel, dayLabel, recipes = [], selectedIds = [], onSave }) {
   const [picked, setPicked] = useState(selectedIds);
+
 
   useEffect(() => {
     if (open) setPicked(selectedIds);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mealId]);
 
-  const items = MENU_ITEM_LIBRARY[mealId] || [];
+  const items = recipes;
+
 
   const toggle = (id) =>
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -42,9 +44,10 @@ export function AddMenuItemsModal({ open, onOpenChange, mealId, mealLabel, dayLa
                   className="mt-0.5"
                 />
                 <div>
-                  <div className="text-sm font-semibold text-foreground">{it.name}</div>
-                  {it.note && <div className="text-xs text-muted-foreground">{it.note}</div>}
+                  <div className="text-sm font-semibold text-foreground">{it.itemName || it.name}</div>
+                  {(it.notes || it.note) && <div className="text-xs text-muted-foreground">{it.notes || it.note}</div>}
                 </div>
+
               </label>
             ))
           )}

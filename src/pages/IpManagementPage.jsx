@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { AddIpModal } from "@/components/ipmanagement/AddIpModal";
-import { ipManagementService } from "@/services/ipManagementService";
+import { ipManagementService } from "@/services/admin/ipManagementService";
 
 const normalizeStatus = (status) => {
   if (status === 1 || status === "1" || String(status).toLowerCase() === "active") {

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCentreStore } from "@/stores/centreStore";
 import { AddCenterModal } from "@/components/centers/AddCenterModal";
-import { centerService } from "@/services/centerService";
+import { centerService } from "@/services/admin/centerService";
 import {
   AlertDialog,
   AlertDialogAction,

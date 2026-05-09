@@ -36,8 +36,8 @@ import {
 import { ActivityPickerModal } from "./ActivityPickerModal";
 import { EylfPickerModal } from "./EylfPickerModal";
 import { useCentreStore } from "@/stores/centreStore";
-import { childrenService } from "@/services/childrenService";
-import { programPlanService } from "@/services/learning-documentation/programPlanService";
+import { childrenService } from "@/services/centre/childrenService";
+import { programPlanService } from "@/services/learning/programPlanService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -154,7 +154,7 @@ export function ProgramPlanForm({
         return;
       }
       try {
-        const response = await childrenService.getChildrenByRoomId(data.roomId);
+        const response = await childrenService.filterChildren({ room: data.roomId });
         setAvailableChildren(response.children || response.data || []);
       } catch (error) {
         console.error("Failed to load program plan children:", error);

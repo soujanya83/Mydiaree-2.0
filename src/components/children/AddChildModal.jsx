@@ -14,14 +14,18 @@ import { DAYS, GENDER_OPTIONS, STATUS_OPTIONS } from "./childrenData";
 import { toast } from "sonner";
 
 const blank = {
-  name: "",
+  firstname: "",
+  lastname: "",
   dob: "",
-  joinedAt: "",
+  startDate: "",
   image: "",
-  status: "active",
-  gender: "",
+  imageFile: null,
+  status: "Active",
+  gender: "Male",
   days: [...DAYS],
 };
+
+
 
 export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
   const [form, setForm] = useState(blank);
@@ -31,21 +35,25 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
     if (open) {
       if (initial) {
         setForm({
-          name: initial.name || "",
+          firstname: initial.name || "",
+          lastname: initial.lastname || "",
           dob: initial.dob || "",
-          joinedAt: initial.joinedAt || "",
-          image: initial.image || "",
-          status: initial.status || "active",
-          gender: initial.gender || "",
-          days: initial.days || [...DAYS],
+          startDate: initial.startDate || "",
+          image: initial.imageUrl || "",
+          imageFile: null,
+          status: initial.status ? (initial.status.charAt(0).toUpperCase() + initial.status.slice(1).toLowerCase()) : "Active",
+          gender: initial.gender ? (initial.gender.charAt(0).toUpperCase() + initial.gender.slice(1).toLowerCase()) : "Male",
+          days: initial.daysAttending ? Array.from(initial.daysAttending).map((v, i) => v === '1' ? DAYS[i] : null).filter(Boolean) : [...DAYS],
         });
-        setPreview(initial.image || "");
+        setPreview(initial.imageUrl ? (initial.imageUrl.startsWith("http") ? initial.imageUrl : `https://mydiaree.com.au/${initial.imageUrl}`) : "");
       } else {
         setForm(blank);
         setPreview("");
       }
     }
   }, [open, initial]);
+
+
 
   if (!open) return null;
 
@@ -60,31 +68,43 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
   const handleFile = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    const url = URL.createObjectURL(f);
-    setPreview(url);
-    update("image", url);
+    update("imageFile", f);
+    const reader = new FileReader();
+    reader.onload = () => setPreview(reader.result);
+    reader.readAsDataURL(f);
   };
+
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Name is required");
+    if (!form.firstname.trim()) {
+      toast.error("First name is required");
       return;
     }
-    if (!form.dob || !form.joinedAt) {
-      toast.error("Date of Birth and Date of Join are required");
+    if (!form.dob || !form.startDate) {
+      toast.error("Date of Birth and Start Date are required");
       return;
     }
     if (!form.gender) {
       toast.error("Please select a gender");
       return;
     }
-    if (form.days.length === 0) {
-      toast.error("Please select at least one attending day");
-      return;
-    }
-    onSubmit({ ...form });
+    
+    // Format payload for API
+    const payload = {
+      firstname: form.firstname,
+      lastname: form.lastname,
+      dob: form.dob,
+      startDate: form.startDate,
+      gender: form.gender,
+      status: form.status,
+      days: form.days,
+    };
+    if (form.imageFile) payload.file = form.imageFile;
+    
+    onSubmit(payload);
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -113,17 +133,28 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2 sm:col-span-2">
+            <div className="space-y-2">
               <Label>
-                Full Name <span className="text-destructive">*</span>
+                First Name <span className="text-destructive">*</span>
               </Label>
               <Input
-                value={form.name}
-                onChange={(e) => update("name", e.target.value)}
-                placeholder="Enter full name"
+                value={form.firstname}
+                onChange={(e) => update("firstname", e.target.value)}
+                placeholder="Enter first name"
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Label>
+                Last Name
+              </Label>
+              <Input
+                value={form.lastname}
+                onChange={(e) => update("lastname", e.target.value)}
+                placeholder="Enter last name"
+              />
+            </div>
+
 
             <div className="space-y-2">
               <Label>
@@ -138,15 +169,16 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
             </div>
             <div className="space-y-2">
               <Label>
-                Date of Join <span className="text-destructive">*</span>
+                Start Date <span className="text-destructive">*</span>
               </Label>
               <Input
                 type="date"
-                value={form.joinedAt}
-                onChange={(e) => update("joinedAt", e.target.value)}
+                value={form.startDate}
+                onChange={(e) => update("startDate", e.target.value)}
                 required
               />
             </div>
+
 
             <div className="space-y-2">
               <Label>Choose Image</Label>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,41 +10,64 @@ import {
   Search,
   ArrowRight,
   Loader2,
+  Calendar,
+  Building2,
+  DoorOpen,
+  User,
+  Plus,
+  ListChecks,
+  Eye,
+  Info,
+  Upload,
+  ChevronDown,
+  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useCentreStore } from "@/stores/centreStore";
-import { childrenService } from "@/services/childrenService";
-import { reflectionService } from "@/services/learning-documentation/reflectionService";
+import { childrenService } from "@/services/centre/childrenService";
+import { reflectionService } from "@/services/learning/reflectionService";
 import { DailyReflectionEylfModal } from "@/components/reflection/DailyReflectionEylfModal";
 import { toast } from "sonner";
+import { useRoomStore } from "@/stores/roomStore";
+
+const PATTERN_BG =
+  "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.15)_1px,transparent_0)] [background-size:16px_16px]";
 
 export default function DailyReflectionCreatePage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [search] = useSearchParams();
   const isEdit = Boolean(id);
+  const fileInputRef = useRef(null);
 
   const { activeCentreId } = useCentreStore();
+  const { rooms: allRoomsStore } = useRoomStore();
 
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isChildrenLoading, setIsChildrenLoading] = useState(false);
 
   const [availableRooms, setAvailableRooms] = useState([]);
   const [availableStaff, setAvailableStaff] = useState([]);
   const [availableChildren, setAvailableChildren] = useState([]);
 
+  // Form state
   const [rooms, setRooms] = useState([]);
   const [children, setChildren] = useState([]);
   const [staff, setStaff] = useState([]);
   const [eylf, setEylf] = useState([]);
   const [title, setTitle] = useState(search.get("title") || "");
   const [reflection, setReflection] = useState("");
-  const [media, setMedia] = useState([]);
+  const [media, setMedia] = useState([]); // { file, preview, isExisting, url, id }
 
-  const [picker, setPicker] = useState(null); // 'rooms' | 'children' | 'staff' | 'eylf'
+  const [showRoomsPicker, setShowRoomsPicker] = useState(false);
+  const [showChildrenPicker, setShowChildrenPicker] = useState(false);
+  const [showStaffPicker, setShowStaffPicker] = useState(false);
+  const [showEylfPicker, setShowEylfPicker] = useState(false);
 
+  // 1. Fetch Rooms and Staff on Centre Change
   useEffect(() => {
     const loadInitialData = async () => {
       if (!activeCentreId) return;
@@ -63,10 +86,10 @@ export default function DailyReflectionCreatePage() {
         setIsLoadingData(false);
       }
     };
-
     loadInitialData();
   }, [activeCentreId]);
 
+  // 2. Fetch Reflection in Edit Mode
   useEffect(() => {
     const loadReflection = async () => {
       if (!isEdit || !id || !activeCentreId) return;
@@ -80,53 +103,44 @@ export default function DailyReflectionCreatePage() {
           setStaff(existing.staff?.map((s) => String(s.staffid)) || []);
           setChildren(existing.children?.map((c) => String(c.childid)) || []);
           setEylf(existing.eylf ? String(existing.eylf).split(/\r?\n/).filter(Boolean) : []);
+          if (existing.media) {
+            setMedia(existing.media.map(m => ({ isExisting: true, url: m.mediaUrl, id: m.id })));
+          }
         }
       } catch (error) {
         console.error("Failed to load reflection:", error);
       }
     };
-
     loadReflection();
   }, [isEdit, id, activeCentreId]);
 
+  // 3. Fetch Children when selected Rooms change
   useEffect(() => {
     const loadChildren = async () => {
       if (rooms.length === 0) {
         setAvailableChildren([]);
-        setChildren([]);
         return;
       }
-
+      setIsChildrenLoading(true);
       try {
-        const allChildren = [];
-        for (const roomId of rooms) {
-          const res = await childrenService.getChildrenByRoomId(roomId);
-          const childrenRows = res.children || res.data || [];
-          if (res.status && childrenRows.length > 0) {
-            allChildren.push(...childrenRows);
-          }
-        }
-
-        const uniqueChildren = Array.from(
-          new Map(allChildren.map((child) => [child.id, child])).values(),
+        const results = await Promise.all(
+          rooms.map(roomId => childrenService.filterChildren({ room: roomId }))
         );
-        setAvailableChildren(uniqueChildren);
-        setChildren((selected) =>
-          selected.filter((childId) =>
-            uniqueChildren.some((child) => String(child.id) === String(childId)),
-          ),
-        );
+        const merged = results.flatMap(res => res.children || res.data || []);
+        const unique = Array.from(new Map(merged.map(c => [c.id, c])).values());
+        setAvailableChildren(unique);
       } catch (error) {
         console.error("Failed to load children:", error);
+      } finally {
+        setIsChildrenLoading(false);
       }
     };
-
     loadChildren();
   }, [rooms]);
 
   const handleSave = async (status) => {
-    if (!title.trim()) {
-      toast.error("Please enter a title");
+    if (!title.trim() || !rooms.length || !children.length) {
+      toast.error("Please fill in all required fields (Rooms, Children, Title)");
       return;
     }
     setIsSaving(true);
@@ -142,13 +156,13 @@ export default function DailyReflectionCreatePage() {
       formData.append("selected_staff", staff.join(","));
       formData.append("eylf", eylf.join("\r\n"));
 
-      media.forEach((file) => {
-        formData.append("media[]", file);
+      media.filter(m => !m.isExisting).forEach((m) => {
+        formData.append("media[]", m.file);
       });
 
       const res = await reflectionService.storeReflection(formData);
       if (res.status) {
-        toast.success(isEdit ? "Reflection updated" : "Reflection stored");
+        toast.success(isEdit ? "Reflection updated" : "Reflection saved");
         navigate("/daily-reflections");
       } else {
         toast.error(res.message || "Failed to save");
@@ -161,395 +175,442 @@ export default function DailyReflectionCreatePage() {
     }
   };
 
-  const childName =
-    children.length > 0
-      ? availableChildren.find((c) => String(c.id) === String(children[0]))?.name?.toUpperCase() ||
-        ""
-      : "";
-
-  const handleFileSelect = (e) => {
+  const handleMediaSelect = (e) => {
     const files = Array.from(e.target.files);
     if (media.length + files.length > 10) {
       toast.error("Maximum 10 files allowed");
       return;
     }
-    setMedia((prev) => [...prev, ...files]);
+    const newMedia = files.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      isExisting: false
+    }));
+    setMedia(prev => [...prev, ...newMedia]);
   };
 
+  const removeMedia = (index) => {
+    setMedia(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const today = new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+
   return (
-    <div>
-      {/* Top header strip */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => navigate("/daily-reflections")}>
-            <ArrowLeft className="mr-1.5 h-4 w-4" /> Back
-          </Button>
-          <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Link to="/daily-reflections" className="hover:text-foreground">
-              Reflection
-            </Link>
-            <span>/</span>
-            <span className="text-foreground">{isEdit ? "Edit" : "Store"}</span>
-          </nav>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs">
-            <span className="text-muted-foreground">Child Name:</span>
-            <span className="rounded bg-muted px-2 py-0.5 font-bold text-emerald-700">
-              {childName || "—"}
-            </span>
-          </div>
-          <Button
-            onClick={() => handleSave("published")}
-            disabled={isSaving}
-            className="bg-emerald-600 hover:bg-emerald-700"
-          >
-            {isSaving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-1.5 h-4 w-4" />
-            )}
-            Publish Now
-          </Button>
-          <Button
-            onClick={() => handleSave("draft")}
-            disabled={isSaving}
-            className="bg-amber-500 text-amber-950 hover:bg-amber-600"
-          >
-            {isSaving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <FileText className="mr-1.5 h-4 w-4" />
-            )}
-            Make Draft
-          </Button>
-        </div>
-      </div>
-
-      {/* Daily Reflection banner */}
-      <div className="mb-6 rounded-xl border-2 border-emerald-500/40 bg-card px-6 py-4 text-center">
-        <h2 className="inline-flex items-center gap-2 text-base font-bold text-foreground">
-          <FileText className="h-4 w-4" /> Daily Reflection
-        </h2>
-      </div>
-
-      {/* Rooms / Children */}
-      <div className="mb-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-        <ChipPickerField
-          label="Rooms"
-          colour="emerald"
-          values={rooms.map(
-            (rid) => availableRooms.find((r) => String(r.id) === String(rid))?.name || rid,
-          )}
-          onAdd={() => setPicker("rooms")}
-          onRemove={(idx) => setRooms((p) => p.filter((_, i) => i !== idx))}
-          chipClass="bg-emerald-500 text-white"
-          buttonClass="border-emerald-500 text-emerald-600"
-        />
-        <ChipPickerField
-          label="Children"
-          colour="sky"
-          values={children.map(
-            (cid) => availableChildren.find((c) => String(c.id) === String(cid))?.name || cid,
-          )}
-          onAdd={() => setPicker("children")}
-          onRemove={(idx) => setChildren((p) => p.filter((_, i) => i !== idx))}
-          chipClass="bg-sky-500 text-white"
-          buttonClass="border-sky-500 text-sky-600"
-        />
-      </div>
-
-      {/* Staff */}
-      <div className="mb-6">
-        <ChipPickerField
-          label="Staff"
-          colour="rose"
-          values={staff.map(
-            (sid) =>
-              availableStaff.find((s) => String(s.staffid ?? s.id) === String(sid))?.name || sid,
-          )}
-          onAdd={() => setPicker("staff")}
-          onRemove={(idx) => setStaff((p) => p.filter((_, i) => i !== idx))}
-          chipClass="bg-rose-400 text-white"
-          buttonClass="border-rose-500 text-rose-600"
-        />
-      </div>
-
-      {/* EYLF */}
-      <div className="mb-6">
-        <h3 className="mb-2 text-sm font-bold text-emerald-600">EYLF</h3>
-        <div className="flex items-stretch gap-0 overflow-hidden rounded-md border border-border">
-          <div className="flex-1 bg-muted/30 px-4 py-3 text-sm">
-            {eylf.length === 0 ? (
-              <span className="text-muted-foreground">No EYLF outcomes selected</span>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {eylf.map((label, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 rounded bg-emerald-100 px-2 py-1 text-xs text-emerald-700"
-                  >
-                    {label}
-                    <button onClick={() => setEylf((p) => p.filter((_, j) => j !== i))}>
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            onClick={() => setPicker("eylf")}
-            className="flex items-center gap-1.5 bg-sky-500 px-5 text-sm font-semibold text-white hover:bg-sky-600"
-          >
-            <Search className="h-3.5 w-3.5" /> Select EYLF
-          </button>
-        </div>
-      </div>
-
-      {/* Title / Reflection */}
-      <div className="mb-6 grid grid-cols-1 gap-6">
-        <FormBlock label="Title">
-          <Textarea
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            rows={3}
-            placeholder="Enter title…"
-          />
-          <RefineButton />
-        </FormBlock>
-        <FormBlock label="Reflection">
-          <Textarea
-            value={reflection}
-            onChange={(e) => setReflection(e.target.value)}
-            rows={3}
-            placeholder="Enter reflection…"
-          />
-          <RefineButton />
-        </FormBlock>
-      </div>
-
-      {/* Media */}
-      <div className="mb-6">
-        <h3 className="mb-2 text-base font-bold text-foreground">Media Upload Section</h3>
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 px-6 py-10">
-          <input
-            type="file"
-            id="media-upload"
-            multiple
-            accept="image/*,video/*"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-          <Button
-            variant="outline"
-            className="border-sky-500/40 text-sky-700"
-            onClick={() => document.getElementById("media-upload").click()}
-          >
-            <ImageIcon className="mr-1.5 h-4 w-4" /> Select up to 10 Images/Videos
-          </Button>
-          {media.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {media.map((file, i) => (
-                <div
-                  key={i}
-                  className="group relative h-16 w-16 overflow-hidden rounded-md border border-border"
-                >
-                  <img src={URL.createObjectURL(file)} className="h-full w-full object-cover" />
-                  <button
-                    onClick={() => setMedia((prev) => prev.filter((_, j) => j !== i))}
-                    className="absolute right-0 top-0 hidden bg-rose-500 p-0.5 text-white group-hover:block"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
+    <div className="min-h-screen pb-20">
+      {/* Premium Header */}
+      <div className="sticky top-0 z-40 -mx-6 mb-6 border-b border-border bg-background/80 px-6 py-4 backdrop-blur-md">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/daily-reflections")} className="h-9 w-9 rounded-full">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">
+                {isEdit ? "Edit Reflection" : "New Daily Reflection"}
+              </h1>
+              <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Link to="/daily-reflections" className="hover:text-foreground">Reflections</Link>
+                <span>/</span>
+                <span>{isEdit ? "Edit" : "New"}</span>
+              </nav>
             </div>
-          )}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Only images and videos are allowed. Max 10 files.
-          </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-bold text-muted-foreground md:flex">
+              <Calendar className="h-3.5 w-3.5" /> {today}
+            </div>
+            <Button 
+              onClick={() => handleSave("draft")} 
+              variant="outline" 
+              className="h-9 rounded-full border-amber-500/30 text-amber-600 hover:bg-amber-50"
+              disabled={isSaving}
+            >
+              {isSaving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />}
+              Draft
+            </Button>
+            <Button 
+              onClick={() => handleSave("published")} 
+              className="h-9 rounded-full bg-emerald-600 px-6 shadow-lg shadow-emerald-500/20 hover:bg-emerald-700"
+              disabled={isSaving}
+            >
+              {isSaving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+              {isEdit ? "Update" : "Publish"}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Footer actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => handleSave("draft")}
-            className="bg-slate-700 text-white hover:bg-slate-800"
-          >
-            <FileText className="mr-1.5 h-4 w-4" /> Make Draft
-          </Button>
-          <Button
-            onClick={() => handleSave("published")}
-            className="bg-emerald-600 hover:bg-emerald-700"
-          >
-            <Save className="mr-1.5 h-4 w-4" /> Publish Now
-          </Button>
+      <div className="mx-auto max-w-5xl space-y-8">
+        {/* Banner Section */}
+        <section className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-emerald-500/5 p-8 dark:bg-emerald-500/10">
+          <div className="relative z-10">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+              <Sparkles className="h-3 w-3" /> Early Learning Documentation
+            </div>
+            <h2 className="text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+              Daily <span className="text-emerald-600">Reflection</span>
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm font-medium text-muted-foreground">
+              Capture the highlights, group activities, and collective learning moments of the day. 
+              Share the journey with parents and keep a digital diary of classroom growth.
+            </p>
+          </div>
+          <div className="absolute -right-10 -top-10 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+        </section>
+
+        {/* Tagging Section */}
+        <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
+          <div className="mb-6 flex items-center gap-2">
+            <div className="rounded-lg bg-primary/10 p-2 text-primary">
+              <User className="h-5 w-5" />
+            </div>
+            <h3 className="text-base font-bold text-foreground">Tagging & Groups</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <PremiumPickerField
+              label="Rooms"
+              icon={DoorOpen}
+              colour="emerald"
+              selectedItems={rooms.map(id => ({ id, label: availableRooms.find(r => String(r.id) === String(id))?.name || id }))}
+              onRemove={(id) => setRooms(prev => prev.filter(x => x !== id))}
+              onClick={() => setShowRoomsPicker(true)}
+              placeholder="Select rooms"
+            />
+            <PremiumPickerField
+              label="Children"
+              icon={User}
+              colour="sky"
+              selectedItems={children.map(id => ({ id, label: availableChildren.find(c => String(c.id) === String(id))?.name || id }))}
+              onRemove={(id) => setChildren(prev => prev.filter(x => x !== id))}
+              onClick={() => setShowChildrenPicker(true)}
+              placeholder="Select children"
+            />
+            <PremiumPickerField
+              label="Staff"
+              icon={User}
+              colour="rose"
+              selectedItems={staff.map(id => ({ id, label: availableStaff.find(s => String(s.staffid ?? s.id) === String(id))?.name || id }))}
+              onRemove={(id) => setStaff(prev => prev.filter(x => x !== id))}
+              onClick={() => setShowStaffPicker(true)}
+              placeholder="Select staff"
+            />
+          </div>
+        </section>
+
+        {/* Main Content */}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-8">
+            <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
+              <div className="mb-6 flex items-center gap-2">
+                <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <h3 className="text-base font-bold text-foreground">Reflection Content</h3>
+              </div>
+
+              <div className="space-y-6">
+                <FormGroup label="Title" info="Descriptive title for the day's reflection">
+                  <Input 
+                    value={title} 
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g., A Creative Morning in the Studio"
+                    className="h-12 border-none bg-muted/30 focus-visible:ring-sky-500/50" 
+                  />
+                </FormGroup>
+
+                <FormGroup label="What happened today?" info="Describe the group activities and collective learning">
+                  <Textarea 
+                    value={reflection} 
+                    onChange={(e) => setReflection(e.target.value)} 
+                    rows={8}
+                    placeholder="Today we explored textures and colors in our new art corner..."
+                    className="border-none bg-muted/30 focus-visible:ring-sky-500/50 resize-none"
+                  />
+                  <RefineButton />
+                </FormGroup>
+              </div>
+            </section>
+
+            {/* EYLF Section */}
+            <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600">
+                    <ListChecks className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-base font-bold text-foreground">EYLF Outcomes</h3>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setShowEylfPicker(true)}
+                  className="rounded-full border-emerald-500/30 text-emerald-600 hover:bg-emerald-50"
+                >
+                  <Plus className="mr-1.5 h-4 w-4" /> Select Outcomes
+                </Button>
+              </div>
+
+              {eylf.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-12 text-center">
+                  <Info className="mb-2 h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm font-medium text-muted-foreground">No EYLF outcomes linked yet.</p>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {eylf.map((label, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-100">
+                      {label}
+                      <button onClick={() => setEylf(p => p.filter((_, j) => j !== i))} className="hover:text-emerald-900">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <div className="space-y-8">
+            {/* Media Upload */}
+            <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Media</h3>
+                <span className="text-[10px] font-medium text-muted-foreground uppercase">{media.length}/10 Files</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {media.map((m, i) => (
+                  <div key={i} className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
+                    <img 
+                      src={m.isExisting ? m.url : m.preview} 
+                      className="h-full w-full object-cover transition-transform group-hover:scale-105" 
+                      alt="preview" 
+                    />
+                    <button
+                      onClick={() => removeMedia(i)}
+                      className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                
+                {media.length < 10 && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-6 transition-colors hover:border-primary/40 hover:bg-primary/5 ${PATTERN_BG}`}
+                  >
+                    <Upload className="h-5 w-5 text-primary" />
+                    <span className="mt-2 text-[10px] font-bold text-foreground uppercase tracking-tighter">Add</span>
+                  </button>
+                )}
+              </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                multiple 
+                accept="image/*,video/*"
+                onChange={handleMediaSelect}
+              />
+              <p className="mt-4 text-[10px] text-center text-muted-foreground leading-relaxed uppercase font-bold tracking-widest">
+                Support for high-res images and 4K video clips.
+              </p>
+            </section>
+
+            {/* Bottom Actions for Tab */}
+            <div className="space-y-3">
+              <Button 
+                onClick={() => handleSave("published")} 
+                className="w-full h-14 rounded-2xl bg-emerald-600 text-base font-bold shadow-xl shadow-emerald-500/20 hover:bg-emerald-700"
+                disabled={isSaving}
+              >
+                {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                {isEdit ? "Update Reflection" : "Publish Reflection"}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => handleSave("draft")} 
+                className="w-full h-12 rounded-2xl border-amber-500/30 text-amber-600 hover:bg-amber-50"
+                disabled={isSaving}
+              >
+                Save as Draft
+              </Button>
+            </div>
+          </div>
         </div>
-        <Button onClick={() => handleSave("draft")} className="bg-emerald-600 hover:bg-emerald-700">
-          Submit <ArrowRight className="ml-1.5 h-4 w-4" />
-        </Button>
       </div>
 
-      {/* Picker modal */}
-      {picker === "eylf" ? (
+      {/* Pickers */}
+      <MultiPickerModal
+        open={showRoomsPicker}
+        title="Select Rooms"
+        items={availableRooms.map((r) => ({ id: String(r.id), label: r.name }))}
+        selected={rooms}
+        onClose={() => setShowRoomsPicker(false)}
+        onSave={(v) => { setRooms(v); setShowRoomsPicker(false); }}
+      />
+      <MultiPickerModal
+        open={showChildrenPicker}
+        title="Select Children"
+        items={availableChildren.map((c) => ({ id: String(c.id), label: c.name }))}
+        selected={children}
+        isLoading={isChildrenLoading}
+        emptyMessage={rooms.length === 0 ? "Please select a room first to see children" : "No children found in selected rooms"}
+        onClose={() => setShowChildrenPicker(false)}
+        onSave={(v) => { setChildren(v); setShowChildrenPicker(false); }}
+      />
+      <MultiPickerModal
+        open={showStaffPicker}
+        title="Select Staff"
+        items={availableStaff.map((s) => ({ id: String(s.staffid ?? s.id), label: s.name }))}
+        selected={staff}
+        onClose={() => setShowStaffPicker(false)}
+        onSave={(v) => { setStaff(v); setShowStaffPicker(false); }}
+      />
+      {showEylfPicker && (
         <DailyReflectionEylfModal
           open={true}
           selected={eylf}
-          onClose={() => setPicker(null)}
+          onClose={() => setShowEylfPicker(false)}
           onSave={(vals) => {
             setEylf(vals);
-            setPicker(null);
+            setShowEylfPicker(false);
           }}
         />
-      ) : (
-        picker && (
-          <PickerModal
-            title={
-              picker === "rooms"
-                ? "Select Rooms"
-                : picker === "children"
-                  ? "Select Children"
-                  : "Select Staff"
-            }
-            options={
-              picker === "rooms"
-                ? availableRooms.map((r) => ({ value: String(r.id), label: r.name }))
-                : picker === "children"
-                  ? availableChildren.map((c) => ({ value: String(c.id), label: c.name }))
-                  : availableStaff.map((s) => ({
-                      value: String(s.staffid ?? s.id),
-                      label: s.name,
-                    }))
-            }
-            selected={picker === "rooms" ? rooms : picker === "children" ? children : staff}
-            onClose={() => setPicker(null)}
-            onSave={(vals) => {
-              if (picker === "rooms") setRooms(vals);
-              else if (picker === "children") setChildren(vals);
-              else setStaff(vals);
-              setPicker(null);
-            }}
-          />
-        )
       )}
     </div>
   );
 }
 
-function FormBlock({ label, children }) {
+function PremiumPickerField({ label, icon: Icon, colour, selectedItems, onRemove, onClick, placeholder }) {
+  const colours = {
+    emerald: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+    sky: "text-sky-600 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
+    rose: "text-rose-600 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
+  };
+
   return (
-    <div>
-      <h4 className="mb-1.5 text-sm font-bold text-emerald-600">{label}</h4>
-      <div className="space-y-2">{children}</div>
+    <div className="flex flex-col gap-2">
+      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">{label}</label>
+      <div 
+        onClick={onClick}
+        className="min-h-[56px] w-full cursor-pointer rounded-2xl border border-border bg-muted/20 p-3 transition-all hover:border-primary/30 hover:bg-muted/30"
+      >
+        <div className="flex flex-wrap gap-2">
+          {selectedItems.length > 0 ? (
+            selectedItems.map((item) => (
+              <span
+                key={item.id}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition-all ${colours[colour]}`}
+              >
+                {item.label}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(item.id);
+                  }}
+                  className="rounded-full hover:bg-black/10 p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))
+          ) : (
+            <div className="flex items-center gap-2 text-muted-foreground/60 py-1 px-1">
+              <Icon className="h-4 w-4" />
+              <span className="text-sm font-medium">{placeholder}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FormGroup({ label, children, info }) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between px-1">
+        <label className="text-sm font-bold text-foreground">{label}</label>
+        {info && (
+          <div className="group relative">
+            <Info className="h-4 w-4 text-muted-foreground/50 cursor-help" />
+            <div className="absolute bottom-full right-0 mb-2 w-48 rounded-lg bg-slate-900 p-2 text-[10px] text-white opacity-0 shadow-xl transition-opacity group-hover:opacity-100 pointer-events-none z-50">
+              {info}
+            </div>
+          </div>
+        )}
+      </div>
+      {children}
     </div>
   );
 }
 
 function RefineButton() {
   return (
-    <div className="flex justify-end">
+    <div className="mt-3 flex justify-end">
       <Button
+        variant="ghost"
         size="sm"
-        className="bg-sky-500 text-white hover:bg-sky-600"
+        className="h-8 rounded-full bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary-foreground font-bold text-[10px] uppercase tracking-wider"
         onClick={() => toast.info("AI refinement coming soon")}
       >
-        <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Refine with Ai
+        <Wand2 className="mr-1.5 h-3 w-3" /> Refine with Ai
       </Button>
     </div>
   );
 }
 
-function ChipPickerField({ label, values, onAdd, onRemove, chipClass, buttonClass }) {
-  return (
-    <div>
-      <h3 className="mb-2 text-sm font-bold text-emerald-600">{label}</h3>
-      <div className="rounded-lg border border-border bg-card p-4">
-        <button
-          onClick={onAdd}
-          className={`mb-3 inline-flex items-center gap-1.5 rounded-md border-2 px-4 py-2 text-sm font-semibold ${buttonClass}`}
-        >
-          Select {label}
-        </button>
-        {values.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {values.map((v, i) => (
-              <span
-                key={i}
-                className={`inline-flex items-center gap-1.5 rounded px-3 py-1 text-xs font-bold uppercase ${chipClass}`}
-              >
-                {v}
-                <button onClick={() => onRemove(i)}>
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PickerModal({ title, options, selected, onClose, onSave }) {
-  const [chosen, setChosen] = useState(new Set(selected));
-  const toggle = (v) => {
-    setChosen((prev) => {
-      const next = new Set(prev);
-      if (next.has(v)) next.delete(v);
-      else next.add(v);
-      return next;
-    });
+function MultiPickerModal({ open, title, items, selected, onClose, onSave, isLoading, emptyMessage }) {
+  const [local, setLocal] = useState(selected || []);
+  useEffect(() => { if (open) setLocal(selected || []); }, [open, selected]);
+  if (!open) return null;
+  const toggle = (id) => {
+    setLocal((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-lg font-bold text-foreground">{title}</h2>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted"
-          >
-            <X className="h-4 w-4" />
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between border-b border-border px-8 py-6">
+          <h2 className="text-xl font-bold text-foreground">{title}</h2>
+          <button onClick={onClose} className="rounded-full p-2 text-muted-foreground hover:bg-muted">
+            <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
-          <div className="space-y-1">
-            {options.map((o) => {
-              const checked = chosen.has(o.value);
-              return (
-                <label
-                  key={o.value}
-                  className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${
-                    checked
-                      ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30"
-                      : "border-border hover:bg-muted/50"
-                  }`}
-                >
+        <div className="max-h-96 overflow-y-auto px-6 py-4">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="mt-2 text-sm font-medium">Fetching children list...</p>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+              <Info className="h-10 w-10 opacity-20 mb-3" />
+              <p className="text-sm px-10 font-medium">{emptyMessage || "No items available"}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-2">
+              {items.map((it) => (
+                <label key={it.id} className={`flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors ${local.includes(it.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}>
                   <input
                     type="checkbox"
-                    checked={checked}
-                    onChange={() => toggle(o.value)}
-                    className="accent-emerald-500"
+                    checked={local.includes(it.id)}
+                    onChange={() => toggle(it.id)}
+                    className="h-5 w-5 rounded-md accent-primary"
                   />
-                  <span className="text-foreground">{o.label}</span>
+                  <span className="text-sm font-semibold">{it.label}</span>
                 </label>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="flex justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => onSave(Array.from(chosen))}
-            className="bg-emerald-600 hover:bg-emerald-700"
-          >
-            Save
+        <div className="flex justify-end gap-3 border-t border-border bg-muted/20 px-8 py-6">
+          <Button variant="ghost" onClick={onClose} className="rounded-xl">Cancel</Button>
+          <Button onClick={() => onSave(local)} className="rounded-xl bg-primary px-8 shadow-lg shadow-primary/20" disabled={isLoading || items.length === 0}>
+            Save Selection
           </Button>
         </div>
       </div>

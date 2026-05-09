@@ -1,24 +1,46 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, UtensilsCrossed, Calendar, ClipboardList, CalendarDays } from "lucide-react";
+import { Plus, Trash2, UtensilsCrossed, Calendar, ClipboardList, CalendarDays, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { useCentreStore } from "@/stores/centreStore";
 import {
   MEAL_TIMES,
   WEEKDAYS,
-  MENU_ITEM_LIBRARY,
-  initialMenu,
   dailyRequirements,
   fortnightlyRequirements,
 } from "@/components/menu/menuData";
 import { AddMenuItemsModal } from "@/components/menu/AddMenuItemsModal";
 import { toast } from "sonner";
+import { useMenuStore } from "@/stores/menuStore";
+import { useRecipeStore } from "@/stores/recipeStore";
+import { recipeService } from "@/services/nutrition/recipeService";
+
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
+
+// API expects DD-MM-YYYY
+function formatForAPI(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}-${m}-${y}`;
+}
+
 
 function weekRangeLabel(dateStr) {
   if (!dateStr) return "";
@@ -55,45 +77,159 @@ function todayDayIdInWeek(dateStr) {
   return ids[idx - 1];
 }
 
+function parseLocalDate(dateStr) {
+  if (!dateStr) return new Date();
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function getWeeksOfMonth(dateStr) {
+  if (!dateStr) return [];
+  const d = parseLocalDate(dateStr);
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  
+  const weeks = [];
+  // Start from the 1st of the month
+  let current = new Date(year, month, 1);
+  
+  // Find all Mondays that fall in this month
+  while (current.getMonth() === month || weeks.length < 1) {
+    if (current.getDay() === 1) { // Monday
+      const mon = new Date(current);
+      const fri = new Date(current);
+      fri.setDate(mon.getDate() + 4);
+      
+      const fmt = (x) => x.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+      const iso = mon.getFullYear() + "-" + 
+                  String(mon.getMonth() + 1).padStart(2, "0") + "-" + 
+                  String(mon.getDate()).padStart(2, "0");
+      
+      weeks.push({
+        id: iso,
+        label: `Week ${weeks.length + 1} - ${fmt(mon)} to ${fmt(fri)}`,
+        monday: iso
+      });
+    }
+    current.setDate(current.getDate() + 1);
+    // Stop if we passed the month and have enough weeks, or reached next month's 2nd Monday
+    if (current.getMonth() !== month && current.getDay() === 1) break;
+  }
+  return weeks;
+}
+
+
+
 export default function MenuPage() {
-  const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
+  const centres = useCentreStore((s) => s.centres);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
 
-  const [date, setDate] = useState(todayISO());
-  // menu shape: { [mealId]: { [dayId]: string[] (item ids) } }
-  const [menu, setMenu] = useState(initialMenu);
+  const { menuData, isLoading: isMenuLoading, fetchMenu, addRecipes, deleteMenuItem } = useMenuStore();
+  const { fetchRecipes, recipesGrouped } = useRecipeStore();
+  const [allRecipes, setAllRecipes] = useState([]);
 
+  const [date, setDate] = useState(todayISO());
   const [modal, setModal] = useState({ open: false, mealId: null, dayId: null });
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+
+  useEffect(() => {
+    if (activeCentreId && date) {
+      fetchMenu(activeCentreId, formatForAPI(date));
+    }
+  }, [activeCentreId, date, fetchMenu]);
+
+  useEffect(() => {
+    const loadRecipes = async () => {
+      if (activeCentreId) {
+        try {
+          const data = await recipeService.getRecipes(activeCentreId);
+          // Flatten grouped recipes for the library
+          const flat = Object.values(data.recipes || {}).flat();
+          setAllRecipes(flat);
+        } catch (error) {
+          console.error("Failed to load recipes library", error);
+        }
+      }
+    };
+    loadRecipes();
+  }, [activeCentreId]);
 
   const openModal = (mealId, dayId) => setModal({ open: true, mealId, dayId });
 
-  const handleSave = (ids) => {
-    setMenu((m) => ({
-      ...m,
-      [modal.mealId]: { ...(m[modal.mealId] || {}), [modal.dayId]: ids },
-    }));
-    toast.success("Menu updated");
+  const handleSave = async (recipeIds) => {
+    try {
+      const dayLabel = WEEKDAYS.find(d => d.id === modal.dayId)?.label;
+      const mealLabel = MEAL_TIMES.find(m => m.id === modal.mealId)?.label;
+      
+      await addRecipes({
+        centerId: activeCentreId,
+        selectedDate: formatForAPI(date),
+        day: dayLabel,
+        mealType: mealLabel,
+        recipeIds: recipeIds,
+      });
+      toast.success("Menu updated");
+      setModal((m) => ({ ...m, open: false }));
+    } catch (error) {
+
+      toast.error(error?.message || "Failed to update menu");
+    }
   };
 
-  const removeItem = (mealId, dayId, itemId) => {
-    setMenu((m) => ({
-      ...m,
-      [mealId]: {
-        ...(m[mealId] || {}),
-        [dayId]: (m[mealId]?.[dayId] || []).filter((x) => x !== itemId),
-      },
-    }));
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteMenuItem(confirmDelete.id, activeCentreId, formatForAPI(date));
+      toast.success("Item removed from menu");
+      setConfirmDelete(null);
+    } catch (error) {
+      toast.error(error?.message || "Failed to remove item");
+    } finally {
+      setIsDeleting(false);
+    }
   };
+
+
+  const grouped = useMemo(() => {
+    const map = {}; // { mealId: { dayId: items[] } }
+    menuData.forEach((item) => {
+      const mealId = item.mealType?.toLowerCase();
+      const dayId = item.day?.toLowerCase().slice(0, 3); // Tuesday -> tue
+      if (!map[mealId]) map[mealId] = {};
+      if (!map[mealId][dayId]) map[mealId][dayId] = [];
+      map[mealId][dayId].push(item);
+    });
+    return map;
+  }, [menuData]);
+
 
   const weekLabel = useMemo(() => weekRangeLabel(date), [date]);
-  const todayId = useMemo(() => todayDayIdInWeek(date), [date]);
+  const monthWeeks = useMemo(() => getWeeksOfMonth(date), [date.slice(0, 7)]); // Re-calc only if month changes
 
+  // Find the current week's Monday ISO to match against monthWeeks
+  const currentWeekMon = useMemo(() => {
+    const d = parseLocalDate(date);
+    const day = d.getDay();
+    const offsetToMon = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + offsetToMon);
+    return d.getFullYear() + "-" + 
+           String(d.getMonth() + 1).padStart(2, "0") + "-" + 
+           String(d.getDate()).padStart(2, "0");
+  }, [date]);
+
+
+
+  const todayId = useMemo(() => todayDayIdInWeek(date), [date]);
   const activeMeal = MEAL_TIMES.find((m) => m.id === modal.mealId);
   const activeDay = WEEKDAYS.find((d) => d.id === modal.dayId);
 
   return (
     <div className="space-y-6">
+
       <PageHeader
         title="Healthy Eating Menu"
         description="Plan weekly meals across all meal times"
@@ -137,10 +273,24 @@ export default function MenuPage() {
         <p className="mt-2 text-sm opacity-90">
           Nutritious meals crafted for growing minds and bodies
         </p>
-        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-1.5 text-sm backdrop-blur">
-          <Calendar className="h-4 w-4" />
-          <span>{weekLabel}</span>
+        <div className="mt-4">
+          <Select value={currentWeekMon} onValueChange={setDate}>
+            <SelectTrigger className="mx-auto w-auto min-w-[300px] border-0 bg-white/20 text-white backdrop-blur hover:bg-white/30 focus:ring-0">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <SelectValue />
+              </div>
+            </SelectTrigger>
+            <SelectContent className="max-w-[400px]">
+              {monthWeeks.map((w) => (
+                <SelectItem key={w.id} value={w.id}>
+                  {w.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+
       </div>
 
       {/* Menu grid */}
@@ -180,11 +330,9 @@ export default function MenuPage() {
                   {meal.label}
                 </td>
                 {WEEKDAYS.map((day) => {
-                  const ids = menu[meal.id]?.[day.id] || [];
-                  const items = ids
-                    .map((id) => MENU_ITEM_LIBRARY[meal.id]?.find((x) => x.id === id))
-                    .filter(Boolean);
+                  const items = grouped[meal.id]?.[day.id] || [];
                   return (
+
                     <td
                       key={day.id}
                       className={`border-r px-3 py-3 align-top last:border-r-0 ${
@@ -210,7 +358,7 @@ export default function MenuPage() {
                           {items.map((it) => (
                             <div
                               key={it.id}
-                              className="rounded-md border bg-background px-3 py-2 shadow-sm"
+                              className="rounded-md border bg-background px-3 py-2 shadow-sm group"
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="text-sm font-semibold text-foreground">
@@ -218,10 +366,12 @@ export default function MenuPage() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => removeItem(meal.id, day.id, it.id)}
-                                  className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                                  onClick={() => setConfirmDelete(it)}
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 opacity-0 group-hover:opacity-100 transition-opacity"
                                   aria-label="Remove"
                                 >
+
+
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                               </div>
@@ -295,9 +445,41 @@ export default function MenuPage() {
         mealId={modal.mealId}
         mealLabel={activeMeal?.label || ""}
         dayLabel={activeDay?.label || ""}
-        selectedIds={menu[modal.mealId]?.[modal.dayId] || []}
+        recipes={allRecipes.filter(r => r.type?.toLowerCase() === modal.mealId || r.type === activeMeal?.label.toUpperCase())}
         onSave={handleSave}
       />
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from menu?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove "{confirmDelete?.name}" from the menu?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                "Remove"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }

@@ -49,11 +49,8 @@ import StaffSettingsPage from "@/pages/StaffSettingsPage";
 import SuperAdminSettingsPage from "@/pages/SuperAdminSettingsPage";
 import ParentSettingsPage from "@/pages/ParentSettingsPage";
 import StyleGuidePage from "@/pages/StyleGuidePage";
-import { useEffect } from "react";
-import { authService } from "./services/authService";
 
 export default function App() {
-
   return (
     <>
       <Routes>
@@ -91,8 +88,14 @@ export default function App() {
           <Route path="/observation/:id/edit" element={<ObservationCreatePage />} />
           <Route path="/permissions" element={<PermissionsPage />} />
           <Route path="/permissions/assigned" element={<PermissionsAssignedListPage />} />
-          <Route path="/permissions/assigned/:userId" element={<PermissionsAssignedDetailsPage />} />
-          <Route path="/permissions/assigned/:userId/edit" element={<PermissionsAssignedDetailsPage />} />
+          <Route
+            path="/permissions/assigned/:userId"
+            element={<PermissionsAssignedDetailsPage />}
+          />
+          <Route
+            path="/permissions/assigned/:userId/edit"
+            element={<PermissionsAssignedDetailsPage />}
+          />
           <Route path="/permissions/roles" element={<PermissionsRolesPage />} />
           <Route path="/permissions/roles/:roleId" element={<PermissionsRoleDetailsPage />} />
           <Route path="/program-plan" element={<ProgramPlanPage />} />

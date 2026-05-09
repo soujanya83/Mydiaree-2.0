@@ -16,8 +16,12 @@ import { ImageIcon, X, Upload } from "lucide-react";
 import {
   RECIPE_MEAL_TYPES,
   FOOD_TYPES,
-  INGREDIENT_OPTIONS,
 } from "./recipesData";
+import { useIngredientStore } from "@/stores/ingredientStore";
+import { useRecipeStore } from "@/stores/recipeStore";
+import { useCentreStore } from "@/stores/centreStore";
+import { toast } from "sonner";
+
 
 const empty = {
   name: "",
@@ -30,18 +34,68 @@ const empty = {
   videoUrl: "",
 };
 
-export function AddRecipeModal({ open, onOpenChange, onSave, initial }) {
+export function AddRecipeModal({ open, onOpenChange, initial }) {
+  const activeCentreId = useCentreStore((s) => s.activeCentreId);
+  const { ingredients: allIngredients, fetchIngredients } = useIngredientStore();
+  const { addRecipe, updateRecipe } = useRecipeStore();
+
   const [form, setForm] = useState(empty);
   const [ingQuery, setIngQuery] = useState("");
   const [ingOpen, setIngOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const fileRef = useRef(null);
+
+  const videoFileRef = useRef(null);
 
   useEffect(() => {
     if (open) {
-      setForm(initial ? { ...empty, ...initial } : empty);
+      fetchIngredients();
+    }
+  }, [open, fetchIngredients]);
+
+
+  useEffect(() => {
+    if (open) {
+      if (initial) {
+        // Handle various potential keys and data types for ingredients
+        const rawIngs = initial.ingredients || initial.ingredient || initial.recipe_ingredients || [];
+        let ingList = [];
+        
+        if (Array.isArray(rawIngs)) {
+          ingList = rawIngs;
+        } else if (typeof rawIngs === 'string' && rawIngs.includes(',')) {
+          ingList = rawIngs.split(',').map(s => s.trim());
+        } else if (rawIngs) {
+          ingList = [rawIngs];
+        }
+
+        const names = ingList.map(item => {
+          if (typeof item === 'object' && item.name) return item.name;
+          // If it's an ID (number or string), find the name in our global list
+          const found = allIngredients.find(ai => String(ai.id) === String(item));
+          return found ? found.name : item;
+        }).filter(Boolean);
+
+        setForm({
+          ...empty,
+          name: initial.itemName || "",
+          foodType: (initial.foodtype || "").replace("-", "_"),
+          mealType: (initial.type || "").toLowerCase(),
+          ingredients: names,
+          description: initial.recipe || "",
+          note: initial.notes || initial.note || "",
+          image: initial.mediaUrl || "",
+          videoUrl: initial.RecipeVideolink || "",
+        });
+      } else {
+        setForm(empty);
+      }
       setIngQuery("");
     }
-  }, [open, initial]);
+  }, [open, initial, allIngredients]);
+
+
+
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -61,29 +115,70 @@ export function AddRecipeModal({ open, onOpenChange, onSave, initial }) {
   const handleFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    set("imageFile", file);
     const reader = new FileReader();
     reader.onload = () => set("image", String(reader.result || ""));
     reader.readAsDataURL(file);
   };
 
-  const canSubmit = form.name.trim() && form.foodType && form.mealType;
-
-  const submit = () => {
-    if (!canSubmit) return;
-    onSave?.({
-      ...form,
-      id: initial?.id,
-      author: initial?.author || "Deepti (Superadmin)",
-      date: initial?.date || new Date().toISOString().slice(0, 10),
-    });
-    onOpenChange(false);
+  const handleVideoFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    set("videoFile", file);
   };
 
-  const filteredIngs = INGREDIENT_OPTIONS.filter(
+
+  const canSubmit = form.name.trim() && form.foodType && form.mealType;
+
+  const submit = async () => {
+    if (!canSubmit || loading) return;
+    setLoading(true);
+    
+    // Find ingredient IDs from names
+
+    const selectedIngIds = form.ingredients.map(name => {
+      const found = allIngredients.find(i => i.name === name);
+      return found ? found.id : null;
+    }).filter(id => id !== null);
+
+    const payload = {
+      centerId: activeCentreId,
+      itemName: form.name,
+      mealType: form.mealType,
+      ingredients: selectedIngIds,
+      recipe: form.description,
+      notes: form.note,
+      foodtype: form.foodType,
+      RecipeVideolink: form.videoUrl,
+    };
+
+    if (form.imageFile) payload["image[]"] = form.imageFile;
+    if (form.videoFile) payload["video[]"] = form.videoFile;
+
+    try {
+      if (initial?.id) {
+        await updateRecipe({ ...payload, id: initial.id });
+        toast.success("Recipe updated successfully");
+      } else {
+        await addRecipe(payload);
+        toast.success("Recipe added successfully");
+      }
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(error?.message || "Failed to save recipe");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+
+  const filteredIngs = allIngredients.filter(
     (o) =>
-      o.toLowerCase().includes(ingQuery.toLowerCase()) &&
-      !form.ingredients.includes(o)
+      o.name.toLowerCase().includes(ingQuery.toLowerCase()) &&
+      !form.ingredients.includes(o.name)
   );
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -159,15 +254,15 @@ export function AddRecipeModal({ open, onOpenChange, onSave, initial }) {
                 <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
                   {filteredIngs.map((o) => (
                     <button
-                      key={o}
+                      key={o.id}
                       type="button"
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        addIngredient(o);
+                        addIngredient(o.name);
                       }}
                       className="block w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
                     >
-                      {o}
+                      {o.name}
                     </button>
                   ))}
                 </div>
@@ -256,25 +351,55 @@ export function AddRecipeModal({ open, onOpenChange, onSave, initial }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Add Video Link</Label>
-              <Input
-                value={form.videoUrl}
-                onChange={(e) => set("videoUrl", e.target.value)}
-                placeholder="https://youtube.com/..."
+              <Label>Add Video</Label>
+              <input
+                ref={videoFileRef}
+                type="file"
+                accept="video/*"
+                onChange={handleVideoFile}
+                className="hidden"
               />
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => videoFileRef.current?.click()}
+                  className="gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Choose Video
+                </Button>
+                {form.videoFile ? (
+                  <span className="text-xs text-muted-foreground truncate max-w-[100px]">{form.videoFile.name}</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">No file chosen</span>
+                )}
+              </div>
               <p className="text-xs font-semibold text-emerald-600">(Under 10 MB Only)</p>
+              
+              <div className="mt-2 space-y-1.5">
+                <Label className="text-xs">Or YouTube Link</Label>
+                <Input
+                  value={form.videoUrl}
+                  onChange={(e) => set("videoUrl", e.target.value)}
+                  placeholder="https://youtube.com/..."
+                  className="h-8 text-xs"
+                />
+              </div>
             </div>
+
           </div>
         </div>
 
         <div className="flex justify-end gap-2 border-t px-5 py-3 bg-muted/30">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!canSubmit}>
-            Save
+          <Button onClick={submit} disabled={!canSubmit || loading}>
+            {loading ? (initial ? "Updating..." : "Saving...") : (initial ? "Update" : "Save")}
           </Button>
         </div>
+
       </DialogContent>
     </Dialog>
   );

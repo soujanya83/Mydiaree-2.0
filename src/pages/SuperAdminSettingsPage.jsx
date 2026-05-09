@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddSuperAdminModal } from "@/components/superadmin/AddSuperAdminModal";
-import { superAdminService } from "@/services/superAdminService";
+import { superAdminService } from "@/services/admin/superAdminService";
 import { toast } from "sonner";
 
 function getInitials(name) {

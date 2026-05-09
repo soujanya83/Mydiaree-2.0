@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -18,15 +19,28 @@ import {
   User,
   Calendar,
   ImageOff,
+  Loader2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useCentreStore } from "@/stores/centreStore";
+
 import {
   RECIPE_MEAL_TYPES,
   FOOD_TYPES,
-  initialRecipes,
 } from "@/components/recipes/recipesData";
 import { AddRecipeModal } from "@/components/recipes/AddRecipeModal";
 import { toast } from "sonner";
+import { useRecipeStore } from "@/stores/recipeStore";
+
 
 function formatDate(d) {
   if (!d) return "";
@@ -40,39 +54,45 @@ function formatDate(d) {
 }
 
 export default function RecipePage() {
-  const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
+  const centres = useCentreStore((s) => s.centres);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
 
-  const [recipes, setRecipes] = useState(initialRecipes);
+  const {
+    recipesGrouped,
+    mealTypes,
+    isLoading,
+    fetchRecipes,
+    deleteRecipe,
+  } = useRecipeStore();
+
   const [modal, setModal] = useState({ open: false, initial: null });
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleSave = (data) => {
-    if (data.id) {
-      setRecipes((rs) => rs.map((r) => (r.id === data.id ? { ...r, ...data } : r)));
-      toast.success("Recipe updated");
-    } else {
-      setRecipes((rs) => [
-        { ...data, id: `r${Date.now()}`, centreId: activeCentreId },
-        ...rs,
-      ]);
-      toast.success("Recipe added");
+  useEffect(() => {
+    if (activeCentreId) {
+      fetchRecipes(activeCentreId);
+    }
+  }, [activeCentreId, fetchRecipes]);
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteRecipe(confirmDelete.id, activeCentreId);
+      toast.success("Recipe deleted");
+      setConfirmDelete(null);
+    } catch (error) {
+      toast.error(error?.message || "Failed to delete recipe");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const handleDelete = (id) => {
-    setRecipes((rs) => rs.filter((r) => r.id !== id));
-    toast.success("Recipe deleted");
-  };
+  const hasRecipes = Object.values(recipesGrouped).some((arr) => arr.length > 0);
 
-  const grouped = useMemo(() => {
-    const map = {};
-    for (const r of recipes) {
-      if (!map[r.mealType]) map[r.mealType] = [];
-      map[r.mealType].push(r);
-    }
-    return map;
-  }, [recipes]);
+
 
   return (
     <div className="space-y-6">
@@ -106,33 +126,50 @@ export default function RecipePage() {
       />
 
       <div className="space-y-8">
-        {RECIPE_MEAL_TYPES.map((meal) => {
-          const items = grouped[meal.id] || [];
-          if (items.length === 0) return null;
-          return (
-            <section key={meal.id} className="space-y-3">
-              <div className="flex items-center gap-2 border-b-2 border-primary/40 pb-2">
-                <UtensilsCrossed className="h-5 w-5 text-primary" />
-                <h2 className="text-lg font-bold text-primary">{meal.label}</h2>
-                <span className="text-xs text-muted-foreground">
-                  ({items.length})
-                </span>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {items.map((r) => (
-                  <RecipeCard
-                    key={r.id}
-                    recipe={r}
-                    onEdit={() => setModal({ open: true, initial: r })}
-                    onDelete={() => handleDelete(r.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          );
-        })}
+        {isLoading && !hasRecipes ? (
+          <div className="py-20 text-center text-muted-foreground">
+            Loading recipes...
+          </div>
+        ) : (
+          RECIPE_MEAL_TYPES.map((meal) => {
+            const items = recipesGrouped[meal.id.toUpperCase()] || recipesGrouped[meal.id] || [];
+            if (items.length === 0) return null;
+            return (
+              <section key={meal.id} className="space-y-3">
+                <div className="flex items-center gap-2 border-b-2 border-primary/40 pb-2">
+                  <UtensilsCrossed className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-bold text-primary">{meal.label}</h2>
+                  <span className="text-xs text-muted-foreground">
+                    ({items.length})
+                  </span>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {items.map((r) => (
+                    <RecipeCard
+                      key={r.id}
+                      recipe={{
+                        id: r.id,
+                        name: r.itemName,
+                        foodType: r.foodtype,
+                        mealType: r.type,
+                        description: r.recipe,
+                        note: r.notes,
+                        image: r.mediaUrl,
+                        videoUrl: r.RecipeVideolink,
+                        author: r.created_by_name || "Unknown",
+                        date: r.createdAt,
+                      }}
+                      onEdit={() => setModal({ open: true, initial: r })}
+                      onDelete={() => setConfirmDelete(r)}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })
+        )}
 
-        {recipes.length === 0 && (
+        {!isLoading && !hasRecipes && (
           <div className="rounded-xl border bg-card p-10 text-center">
             <UtensilsCrossed className="mx-auto h-10 w-10 text-muted-foreground" />
             <p className="mt-3 text-sm text-muted-foreground">
@@ -146,15 +183,47 @@ export default function RecipePage() {
         open={modal.open}
         onOpenChange={(o) => setModal((m) => ({ ...m, open: o }))}
         initial={modal.initial}
-        onSave={handleSave}
       />
+
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete recipe?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove "{confirmDelete?.itemName}" from your center.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
 function RecipeCard({ recipe, onEdit, onDelete }) {
-  const foodLabel = FOOD_TYPES.find((f) => f.id === recipe.foodType)?.label;
-  const isVeg = recipe.foodType === "veg";
+  const foodLabel = FOOD_TYPES.find((f) => f.id === recipe.foodType || f.id === recipe.foodType?.toLowerCase())?.label || recipe.foodType;
+  const isVeg = recipe.foodType?.toLowerCase() === "veg";
+
+  const imageUrl = recipe.image?.startsWith("http") ? recipe.image : `https://mydiaree.com.au/${recipe.image}`;
 
   return (
     <div className="overflow-hidden rounded-xl border bg-card shadow-sm transition hover:shadow-md">
@@ -164,7 +233,7 @@ function RecipeCard({ recipe, onEdit, onDelete }) {
       <div className="relative h-40 w-full overflow-hidden bg-muted">
         {recipe.image ? (
           <img
-            src={recipe.image}
+            src={imageUrl}
             alt={recipe.name}
             className="h-full w-full object-cover"
           />
@@ -185,6 +254,7 @@ function RecipeCard({ recipe, onEdit, onDelete }) {
           </Badge>
         )}
       </div>
+
       <div className="space-y-2 px-4 py-3">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <User className="h-3.5 w-3.5" />

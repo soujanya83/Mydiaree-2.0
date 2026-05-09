@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { staffService } from "@/services/staffService";
+import { staffService } from "@/services/admin/staffService";
 import { AddStaffModal } from "@/components/staff/AddStaffModal";
 import { Loader2 } from "lucide-react";
 import { useCentreStore } from "@/stores/centreStore";

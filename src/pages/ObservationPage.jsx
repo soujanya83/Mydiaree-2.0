@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -12,7 +12,9 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
-  DoorOpen
+  DoorOpen,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -28,36 +30,62 @@ import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
 import {
-  mockObservations,
   STATUS_FILTERS,
   DATE_FILTERS,
   AUTHORS,
   inDateRange,
   formatObsDate,
-  statusBadgeClasses,
 } from "@/components/observation/observationsData";
 import { NewObservationTitleModal } from "@/components/observation/NewObservationTitleModal";
+import { ObservationCommentModal } from "@/components/observation/ObservationCommentModal";
+import { observationService } from "@/services/learning/observationService";
+import { toast } from "sonner";
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 13;
 
 export default function ObservationPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { children, isLoading } = useChildrenStore();
+  const { children } = useChildrenStore();
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [titleModalOpen, setTitleModalOpen] = useState(false);
+  const [commentModalId, setCommentModalId] = useState(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [dateRange, setDateRange] = useState("all");
   const [author, setAuthor] = useState("all");
   const [childId, setChildId] = useState("all");
   const [page, setPage] = useState(1);
-  const [items, setItems] = useState(mockObservations);
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchObservations = useCallback(async () => {
+    if (!activeCentreId) return;
+    setIsLoading(true);
+    try {
+      const res = await observationService.getObservations(activeCentreId, PAGE_SIZE, page);
+      if (res.success) {
+        setItems(res.observations.data || []);
+        setTotal(res.observations.total || 0);
+      } else {
+        toast.error("Failed to fetch observations");
+      }
+    } catch (error) {
+      toast.error("Error loading observations");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeCentreId, page]);
+
+  useEffect(() => {
+    fetchObservations();
+  }, [fetchObservations]);
 
   const childrenInRoom = useMemo(() => {
     if (!activeRoomId) return children;
@@ -68,20 +96,32 @@ export default function ObservationPage() {
 
   const filtered = useMemo(() => {
     return items.filter((o) => {
-      if (activeCentreId && o.centreId !== activeCentreId) return false;
-      if (activeRoomId && String(o.roomId) !== String(activeRoomId)) return false;
-      if (status !== "all" && o.status !== status) return false;
-      if (author !== "all" && o.author !== author) return false;
-      if (childId !== "all" && String(o.childId) !== String(childId)) return false;
-      if (!inDateRange(o.createdAt, dateRange)) return false;
-      if (search && !o.title.toLowerCase().includes(search.toLowerCase())) return false;
+      // Room filter: Only apply if a specific room is selected (not "all")
+      if (activeRoomId) {
+        const obsRoomStr = String(o.room || "");
+        const targetIdStr = String(activeRoomId);
+        // Check if targetId is in the comma-separated string or exactly matches
+        const isMatch = obsRoomStr.split(",").some(r => r.trim() === targetIdStr) || 
+                       obsRoomStr.includes(`"${targetIdStr}"`);
+        if (!isMatch) return false;
+      }
+
+      if (status !== "all" && o.status.toLowerCase() !== status.toLowerCase()) return false;
+      if (author !== "all" && o.user?.name !== author) return false;
+      
+      const rawTitle = o.obestitle || "";
+      const cleanTitle = rawTitle.replace(/<[^>]*>/g, "");
+      if (search && !cleanTitle.toLowerCase().includes(search.toLowerCase())) return false;
+      
+      if (!inDateRange(o.created_at, dateRange)) return false;
       return true;
     });
-  }, [items, activeCentreId, activeRoomId, status, author, childId, dateRange, search]);
+  }, [items, activeRoomId, status, author, dateRange, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  const [deleteModalId, setDeleteModalId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleSubmitTitle = (title) => {
     setTitleModalOpen(false);
@@ -89,11 +129,27 @@ export default function ObservationPage() {
   };
 
   const handleDelete = (id) => {
-    if (!window.confirm("Delete this observation?")) return;
-    setItems((prev) => prev.filter((o) => o.id !== id));
+    setDeleteModalId(id);
   };
 
-  const activeCentre = centres.find((c) => c.id === activeCentreId);
+  const confirmDelete = async () => {
+    if (!deleteModalId) return;
+    setIsDeleting(true);
+    try {
+      const res = await observationService.deleteObservation(deleteModalId);
+      if (res.status || res.success) {
+        toast.success(res.message || "Observation deleted successfully");
+        fetchObservations(); // Refresh list
+      } else {
+        toast.error(res.message || "Failed to delete observation");
+      }
+    } catch (error) {
+      toast.error("An error occurred while deleting the observation");
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalId(null);
+    }
+  };
 
   const resetFilters = () => {
     setStatus("all");
@@ -131,12 +187,13 @@ export default function ObservationPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={activeRoomId} onValueChange={setActiveRoom}>
+            <Select value={activeRoomId || "all"} onValueChange={(val) => setActiveRoom(val === "all" ? null : val)}>
               <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
                 <DoorOpen className="mr-1.5 h-4 w-4" />
                 <SelectValue placeholder="Room" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Rooms</SelectItem>
                 {rooms.map((r) => (
                   <SelectItem key={r.id} value={r.id}>
                     {r.name}
@@ -150,7 +207,7 @@ export default function ObservationPage() {
 
       {/* Filters panel */}
       {filtersOpen && (
-        <div className="mb-5 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="mb-5 rounded-xl border border-border bg-card p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Filter observations</h3>
             <button
@@ -226,7 +283,12 @@ export default function ObservationPage() {
       )}
 
       {/* Observation list */}
-      {pageItems.length === 0 ? (
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-20 text-center">
+          <Loader2 className="mb-3 h-10 w-10 animate-spin text-primary opacity-40" />
+          <h3 className="text-base font-semibold text-foreground">Loading observations...</h3>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
           <Eye className="mb-3 h-10 w-10 text-muted-foreground/50" />
           <h3 className="text-base font-semibold text-foreground">No observations found</h3>
@@ -239,23 +301,24 @@ export default function ObservationPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {pageItems.map((o) => (
+          {filtered.map((o) => (
             <ObservationCard
               key={o.id}
               obs={o}
               onDelete={() => handleDelete(o.id)}
+              onComment={() => setCommentModalId(o.id)}
             />
           ))}
         </div>
       )}
 
       {/* Pagination */}
-      {filtered.length > PAGE_SIZE && (
+      {totalPages > 1 && (
         <div className="mt-6 flex items-center justify-center gap-1">
           <Button
             variant="outline"
             size="icon"
-            disabled={safePage === 1}
+            disabled={page === 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -263,7 +326,7 @@ export default function ObservationPage() {
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
             <Button
               key={n}
-              variant={n === safePage ? "default" : "outline"}
+              variant={n === page ? "default" : "outline"}
               size="sm"
               className="h-9 w-9"
               onClick={() => setPage(n)}
@@ -274,7 +337,7 @@ export default function ObservationPage() {
           <Button
             variant="outline"
             size="icon"
-            disabled={safePage === totalPages}
+            disabled={page === totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
           >
             <ChevronRight className="h-4 w-4" />
@@ -287,11 +350,61 @@ export default function ObservationPage() {
         onClose={() => setTitleModalOpen(false)}
         onSubmit={handleSubmitTitle}
       />
+
+      <ObservationCommentModal
+        open={Boolean(commentModalId)}
+        onClose={() => setCommentModalId(null)}
+        observationId={commentModalId}
+      />
+
+      <DeleteConfirmationModal
+        open={Boolean(deleteModalId)}
+        onClose={() => setDeleteModalId(null)}
+        onConfirm={confirmDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
 
-function ObservationCard({ obs, onDelete }) {
+function DeleteConfirmationModal({ open, onClose, onConfirm, isLoading }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="p-8 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-rose-500">
+            <AlertTriangle className="h-8 w-8" />
+          </div>
+          <h2 className="mb-2 text-xl font-bold text-foreground">Delete Observation?</h2>
+          <p className="text-sm text-muted-foreground">
+            This action cannot be undone. All data and media associated with this observation will be permanently removed.
+          </p>
+        </div>
+        <div className="flex gap-3 border-t border-border bg-muted/20 px-8 py-6">
+          <Button variant="ghost" onClick={onClose} className="flex-1 rounded-xl" disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={onConfirm} 
+            className="flex-1 rounded-xl bg-rose-600 font-bold text-white shadow-lg shadow-rose-500/20 hover:bg-rose-700"
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Delete
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ObservationCard({ obs, onDelete, onComment }) {
+  const statusClasses = obs.status.toLowerCase() === "published" 
+    ? "bg-emerald-500 text-white" 
+    : "bg-amber-400 text-amber-950";
+
   return (
     <Link
       to={`/observation/${obs.id}`}
@@ -299,11 +412,13 @@ function ObservationCard({ obs, onDelete }) {
     >
       {/* Left media */}
       <div className={`relative flex h-32 w-40 shrink-0 items-center justify-center bg-muted/40 ${PATTERN_BG}`}>
-        <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+        {obs.media?.length > 0 ? (
+          <img src={obs.media[0].mediaUrl} className="h-full w-full object-cover" alt="obs" />
+        ) : (
+          <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+        )}
         <span
-          className={`absolute left-2 top-2 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusBadgeClasses(
-            obs.status
-          )}`}
+          className={`absolute left-2 top-2 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusClasses}`}
         >
           {obs.status}
         </span>
@@ -311,20 +426,34 @@ function ObservationCard({ obs, onDelete }) {
 
       {/* Body */}
       <div className={`relative flex-1 p-4 ${PATTERN_BG}`}>
-        <h3 className="text-sm font-bold text-primary">{obs.title}</h3>
+        <div 
+          className="text-sm font-bold text-primary line-clamp-1"
+          dangerouslySetInnerHTML={{ __html: obs.obestitle }} 
+        />
         <p className="mt-1.5 text-xs text-foreground">
-          <span className="font-semibold">By:</span> {obs.author}
+          <span className="font-semibold">By:</span> {obs.user?.name || "Unknown"}
         </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{formatObsDate(obs.createdAt)}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{formatObsDate(obs.created_at)}</p>
 
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); }}
-          className="mt-3 inline-flex h-7 w-7 items-center justify-center rounded-md bg-card/80 text-muted-foreground hover:bg-muted hover:text-foreground"
-          title="Comments"
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-        </button>
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onComment();
+            }}
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+          >
+            <MessageSquare className="h-3 w-3" />
+            {obs.child?.length || 0} Children
+          </button>
+          {obs.media?.length > 0 && (
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <ImageIcon className="h-3 w-3" />
+              {obs.media.length} Media
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right actions */}

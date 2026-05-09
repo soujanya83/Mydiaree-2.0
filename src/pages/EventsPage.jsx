@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { eventTypes } from "@/components/events/eventsData";
 import { EventCard } from "@/components/events/EventCard";
-import { announcementService } from "@/services/announcementService";
+import { announcementService } from "@/services/centre/announcementService";
 import { useCentreStore } from "@/stores/centreStore";
 import { mapAnnouncementRecord } from "@/components/events/eventMappers";
 

@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { parentService } from "@/services/parentService";
+import { parentService } from "@/services/admin/parentService";
 import { AddParentModal } from "@/components/parents/AddParentModal";
 import { Loader2 } from "lucide-react";
 import { useCentreStore } from "@/stores/centreStore";

@@ -1,14 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ArrowLeft, ListChecks, CheckCircle2, XCircle, Save } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
+
 import {
-  PERMISSION_GROUPS,
-  PERMISSION_USERS,
-  initialAssignments,
+  PERMISSION_GROUPS as STATIC_GROUPS,
 } from "@/components/permissions/permissionsData";
 import { PermissionCard } from "@/components/permissions/PermissionCard";
+import { usePermissionStore } from "@/stores/permissionStore";
 
 export default function PermissionsAssignedDetailsPage() {
   const { userId } = useParams();
@@ -16,14 +17,88 @@ export default function PermissionsAssignedDetailsPage() {
   const location = useLocation();
   const isEdit = location.pathname.endsWith("/edit");
 
-  const user = useMemo(
-    () => PERMISSION_USERS.find((u) => u.id === userId),
-    [userId]
-  );
+  const {
+    singleUserPermission,
+    isLoading,
+    fetchUserPermission,
+    fetchManagePermissions,
+    updateUserPermissions,
+    clearSingleUserPermission,
+    permissionColumns,
+  } = usePermissionStore();
 
-  const [selectedKeys, setSelectedKeys] = useState(
-    () => initialAssignments[userId] || []
-  );
+
+  useEffect(() => {
+    if (userId) {
+      fetchUserPermission(userId);
+    }
+    // Also ensure we have the columns for grouping
+    if (!permissionColumns || permissionColumns.length === 0) {
+      fetchManagePermissions();
+    }
+    return () => clearSingleUserPermission();
+  }, [userId, fetchUserPermission, fetchManagePermissions, clearSingleUserPermission, permissionColumns]);
+
+
+  const user = singleUserPermission?.user;
+  
+  const selectedKeys = useMemo(() => {
+    if (!singleUserPermission?.permissions) return [];
+    return Object.keys(singleUserPermission.permissions).filter(
+      (k) => !["id", "userid", "centerid"].includes(k) && singleUserPermission.permissions[k] === 1
+    );
+  }, [singleUserPermission]);
+
+  const [localSelectedKeys, setLocalSelectedKeys] = useState([]);
+
+  // Sync when API data changes
+  useEffect(() => {
+    setLocalSelectedKeys(selectedKeys);
+  }, [selectedKeys]);
+
+  const dynamicGroups = useMemo(() => {
+    const groups = [...STATIC_GROUPS.map((g) => ({ ...g, permissions: [] }))];
+    const otherGroup = groups.find((g) => g.key === "other") || { key: "other", label: "Other", permissions: [] };
+    if (!groups.find((g) => g.key === "other")) groups.push(otherGroup);
+
+    (permissionColumns || []).forEach((col) => {
+      const lowerName = col.name.toLowerCase();
+      let assigned = false;
+      for (const g of groups) {
+        if (g.key !== "other" && lowerName.includes(g.key)) {
+          g.permissions.push({ key: col.name, label: col.label, icon: "settings" });
+          assigned = true;
+          break;
+        }
+      }
+      if (!assigned) {
+        const match = col.name.match(/[A-Z].*/);
+        if (match) {
+          const resource = match[0];
+          const resourceKey = resource.toLowerCase();
+          let g = groups.find((x) => x.key === resourceKey);
+          if (!g) {
+            g = { key: resourceKey, label: resource + " Manage", permissions: [] };
+            groups.splice(groups.length - 1, 0, g);
+          }
+          g.permissions.push({ key: col.name, label: col.label, icon: "settings" });
+        } else {
+          otherGroup.permissions.push({ key: col.name, label: col.label, icon: "settings" });
+        }
+      }
+    });
+    return groups.filter((g) => g.permissions.length > 0);
+  }, [permissionColumns]);
+
+
+
+  if (isLoading) {
+    return (
+      <div className="py-20 text-center text-muted-foreground">
+        Loading user permissions...
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -37,51 +112,67 @@ export default function PermissionsAssignedDetailsPage() {
     );
   }
 
-  const totalPermissions = PERMISSION_GROUPS.reduce(
+  const totalPermissions = dynamicGroups.reduce(
     (acc, g) => acc + g.permissions.length,
     0
   );
-  const granted = selectedKeys.length;
-  const notGranted = totalPermissions - granted;
+  // Note: For now, this is just a read-only or simulated edit logic since API might not save here yet
 
   const togglePermission = (_groupKey, permKey) => {
-    if (!isEdit) return;
-    setSelectedKeys((prev) =>
+    setLocalSelectedKeys((prev) =>
       prev.includes(permKey) ? prev.filter((k) => k !== permKey) : [...prev, permKey]
     );
   };
 
+
   const toggleGroupAll = (groupKey, on) => {
-    if (!isEdit) return;
-    const group = PERMISSION_GROUPS.find((g) => g.key === groupKey);
+    const group = dynamicGroups.find((g) => g.key === groupKey);
     if (!group) return;
     const groupKeys = group.permissions.map((p) => p.key);
-    setSelectedKeys((prev) => {
+    setLocalSelectedKeys((prev) => {
       const without = prev.filter((k) => !groupKeys.includes(k));
       return on ? [...without, ...groupKeys] : without;
     });
   };
 
-  const handleSave = () => {
-    initialAssignments[userId] = [...selectedKeys];
-    toast.success(`Updated permissions for ${user.name}`);
-    navigate("/permissions/assigned");
+
+  const granted = localSelectedKeys.length;
+  const notGranted = totalPermissions - granted;
+
+  const handleSave = async () => {
+    try {
+      const permsMap = {};
+      permissionColumns.forEach((col) => {
+        permsMap[col.name] = localSelectedKeys.includes(col.name) ? 1 : 0;
+      });
+
+      await updateUserPermissions(userId, permsMap);
+      toast.success(`Updated permissions for ${user.name}`);
+      navigate("/permissions/assigned");
+    } catch (error) {
+      toast.error(error?.message || "Failed to save permissions");
+    }
   };
+
 
   return (
     <div className="space-y-5">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span>Assigned Permissions - {user.name}</span>
-      </nav>
+      <PageHeader
+        title={`${user.name} / ${user.userType || user.role}`}
+        description="Update user permissions"
+        breadcrumbs={[
+          { label: "Permissions Assign", to: "/permissions" },
+          { label: "Assigned List", to: "/permissions/assigned" },
+          { label: "Update Permissions" },
+        ]}
+        actions={
+          <Button variant="outline" onClick={() => navigate("/permissions/assigned")}>
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        }
+      />
 
-      {/* Back button */}
-      <div>
-        <Button variant="default" onClick={() => navigate("/permissions/assigned")}>
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-      </div>
 
       {/* User card */}
       <div className="rounded-xl border bg-card p-5 shadow-sm">
@@ -124,28 +215,28 @@ export default function PermissionsAssignedDetailsPage() {
 
       {/* Permission grid */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {PERMISSION_GROUPS.map((group) => (
+        {dynamicGroups.map((group) => (
           <PermissionCard
             key={group.key}
             group={group}
-            selectedKeys={selectedKeys}
+            selectedKeys={localSelectedKeys}
             onToggle={togglePermission}
             onToggleAll={toggleGroupAll}
-            readOnly={!isEdit}
-            showAllToggle={false}
+            readOnly={false}
+            showAllToggle={true}
             showCount
           />
+
         ))}
       </div>
 
-      {isEdit && (
-        <div className="flex justify-end">
-          <Button onClick={handleSave}>
-            <Save className="h-4 w-4" />
-            Submit
-          </Button>
-        </div>
-      )}
+      <div className="flex justify-end">
+        <Button onClick={handleSave}>
+          <Save className="h-4 w-4" />
+          Submit
+        </Button>
+      </div>
+
     </div>
   );
 }

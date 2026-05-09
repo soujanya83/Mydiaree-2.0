@@ -20,7 +20,7 @@ export function PermissionCard({
   showAllToggle = true,
   showCount = false,
 }) {
-  const GroupIcon = group.icon;
+  const GroupIcon = group.icon || Settings;
   const total = group.permissions.length;
   const selectedInGroup = group.permissions.filter((p) => selectedKeys.includes(p.key)).length;
   const allOn = total > 0 && selectedInGroup === total;

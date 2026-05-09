@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { roomService } from "@/services/roomService";
+import { roomService } from "@/services/centre/roomService";
 
 export const useRoomStore = create(
   persist(

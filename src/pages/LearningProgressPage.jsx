@@ -18,7 +18,7 @@ import {
   ageFromDob,
   formatDob,
 } from "@/components/lessonplan/progressData";
-import { learningProgressService } from "@/services/learning-documentation/learningProgressService";
+import { learningProgressService } from "@/services/learning/learningProgressService";
 
 export default function LearningProgressPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();

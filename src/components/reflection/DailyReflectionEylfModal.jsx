@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { reflectionService } from "@/services/learning-documentation/reflectionService";
+import { reflectionService } from "@/services/learning/reflectionService";
 
 export function DailyReflectionEylfModal({ open, selected = [], onClose, onSave }) {
   const [outcomes, setOutcomes] = useState([]);

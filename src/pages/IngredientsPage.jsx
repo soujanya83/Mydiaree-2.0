@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, Search, Sparkles } from "lucide-react";
+
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,41 +22,62 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  initialIngredients,
-  ROW_TINTS,
-} from "@/components/ingredients/ingredientsData";
+import { ROW_TINTS } from "@/components/ingredients/ingredientsData";
 import { AddIngredientModal } from "@/components/ingredients/AddIngredientModal";
 import { toast } from "sonner";
+import { useIngredientStore } from "@/stores/ingredientStore";
+
 
 export default function IngredientsPage() {
-  const [items, setItems] = useState(initialIngredients);
+  const {
+    ingredients,
+    isLoading,
+    fetchIngredients,
+    addIngredient,
+    updateIngredient,
+    deleteIngredient,
+  } = useIngredientStore();
+
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState({ open: false, initial: null });
   const [confirmDelete, setConfirmDelete] = useState(null);
 
+  useEffect(() => {
+    fetchIngredients();
+  }, [fetchIngredients]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => i.name.toLowerCase().includes(q));
-  }, [items, query]);
+    if (!q) return ingredients;
+    return ingredients.filter((i) => i.name.toLowerCase().includes(q));
+  }, [ingredients, query]);
 
-  const handleSave = (data) => {
-    if (data.id) {
-      setItems((arr) => arr.map((i) => (i.id === data.id ? { ...i, name: data.name } : i)));
-      toast.success("Ingredient updated");
-    } else {
-      setItems((arr) => [...arr, { id: `i${Date.now()}`, name: data.name }]);
-      toast.success("Ingredient added");
+
+  const handleSave = async (data) => {
+    try {
+      if (data.id) {
+        await updateIngredient(data.id, data.name);
+        toast.success("Ingredient updated");
+      } else {
+        await addIngredient(data.name);
+        toast.success("Ingredient added");
+      }
+    } catch (error) {
+      toast.error(error?.message || "Failed to save ingredient");
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!confirmDelete) return;
-    setItems((arr) => arr.filter((i) => i.id !== confirmDelete.id));
-    toast.success("Ingredient deleted");
-    setConfirmDelete(null);
+    try {
+      await deleteIngredient(confirmDelete.id);
+      toast.success("Ingredient deleted");
+      setConfirmDelete(null);
+    } catch (error) {
+      toast.error(error?.message || "Failed to delete ingredient");
+    }
   };
+
 
   return (
     <div className="space-y-6">
@@ -95,39 +117,48 @@ export default function IngredientsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((ing, idx) => (
-              <TableRow
-                key={ing.id}
-                className={`${ROW_TINTS[idx % ROW_TINTS.length]} hover:brightness-95`}
-              >
-                <TableCell className="px-4 py-3 font-semibold text-foreground">
-                  {idx + 1}
-                </TableCell>
-                <TableCell className="py-3 text-foreground">{ing.name}</TableCell>
-                <TableCell className="py-3 pr-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setModal({ open: true, initial: ing })}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDelete(ing)}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground shadow-sm hover:opacity-90"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </button>
-                  </div>
+            {isLoading && ingredients.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} className="py-12 text-center text-muted-foreground">
+                  Loading ingredients...
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filtered.map((ing, idx) => (
+                <TableRow
+                  key={ing.id}
+                  className={`${ROW_TINTS[idx % ROW_TINTS.length]} hover:brightness-95`}
+                >
+                  <TableCell className="px-4 py-3 font-semibold text-foreground">
+                    {idx + 1}
+                  </TableCell>
+                  <TableCell className="py-3 text-foreground">{ing.name}</TableCell>
+                  <TableCell className="py-3 pr-4">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setModal({ open: true, initial: ing })}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(ing)}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground shadow-sm hover:opacity-90"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
 
-            {filtered.length === 0 && (
+
+            {!isLoading && filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="py-12 text-center">
                   <Sparkles className="mx-auto h-8 w-8 text-muted-foreground" />
@@ -140,6 +171,7 @@ export default function IngredientsPage() {
           </TableBody>
         </Table>
       </div>
+
 
       <AddIngredientModal
         open={modal.open}

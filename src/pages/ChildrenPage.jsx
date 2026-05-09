@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -48,7 +48,7 @@ function fmtDate(s) {
 export default function ChildrenPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { children, isLoading } = useChildrenStore();
+  const { children, isLoading, fetchChildren, deleteChildren, addChild, updateChild } = useChildrenStore();
 
   const [search, setSearch] = useState("");
   const [genderFilter, setGenderFilter] = useState("all");
@@ -59,18 +59,20 @@ export default function ChildrenPage() {
   const [chosenRoom, setChosenRoom] = useState(null);
   const [editing, setEditing] = useState(null);
 
-  const filtered = useMemo(() => {
-    return children.filter((c) => {
-      if (genderFilter !== "all" && c.gender !== genderFilter) return false;
-      if (statusFilter !== "all" && c.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        const name = (c.name || "").toLowerCase();
-        if (!name.includes(q) && !String(c.code).includes(q)) return false;
-      }
-      return true;
-    });
-  }, [children, genderFilter, statusFilter, search]);
+  const currentFilters = useMemo(() => ({
+    center_id: activeCentreId,
+    room_id: activeRoomId,
+    gender: genderFilter === "all" ? undefined : (genderFilter.charAt(0).toUpperCase() + genderFilter.slice(1)),
+    status: statusFilter === "all" ? undefined : (statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)),
+    search: search || undefined
+  }), [activeCentreId, activeRoomId, genderFilter, statusFilter, search]);
+
+  useEffect(() => {
+    if (activeCentreId) {
+      fetchChildren(currentFilters);
+    }
+  }, [currentFilters, fetchChildren, activeCentreId]);
+
 
   const handleNewChild = () => setSelectRoomOpen(true);
 
@@ -88,21 +90,40 @@ export default function ChildrenPage() {
     setAddOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (!window.confirm("Delete this child?")) return;
-    toast.success("Child deleted");
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this child?")) return;
+    try {
+      await deleteChildren([id], currentFilters);
+      toast.success("Child deleted successfully");
+    } catch (error) {
+      toast.error(error?.message || "Failed to delete child");
+    }
   };
 
-  const handleSubmit = (data) => {
-    if (editing) {
-      toast.success("Child updated");
-    } else {
-      toast.success("Child added");
+
+  const handleSubmit = async (data) => {
+    try {
+      const payload = {
+        ...data,
+        centerid: activeCentreId,
+        roomid: chosenRoom?.id || editing?.room,
+      };
+
+      if (editing) {
+        await updateChild({ ...payload, id: editing.id }, currentFilters);
+        toast.success("Child updated successfully");
+      } else {
+        await addChild(payload, currentFilters);
+        toast.success("Child added successfully");
+      }
+      setAddOpen(false);
+      setEditing(null);
+      setChosenRoom(null);
+    } catch (error) {
+      toast.error(error?.message || "Failed to save child");
     }
-    setAddOpen(false);
-    setEditing(null);
-    setChosenRoom(null);
   };
+
 
   return (
     <div>
@@ -178,7 +199,7 @@ export default function ChildrenPage() {
 
       {isLoading ? (
         <div className="py-20 text-center text-muted-foreground">Loading children...</div>
-      ) : filtered.length === 0 ? (
+      ) : children.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
           <p className="font-semibold text-foreground">No children found</p>
@@ -188,16 +209,18 @@ export default function ChildrenPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((child) => (
+          {children.map((child) => (
             <ChildCard
               key={child.id}
               child={child}
+              rooms={rooms}
               onEdit={() => handleEdit(child)}
               onDelete={() => handleDelete(child.id)}
             />
           ))}
         </div>
       )}
+
 
       <SelectRoomModal
         open={selectRoomOpen}
@@ -221,18 +244,22 @@ export default function ChildrenPage() {
   );
 }
 
-function ChildCard({ child, onEdit, onDelete }) {
+function ChildCard({ child, rooms, onEdit, onDelete }) {
   const isActive = child.status?.toLowerCase() === "active";
   const genderLabel = child.gender ? child.gender.toUpperCase() : "—";
+  const roomName = rooms.find(r => r.id == child.room)?.name || child.room || "—";
+  const imageUrl = child.imageUrl?.startsWith("http") ? child.imageUrl : `https://mydiaree.com.au/${child.imageUrl}`;
+
   return (
     <div className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
       <div className="relative h-44 overflow-hidden bg-muted">
-        {child.image ? (
+        {child.imageUrl ? (
           <img
-            src={child.image}
+            src={imageUrl}
             alt={child.name}
             className="h-full w-full object-cover"
           />
+
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground">
             No image
@@ -250,9 +277,10 @@ function ChildCard({ child, onEdit, onDelete }) {
       </div>
 
       <div className="space-y-3 p-4">
-        <h3 className="text-lg font-bold text-primary">
-          {child.name}
+        <h3 className="text-lg font-bold text-primary truncate">
+          {child.name} {child.lastname}
         </h3>
+
 
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="rounded-md border border-border px-2 py-1 font-medium text-foreground">
@@ -266,16 +294,17 @@ function ChildCard({ child, onEdit, onDelete }) {
         <div className="space-y-1.5 text-sm text-foreground">
           <div className="flex items-center gap-2">
             <IdCard className="h-4 w-4 text-muted-foreground" />
-            <span>ID: {child.code}</span>
+            <span>ID: {child.id}</span>
           </div>
           <div className="flex items-center gap-2">
             <DoorOpen className="h-4 w-4 text-muted-foreground" />
-            <span>Room: {child.room || "—"}</span>
+            <span>Room: {roomName}</span>
           </div>
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span>Joined: {fmtDate(child.joinedAt)}</span>
+            <span>Joined: {fmtDate(child.startDate)}</span>
           </div>
+
           <div className="text-xs text-muted-foreground">
             Age: {ageFrom(child.dob)}
           </div>

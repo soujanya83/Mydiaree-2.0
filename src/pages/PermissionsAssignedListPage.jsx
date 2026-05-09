@@ -1,9 +1,16 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Eye, Pencil, Search } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -12,21 +19,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  PERMISSION_USERS,
-  initialAssignments,
-} from "@/components/permissions/permissionsData";
+import { usePermissionStore } from "@/stores/permissionStore";
+import { useCentreStore } from "@/stores/centreStore";
 
 export default function PermissionsAssignedListPage() {
   const navigate = useNavigate();
+  const { centres, activeCentreId, setActiveCentre } = useCentreStore();
+  const { assignedUsers, isFetchingAssigned, fetchAssignedPermissions } = usePermissionStore();
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (activeCentreId) {
+      fetchAssignedPermissions(activeCentreId);
+    }
+  }, [activeCentreId, fetchAssignedPermissions]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return PERMISSION_USERS.filter((u) =>
-      q ? u.name.toLowerCase().includes(q) : true
+    return (assignedUsers || []).filter((item) =>
+      q ? item.user?.name?.toLowerCase().includes(q) : true
     );
-  }, [query]);
+  }, [query, assignedUsers]);
 
   return (
     <div>
@@ -56,6 +69,22 @@ export default function PermissionsAssignedListPage() {
         }
       />
 
+      {/* Filter Row */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Select value={activeCentreId} onValueChange={setActiveCentre}>
+          <SelectTrigger className="w-full sm:w-64 bg-background">
+            <SelectValue placeholder="Select Center" />
+          </SelectTrigger>
+          <SelectContent>
+            {centres.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="rounded-lg border bg-card shadow-sm">
         <Table>
           <TableHeader>
@@ -65,15 +94,28 @@ export default function PermissionsAssignedListPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 ? (
+            {isFetchingAssigned ? (
+              <TableRow>
+                <TableCell colSpan={2} className="text-center text-muted-foreground py-10">
+                  Loading assigned users...
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={2} className="text-center text-muted-foreground py-10">
                   No users found.
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((u) => {
-                const count = initialAssignments[u.id]?.length || 0;
+              rows.map((item) => {
+                const u = item.user;
+                if (!u) return null;
+                // calculate count by counting keys with value 1 (excluding id, userid, centerid)
+                const perms = item.permissions || {};
+                const count = Object.keys(perms).filter(
+                  (k) => !["id", "userid", "centerid"].includes(k) && perms[k] === 1
+                ).length;
+
                 return (
                   <TableRow key={u.id}>
                     <TableCell>

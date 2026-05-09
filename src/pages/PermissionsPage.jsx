@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, Users, ChevronDown, X, Shield, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -10,19 +10,85 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
-  PERMISSION_GROUPS,
-  ALL_PERMISSION_KEYS,
-  PERMISSION_USERS,
+  PERMISSION_GROUPS as STATIC_GROUPS,
   ROLE_OPTIONS,
 } from "@/components/permissions/permissionsData";
 import { PermissionCard } from "@/components/permissions/PermissionCard";
+import { usePermissionStore } from "@/stores/permissionStore";
+import { useCentreStore } from "@/stores/centreStore";
 
 export default function PermissionsPage() {
   const navigate = useNavigate();
+  const { centres, activeCentreId, setActiveCentre } = useCentreStore();
+  const {
+    users,
+    permissionColumns,
+    isLoading,
+    fetchManagePermissions,
+    updateUserPermissions,
+    bulkAssignPermissions,
+  } = usePermissionStore();
+
+
+
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedKeys, setSelectedKeys] = useState([]);
+
+  useEffect(() => {
+    fetchManagePermissions();
+  }, [fetchManagePermissions]);
+
+  const dynamicGroups = useMemo(() => {
+    const groups = [...STATIC_GROUPS.map((g) => ({ ...g, permissions: [] }))];
+    const otherGroup = groups.find((g) => g.key === "other") || { key: "other", label: "Other", permissions: [] };
+    if (!groups.find((g) => g.key === "other")) groups.push(otherGroup);
+
+    (permissionColumns || []).forEach((col) => {
+      const lowerName = col.name.toLowerCase();
+      let assigned = false;
+      for (const g of groups) {
+        if (g.key !== "other" && lowerName.includes(g.key)) {
+          g.permissions.push({ key: col.name, label: col.label, icon: "settings" });
+          assigned = true;
+          break;
+        }
+      }
+      if (!assigned) {
+        // try to extract resource name (e.g., addProgramPlan -> ProgramPlan)
+        const match = col.name.match(/[A-Z].*/);
+        if (match) {
+          const resource = match[0];
+          const resourceKey = resource.toLowerCase();
+          let g = groups.find((x) => x.key === resourceKey);
+          if (!g) {
+            g = { key: resourceKey, label: resource + " Manage", permissions: [] };
+            // insert before 'other'
+            groups.splice(groups.length - 1, 0, g);
+          }
+          g.permissions.push({ key: col.name, label: col.label, icon: "settings" });
+        } else {
+          otherGroup.permissions.push({ key: col.name, label: col.label, icon: "settings" });
+        }
+      }
+    });
+    return groups.filter((g) => g.permissions.length > 0);
+  }, [permissionColumns]);
+
+  const allKeys = useMemo(() => dynamicGroups.flatMap((g) => g.permissions.map((p) => p.key)), [dynamicGroups]);
+
+  const activeApiUsers = useMemo(() => {
+    return (users || []).filter((u) => u.status === "ACTIVE" || u.status === "active");
+  }, [users]);
+
 
   const togglePermission = (_groupKey, permKey) => {
     setSelectedKeys((prev) =>
@@ -31,7 +97,7 @@ export default function PermissionsPage() {
   };
 
   const toggleGroupAll = (groupKey, on) => {
-    const group = PERMISSION_GROUPS.find((g) => g.key === groupKey);
+    const group = dynamicGroups.find((g) => g.key === groupKey);
     if (!group) return;
     const groupKeys = group.permissions.map((p) => p.key);
     setSelectedKeys((prev) => {
@@ -40,7 +106,7 @@ export default function PermissionsPage() {
     });
   };
 
-  const selectAll = () => setSelectedKeys(ALL_PERMISSION_KEYS);
+  const selectAll = () => setSelectedKeys(allKeys);
 
   const addUser = (u) => {
     setSelectedUsers((prev) => (prev.find((x) => x.id === u.id) ? prev : [...prev, u]));
@@ -48,20 +114,20 @@ export default function PermissionsPage() {
   const removeUser = (id) => setSelectedUsers((prev) => prev.filter((x) => x.id !== id));
 
   const applyRolePreset = (role) => {
-    if (role === "admin") setSelectedKeys(ALL_PERMISSION_KEYS);
+    if (role === "admin") setSelectedKeys(allKeys);
     else if (role === "viewer")
-      setSelectedKeys(ALL_PERMISSION_KEYS.filter((k) => k.startsWith("view_")));
+      setSelectedKeys(allKeys.filter((k) => k.toLowerCase().startsWith("view")));
     else if (role === "manager")
       setSelectedKeys(
-        ALL_PERMISSION_KEYS.filter(
-          (k) => !k.startsWith("delete_") && !k.startsWith("deletesub_")
+        allKeys.filter(
+          (k) => !k.toLowerCase().startsWith("delete")
         )
       );
     else setSelectedKeys([]);
     toast.success(`Applied ${role} role preset`);
   };
 
-  const handleAssign = () => {
+  const handleSubmit = async () => {
     if (selectedUsers.length === 0) {
       toast.error("Please select at least one user");
       return;
@@ -70,15 +136,33 @@ export default function PermissionsPage() {
       toast.error("Please select at least one permission");
       return;
     }
-    toast.success(
-      `Assigned ${selectedKeys.length} permissions to ${selectedUsers.length} user(s)`
-    );
+
+    try {
+      const permsMap = {};
+      permissionColumns.forEach((col) => {
+        permsMap[col.name] = selectedKeys.includes(col.name) ? 1 : 0;
+      });
+
+      // Update all selected users in one bulk call
+      await bulkAssignPermissions(selectedUsers.map((u) => u.id), permsMap);
+
+      toast.success(`Permissions updated for ${selectedUsers.length} users`);
+      setSelectedUsers([]);
+      setSelectedKeys([]);
+      navigate("/permissions/assigned");
+    } catch (error) {
+      toast.error(error?.message || "Failed to update permissions");
+    }
   };
 
   const availableUsers = useMemo(
-    () => PERMISSION_USERS.filter((u) => !selectedUsers.find((s) => s.id === u.id)),
-    [selectedUsers]
+    () => activeApiUsers.filter((u) => !selectedUsers.find((s) => s.id === u.id)),
+    [selectedUsers, activeApiUsers]
   );
+
+  if (isLoading) {
+    return <div className="py-20 text-center text-muted-foreground">Loading permissions...</div>;
+  }
 
   return (
     <div>
@@ -92,7 +176,7 @@ export default function PermissionsPage() {
               <Shield className="h-4 w-4" />
               Manage Role
             </Button>
-            <Button onClick={handleAssign}>
+            <Button onClick={handleSubmit}>
               <Send className="h-4 w-4" />
               Assign Permissions
             </Button>
@@ -102,6 +186,20 @@ export default function PermissionsPage() {
 
       {/* Toolbar */}
       <div className="mb-5 rounded-xl border bg-card p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <Select value={activeCentreId} onValueChange={setActiveCentre}>
+            <SelectTrigger className="w-full sm:w-64 bg-background">
+              <SelectValue placeholder="Select Center" />
+            </SelectTrigger>
+            <SelectContent>
+              {centres.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Multi-select user box */}
           <DropdownMenu>
@@ -152,7 +250,7 @@ export default function PermissionsPage() {
                     className="flex items-center justify-between gap-2"
                   >
                     <span>{u.name}</span>
-                    <span className="text-xs text-muted-foreground">{u.role}</span>
+                    <span className="text-xs text-muted-foreground">{u.userType || u.role}</span>
                   </DropdownMenuItem>
                 ))
               )}
@@ -190,7 +288,7 @@ export default function PermissionsPage() {
 
       {/* Permission grid */}
       <div className={cn("grid gap-4", "grid-cols-1 md:grid-cols-2 xl:grid-cols-3")}>
-        {PERMISSION_GROUPS.map((group) => (
+        {dynamicGroups.map((group) => (
           <PermissionCard
             key={group.key}
             group={group}
@@ -199,6 +297,19 @@ export default function PermissionsPage() {
             onToggleAll={toggleGroupAll}
           />
         ))}
+      </div>
+
+      {/* Floating Submit Button */}
+      <div className="fixed bottom-6 right-6">
+        <Button
+          size="lg"
+          className="shadow-xl"
+          onClick={handleSubmit}
+          disabled={selectedUsers.length === 0}
+        >
+          <Send className="h-4 w-4" />
+          Submit
+        </Button>
       </div>
     </div>
   );

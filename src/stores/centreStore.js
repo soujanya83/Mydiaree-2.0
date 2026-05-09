@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { centerService } from "@/services/centerService";
+import { centerService } from "@/services/admin/centerService";
 
 export const useCentreStore = create((set, get) => ({
   centres: [],

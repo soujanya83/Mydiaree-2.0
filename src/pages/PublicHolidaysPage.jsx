@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Plus, Filter as FilterIcon, RotateCcw, Pencil, Trash2,
-  CalendarDays, MapPin, Sparkles,
+  CalendarDays, MapPin, Sparkles, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -19,44 +19,100 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { initialHolidays, months, formatDate } from "@/components/events/eventsData";
+import { months, formatDate } from "@/components/events/eventsData";
+import { holidayService } from "@/services/centre/holidayService";
 
 export default function PublicHolidaysPage() {
   const navigate = useNavigate();
-  const [holidays, setHolidays] = useState(initialHolidays);
+  const [holidays, setHolidays] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [month, setMonth] = useState("All Months");
   const [appliedMonth, setAppliedMonth] = useState("All Months");
   const [deleteId, setDeleteId] = useState(null);
   const [selected, setSelected] = useState([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const rows = useMemo(() => {
-    if (appliedMonth === "All Months") return holidays;
-    const idx = months.indexOf(appliedMonth) - 1; // 0-based month
-    return holidays.filter((h) => new Date(h.date).getMonth() === idx);
-  }, [holidays, appliedMonth]);
+  const fetchHolidays = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const monthNum = appliedMonth === "All Months" ? "" : months.indexOf(appliedMonth);
+      const res = await holidayService.getHolidays(monthNum);
+      if (res.status) {
+        setHolidays(res.holidays || []);
+      } else {
+        toast.error(res.message || "Failed to fetch holidays");
+      }
+    } catch (error) {
+      toast.error("Failed to load holidays");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [appliedMonth]);
+
+  useEffect(() => {
+    fetchHolidays();
+  }, [fetchHolidays]);
 
   const toggleAll = (checked) => {
-    setSelected(checked ? rows.map((r) => r.id) : []);
+    setSelected(checked ? holidays.map((r) => r.id) : []);
   };
   const toggleOne = (id, checked) => {
     setSelected((arr) => (checked ? [...arr, id] : arr.filter((x) => x !== id)));
   };
 
   const openAdd = () => navigate("/events/create?type=Public Holiday");
-  const openEdit = (row) => navigate(`/events/${row.id}/edit`);
+  const openEdit = (row) => navigate(`/events/${row.id}/edit?type=Public Holiday`);
 
-  const handleDelete = () => {
-    setHolidays((arr) => arr.filter((x) => x.id !== deleteId));
-    setDeleteId(null);
-    toast.success("Holiday deleted");
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setIsDeleting(true);
+    try {
+      const res = await holidayService.deleteHoliday(deleteId);
+      if (res.status) {
+        toast.success("Holiday deleted");
+        setHolidays((arr) => arr.filter((x) => x.id !== deleteId));
+        setSelected((arr) => arr.filter((x) => x !== deleteId));
+      } else {
+        toast.error(res.message || "Failed to delete holiday");
+      }
+    } catch (error) {
+      toast.error("Error deleting holiday");
+    } finally {
+      setIsDeleting(false);
+      setDeleteId(null);
+    }
   };
 
-  const allChecked = rows.length > 0 && selected.length === rows.length;
+  const handleBulkDelete = async () => {
+    if (selected.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selected.length} holidays?`)) return;
 
-  const upcoming = useMemo(
-    () => rows.filter((h) => new Date(h.date).getTime() >= Date.now()).length,
-    [rows]
-  );
+    setIsDeleting(true);
+    try {
+      const res = await holidayService.bulkDeleteHolidays(selected);
+      if (res.status) {
+        toast.success(`${selected.length} holidays deleted`);
+        setHolidays((arr) => arr.filter((x) => !selected.includes(x.id)));
+        setSelected([]);
+      } else {
+        toast.error(res.message || "Failed to delete holidays");
+      }
+    } catch (error) {
+      toast.error("Error performing bulk delete");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const allChecked = holidays.length > 0 && selected.length === holidays.length;
+
+  const upcoming = useMemo(() => {
+    const now = new Date();
+    return holidays.filter((h) => {
+      const d = h.Holiday_date ? new Date(h.Holiday_date) : new Date(now.getFullYear(), h.month - 1, h.date);
+      return d.getTime() >= now.getTime();
+    }).length;
+  }, [holidays]);
 
   return (
     <div>
@@ -96,7 +152,7 @@ export default function PublicHolidaysPage() {
         <StatTile
           icon={<FilterIcon className="h-5 w-5" />}
           label="Showing"
-          value={rows.length}
+          value={holidays.length}
           tone="info"
         />
       </div>
@@ -141,13 +197,19 @@ export default function PublicHolidaysPage() {
 
       {/* Selection bar */}
       {selected.length > 0 && (
-        <div className="mb-3 flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm">
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm animate-in fade-in slide-in-from-top-2">
           <span className="font-medium text-foreground">
             {selected.length} selected
           </span>
-          <Button size="sm" variant="ghost" onClick={() => setSelected([])}>
-            Clear
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={isDeleting}>
+              {isDeleting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+              Delete Selected
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSelected([])} disabled={isDeleting}>
+              Clear
+            </Button>
+          </div>
         </div>
       )}
 
@@ -166,7 +228,16 @@ export default function PublicHolidaysPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-20 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary opacity-40" />
+                    <p className="text-sm text-muted-foreground">Fetching holidays...</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : holidays.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-16 text-center">
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -179,9 +250,9 @@ export default function PublicHolidaysPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row, idx) => {
-                const d = new Date(row.date);
-                const isUpcoming = d.getTime() >= Date.now();
+              holidays.map((row, idx) => {
+                const holidayDate = row.Holiday_date ? new Date(row.Holiday_date) : new Date(new Date().getFullYear(), row.month - 1, row.date);
+                const isUpcoming = holidayDate.getTime() >= Date.now();
                 return (
                   <TableRow
                     key={row.id}
@@ -202,16 +273,16 @@ export default function PublicHolidaysPage() {
                       <div className="flex items-center gap-3">
                         <div className="flex h-11 w-11 flex-col items-center justify-center rounded-lg border border-primary/20 bg-primary/5 leading-tight">
                           <span className="text-[10px] font-semibold uppercase text-primary">
-                            {d.toLocaleDateString("en-GB", { month: "short" })}
+                            {holidayDate.toLocaleDateString("en-GB", { month: "short" })}
                           </span>
                           <span className="text-sm font-bold text-foreground">
-                            {d.getDate()}
+                            {row.date}
                           </span>
                         </div>
                         <div className="leading-tight">
-                          <p className="text-sm font-medium">{formatDate(row.date)}</p>
+                          <p className="text-sm font-medium">{formatDate(holidayDate)}</p>
                           <p className="text-xs text-muted-foreground">
-                            {d.toLocaleDateString("en-GB", { weekday: "long" })}
+                            {holidayDate.toLocaleDateString("en-GB", { weekday: "long" })}
                           </p>
                         </div>
                       </div>
@@ -271,8 +342,11 @@ export default function PublicHolidaysPage() {
             <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

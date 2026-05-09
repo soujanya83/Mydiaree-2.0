@@ -30,7 +30,7 @@ import {
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
-import { snapshotService } from "@/services/learning-documentation/snapshotService";
+import { snapshotService } from "@/services/learning/snapshotService";
 import {
   STATUS_FILTERS,
   DATE_FILTERS,
