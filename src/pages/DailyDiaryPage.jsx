@@ -28,8 +28,11 @@ export default function DailyDiaryPage() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
 
-  const children = useChildrenStore((s) => s.children);
-  const isLoading = useChildrenStore((s) => s.isLoading);
+  const childrenFromStore = useChildrenStore((s) => s.children);
+  const isLoadingStore = useChildrenStore((s) => s.isLoading);
+  const fetchChildren = useChildrenStore((s) => s.fetchChildren);
+
+  const [diaryChildren, setDiaryChildren] = useState([]);
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState("");
@@ -40,11 +43,11 @@ export default function DailyDiaryPage() {
 
   const visibleChildren = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return children.filter((c) => {
+    return diaryChildren.filter((c) => {
       if (q && !c.name.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [children, search]);
+  }, [diaryChildren, search]);
 
   const [isFetching, setIsFetching] = useState(false);
 
@@ -58,12 +61,20 @@ export default function DailyDiaryPage() {
         selected_date: date,
       });
 
+      console.log("Daily dairy response ", response.data.data.children);
+
       if (response.data.status && response.data.data.children) {
         const rawChildren = response.data.data.children;
         const normalized = {};
+        const extracted = [];
 
         rawChildren.forEach((item) => {
-          const cid = item.child.id;
+          const c = item.child;
+          extracted.push({
+            ...c,
+            name: `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.name || "Child"
+          });
+          const cid = c.id;
           const entries = {};
 
           // Helper to normalize a single activity object
@@ -110,6 +121,7 @@ export default function DailyDiaryPage() {
         });
 
         setEntriesByChild(normalized);
+        setDiaryChildren(extracted);
       }
     } catch (error) {
       console.error("Failed to fetch diary", error);
@@ -122,6 +134,12 @@ export default function DailyDiaryPage() {
   useEffect(() => {
     fetchDiary();
   }, [activeRoomId, date]);
+
+  useEffect(() => {
+    if (activeCentreId && activeRoomId) {
+      fetchChildren({ center_id: activeCentreId, room_id: activeRoomId });
+    }
+  }, [activeCentreId, activeRoomId, fetchChildren]);
 
   const toFormData = (payload) => {
     const fd = new FormData();
@@ -259,7 +277,7 @@ export default function DailyDiaryPage() {
         />
       </div>
 
-      {isLoading || isFetching ? (
+      {isFetching ? (
         <div className="py-20 text-center text-muted-foreground">Loading data...</div>
       ) : visibleChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
@@ -282,6 +300,7 @@ export default function DailyDiaryPage() {
       <NewEntryModal
         open={modalOpen}
         onOpenChange={setModalOpen}
+        children={diaryChildren}
         onSubmit={async (payload) => {
           try {
             const { children: selectedIds, notes, activity, ...rest } = payload;

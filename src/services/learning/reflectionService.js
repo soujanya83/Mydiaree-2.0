@@ -51,4 +51,12 @@ export const reflectionService = {
     });
     return res.data;
   },
+
+  async printReflection(id) {
+    const res = await api.get("/reflection/print", {
+      params: { id },
+      responseType: "blob",
+    });
+    return res.data;
+  },
 };

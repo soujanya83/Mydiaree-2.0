@@ -204,6 +204,17 @@ export default function DailyReflectionsPage() {
     }
   };
 
+  const handlePrint = async (id) => {
+    try {
+      const blob = await reflectionService.printReflection(id);
+      const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      window.open(url, "_blank");
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to generate PDF for printing");
+    }
+  };
+
   const resetFilters = () => {
     setStatus("all");
     setDateRange("all");
@@ -372,6 +383,7 @@ export default function DailyReflectionsPage() {
               onDelete={() => setDeleteModal({ open: true, id: r.id })}
               onEdit={() => navigate(`/daily-reflections/${r.id}/edit`)}
               onOpen={() => navigate(`/daily-reflections/${r.id}`)}
+              onPrint={() => handlePrint(r.id)}
             />
           ))}
         </div>
@@ -427,7 +439,7 @@ export default function DailyReflectionsPage() {
   );
 }
 
-function ReflectionCard({ refl, onDelete, onEdit, onOpen }) {
+function ReflectionCard({ refl, onDelete, onEdit, onOpen, onPrint }) {
   const mediaItems = refl.media || [];
   const [imgIdx, setImgIdx] = useState(0);
   const cur = mediaItems[imgIdx];
@@ -617,7 +629,7 @@ function ReflectionCard({ refl, onDelete, onEdit, onOpen }) {
           </button>
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={onPrint}
             className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/20 px-3 py-1.5 text-xs font-bold uppercase text-emerald-700 hover:bg-emerald-500/30 dark:text-emerald-400"
           >
             <Printer className="h-3.5 w-3.5" /> Print

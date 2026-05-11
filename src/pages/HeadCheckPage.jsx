@@ -22,9 +22,9 @@ import {
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { toast } from "sonner";
-import { HeadCheckPrintView } from "@/components/headcheck/HeadCheckPrintView";
 import { headChecksService } from "@/services/daily-operations/headChecksService";
 import { useEffect } from "react";
+import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 
 function nowHHMM() {
   const d = new Date();
@@ -52,6 +52,8 @@ export default function HeadCheckPage() {
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [printOpen, setPrintOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null); // { id, isNew }
 
   const fetchHeadChecks = async () => {
     if (!activeCentreId || !activeRoomId) return;
@@ -141,7 +143,7 @@ export default function HeadCheckPage() {
     }
   };
 
-  const handleDelete = async (id, isNew) => {
+  const handleDelete = (id, isNew) => {
     if (isNew) {
       // Local removal for unsaved rows
       setRows((p) => {
@@ -151,7 +153,13 @@ export default function HeadCheckPage() {
       return;
     }
 
-    if (!window.confirm("Are you sure you want to delete this record?")) return;
+    setItemToDelete({ id, isNew });
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    const { id } = itemToDelete;
 
     setIsLoading(true);
     try {
@@ -160,11 +168,41 @@ export default function HeadCheckPage() {
       const res = await headChecksService.deleteHeadCheck(fd);
       if (res.data.Status === "SUCCESS" || res.data.status === true) {
         toast.success(res.data.Message || "Record deleted");
+        setDeleteModalOpen(false);
+        setItemToDelete(null);
         fetchHeadChecks();
       }
     } catch (error) {
       console.error("Delete failed", error);
       toast.error("Failed to delete record");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!activeCentreId || !activeRoomId) {
+      toast.error("Please select a centre and room first.");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Format YYYY-MM-DD to DD-MM-YYYY
+      const [y, m, d] = date.split("-");
+      const formattedDate = `${d}-${m}-${y}`;
+
+      const blob = await headChecksService.printHeadChecks({
+        centerid: activeCentreId,
+        roomid: activeRoomId,
+        diarydate: formattedDate,
+      });
+
+      const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      window.open(url, "_blank");
+    } catch (error) {
+      console.error("Print failed", error);
+      toast.error("Failed to generate PDF for printing");
     } finally {
       setIsLoading(false);
     }
@@ -216,7 +254,7 @@ export default function HeadCheckPage() {
 
       {/* Top action bar */}
       <div className="mb-4 flex justify-end">
-        <Button variant="outline" size="sm" onClick={() => setPrintOpen(true)}>
+        <Button variant="outline" size="sm" onClick={handlePrint}>
           <Printer className="mr-1.5 h-4 w-4" />
           View / Print
         </Button>
@@ -307,12 +345,13 @@ export default function HeadCheckPage() {
         </Button>
       </div>
 
-      <HeadCheckPrintView
-        open={printOpen}
-        onClose={() => setPrintOpen(false)}
-        date={date}
-        roomName={rooms.find(r => r.id === activeRoomId)?.name || "Room"}
-        rows={rows}
+      <DeleteConfirmationModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        isLoading={isLoading}
+        title="Delete Head Check Record?"
+        description="This will permanently remove this roll-call snapshot from the system."
       />
     </div>
   );

@@ -40,8 +40,9 @@ const ACTIVITIES = [
   { key: "bottle", label: "Bottle", icon: Milk },
 ];
 
-export function NewEntryModal({ open, onOpenChange, onSubmit }) {
-  const children = useChildrenStore((s) => s.children);
+export function NewEntryModal({ open, onOpenChange, onSubmit, children: childrenProp }) {
+  const storeChildren = useChildrenStore((s) => s.children);
+  const children = childrenProp || storeChildren;
   const [activity, setActivity] = useState("breakfast");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState("");
