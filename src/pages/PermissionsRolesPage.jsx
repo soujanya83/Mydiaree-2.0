@@ -1,10 +1,17 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Eye, PencilLine, Trash2, Search } from "lucide-react";
+import { ArrowLeft, Plus, Eye, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableHeader,
@@ -24,60 +31,69 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AddRoleModal } from "@/components/permissions/AddRoleModal";
-
-const seedRoles = [
-  { id: "r1", name: "Fasgda", createdAt: "30 Apr 2026" },
-];
+import { usePermissionStore } from "@/stores/permissionStore";
+import { useCentreStore } from "@/stores/centreStore";
 
 export default function PermissionsRolesPage() {
   const navigate = useNavigate();
-  const [roles, setRoles] = useState(seedRoles);
+  const { centres, activeCentreId, setActiveCentre } = useCentreStore();
+  const { roles, isLoading, isFetchingRoles, fetchRoles, createRole, deleteRole } =
+    usePermissionStore();
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
 
+  useEffect(() => {
+    if (activeCentreId) {
+      fetchRoles(activeCentreId);
+    }
+  }, [activeCentreId, fetchRoles]);
+
   const filtered = useMemo(
-    () =>
-      roles.filter((r) => r.name.toLowerCase().includes(search.toLowerCase())),
-    [roles, search]
+    () => roles.filter((r) => r.name.toLowerCase().includes(search.toLowerCase())),
+    [roles, search],
   );
 
-  const today = () =>
-    new Date().toLocaleDateString("en-GB", {
+  const formatDate = (value) => {
+    if (!value) return "-";
+    return new Date(value).toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
       year: "numeric",
     });
-
-  const handleSave = (name) => {
-    if (editing) {
-      setRoles((prev) => prev.map((r) => (r.id === editing.id ? { ...r, name } : r)));
-      toast.success("Role updated");
-    } else {
-      setRoles((prev) => [
-        ...prev,
-        { id: `r${Date.now()}`, name, createdAt: today() },
-      ]);
-      toast.success("Role added");
-    }
-    setEditing(null);
   };
 
-  const handleDelete = () => {
-    setRoles((prev) => prev.filter((r) => r.id !== deleteId));
-    toast.success("Role deleted");
-    setDeleteId(null);
+  const handleSave = async (name) => {
+    if (!activeCentreId) {
+      toast.error("Please select a center first");
+      return false;
+    }
+
+    try {
+      await createRole(activeCentreId, name);
+      toast.success("Role added");
+      return true;
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error?.message || "Failed to add role");
+      return false;
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteRole(deleteId, activeCentreId);
+      toast.success("Role deleted");
+      setDeleteId(null);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error?.message || "Failed to delete role");
+    }
   };
 
   return (
     <div>
       <PageHeader
         title="Permissions Role List"
-        breadcrumbs={[
-          { label: "Permissions Assign", to: "/permissions" },
-          { label: "Role List" },
-        ]}
+        breadcrumbs={[{ label: "Permissions Assign", to: "/permissions" }, { label: "Role List" }]}
         actions={
           <>
             <Button variant="outline" onClick={() => navigate("/permissions")}>
@@ -86,7 +102,6 @@ export default function PermissionsRolesPage() {
             </Button>
             <Button
               onClick={() => {
-                setEditing(null);
                 setModalOpen(true);
               }}
             >
@@ -98,7 +113,19 @@ export default function PermissionsRolesPage() {
       />
 
       <div className="rounded-xl border bg-card shadow-sm">
-        <div className="flex items-center justify-end border-b p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
+          <Select value={activeCentreId} onValueChange={setActiveCentre}>
+            <SelectTrigger className="w-full bg-background sm:w-64">
+              <SelectValue placeholder="Select Center" />
+            </SelectTrigger>
+            <SelectContent>
+              {centres.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -123,7 +150,7 @@ export default function PermissionsRolesPage() {
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                  No roles found
+                  {isFetchingRoles ? "Loading roles..." : "No roles found"}
                 </TableCell>
               </TableRow>
             ) : (
@@ -131,7 +158,7 @@ export default function PermissionsRolesPage() {
                 <TableRow key={r.id}>
                   <TableCell className="px-4">{i + 1}</TableCell>
                   <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell>{r.createdAt}</TableCell>
+                  <TableCell>{formatDate(r.created_at)}</TableCell>
                   <TableCell className="pr-4">
                     <div className="flex items-center justify-end gap-2">
                       <Button
@@ -141,17 +168,6 @@ export default function PermissionsRolesPage() {
                       >
                         <Eye className="h-3.5 w-3.5" />
                         View
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-8 rounded-full bg-teal-500 px-3 text-white hover:bg-teal-600"
-                        onClick={() => {
-                          setEditing(r);
-                          setModalOpen(true);
-                        }}
-                      >
-                        <PencilLine className="h-3.5 w-3.5" />
-                        Edit
                       </Button>
                       <Button
                         size="sm"
@@ -175,24 +191,23 @@ export default function PermissionsRolesPage() {
         open={modalOpen}
         onOpenChange={(o) => {
           setModalOpen(o);
-          if (!o) setEditing(null);
         }}
         onSave={handleSave}
-        initialName={editing?.name || ""}
-        mode={editing ? "edit" : "add"}
+        mode="add"
+        isSaving={isLoading}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this role?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} disabled={isLoading}>
+              {isLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

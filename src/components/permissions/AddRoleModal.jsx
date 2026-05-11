@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,17 +10,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function AddRoleModal({ open, onOpenChange, onSave, initialName = "", mode = "add" }) {
+export function AddRoleModal({
+  open,
+  onOpenChange,
+  onSave,
+  initialName = "",
+  mode = "add",
+  isSaving = false,
+}) {
   const [name, setName] = useState(initialName);
 
   useEffect(() => {
     if (open) setName(initialName);
   }, [open, initialName]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
-    onSave(name.trim());
-    onOpenChange(false);
+    const saved = await onSave(name.trim());
+    if (saved !== false) {
+      onOpenChange(false);
+    }
   };
 
   return (
@@ -41,7 +49,9 @@ export function AddRoleModal({ open, onOpenChange, onSave, initialName = "", mod
           />
         </div>
         <DialogFooter>
-          <Button onClick={handleSave}>{mode === "edit" ? "Update Role" : "Save Role"}</Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Saving..." : mode === "edit" ? "Update Role" : "Save Role"}
+          </Button>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>

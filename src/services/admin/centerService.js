@@ -16,7 +16,7 @@ export const centerService = {
   },
 
   async updateCenter(formData) {
-    const res = await api.post("/settings/center_update", formData, {
+    const res = await api.post("/settings/center", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },

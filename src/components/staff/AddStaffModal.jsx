@@ -33,7 +33,16 @@ export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
 
   useEffect(() => {
     if (!open) return;
-    setForm(initial ? { ...empty, ...initial, password: "" } : empty);
+    if (initial) {
+      setForm({
+        ...empty,
+        ...initial,
+        gender: initial.gender?.toUpperCase() || "",
+        password: "",
+      });
+    } else {
+      setForm(empty);
+    }
   }, [open, initial]);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -126,9 +135,9 @@ export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
                       <SelectValue placeholder="Select Gender" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
+                      <SelectItem value="MALE">Male</SelectItem>
+                      <SelectItem value="FEMALE">Female</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

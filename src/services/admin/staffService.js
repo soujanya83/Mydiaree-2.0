@@ -19,7 +19,7 @@ export const staffService = {
 
   async updateStaff(formData) {
     // Both use /settings/staff/store
-    const res = await api.post("/settings/staff/store", formData, {
+    const res = await api.post("/settings/staff/update", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },

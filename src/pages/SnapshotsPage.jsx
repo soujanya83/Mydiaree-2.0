@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -46,6 +46,7 @@ export default function SnapshotsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { children, fetchChildren } = useChildrenStore();
   const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
   const [items, setItems] = useState([]);
 
@@ -61,7 +62,7 @@ export default function SnapshotsPage() {
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchSnapshots = async () => {
+  const fetchSnapshots = useCallback(async () => {
     if (!activeCentreId) return;
     setIsLoadingSnapshots(true);
     try {
@@ -74,14 +75,23 @@ export default function SnapshotsPage() {
     } finally {
       setIsLoadingSnapshots(false);
     }
-  };
+  }, [activeCentreId]);
 
   useEffect(() => {
     fetchSnapshots();
-  }, [activeCentreId]);
+  }, [fetchSnapshots]);
+
+  useEffect(() => {
+    if (!activeCentreId) return;
+    fetchChildren({
+      center_id: activeCentreId,
+      room_id: activeRoomId || undefined,
+    });
+    setChildId("all");
+  }, [activeCentreId, activeRoomId, fetchChildren]);
 
   const authors = useMemo(() => {
-    const set = new Set(items.map(s => s.creator?.name).filter(Boolean));
+    const set = new Set(items.map((s) => s.creator?.name).filter(Boolean));
     return Array.from(set);
   }, [items]);
 
@@ -89,17 +99,17 @@ export default function SnapshotsPage() {
     return items.filter((s) => {
       // API already filters by centerId, but we double check
       if (activeCentreId && String(s.centerid) !== String(activeCentreId)) return false;
-      
+
       if (status !== "all" && s.status.toLowerCase() !== status.toLowerCase()) return false;
       // Author in API is creator.name
       if (author !== "all" && s.creator?.name !== author) return false;
       // Child filtering
       if (childId !== "all") {
-        const hasChild = s.children?.some(c => String(c.childid) === String(childId));
+        const hasChild = s.children?.some((c) => String(c.childid) === String(childId));
         if (!hasChild) return false;
       }
       if (!inDateRange(s.created_at, dateRange)) return false;
-      
+
       const cleanTitle = (s.title || "").replace(/<[^>]*>/g, "");
       if (search && !cleanTitle.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
@@ -225,10 +235,14 @@ export default function SnapshotsPage() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {STATUS_FILTERS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -236,10 +250,14 @@ export default function SnapshotsPage() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Date</label>
               <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {DATE_FILTERS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                    <SelectItem key={d.value} value={d.value}>
+                      {d.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -247,11 +265,15 @@ export default function SnapshotsPage() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Author</label>
               <Select value={author} onValueChange={setAuthor}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All authors</SelectItem>
                   {authors.map((a) => (
-                    <SelectItem key={a} value={a}>{a}</SelectItem>
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -259,11 +281,15 @@ export default function SnapshotsPage() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Child</label>
               <Select value={childId} onValueChange={setChildId}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All children</SelectItem>
                   {children.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -371,7 +397,10 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen }) {
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
       {/* Header strip */}
       <div className="flex items-center justify-between bg-emerald-500/80 px-4 py-2.5 text-white">
-        <h3 className="truncate text-sm font-bold" dangerouslySetInnerHTML={{ __html: snap.title }}></h3>
+        <h3
+          className="truncate text-sm font-bold"
+          dangerouslySetInnerHTML={{ __html: snap.title }}
+        ></h3>
         <span className="rounded-full bg-emerald-200/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
           {snap.status}
         </span>
@@ -379,16 +408,16 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen }) {
 
       {/* Image Container */}
       <div className="group relative h-40 w-full overflow-hidden bg-muted/40">
-        <button
-          type="button"
-          onClick={onOpen}
-          className="block h-full w-full"
-        >
+        <button type="button" onClick={onOpen} className="block h-full w-full">
           {cover ? (
             <div className="relative h-full w-full">
               <img
                 key={cover.id}
-                src={cover.mediaUrl.startsWith("http") ? cover.mediaUrl : `https://mydiaree.com.au/${cover.mediaUrl}`}
+                src={
+                  cover.mediaUrl.startsWith("http")
+                    ? cover.mediaUrl
+                    : `https://mydiaree.com.au/${cover.mediaUrl}`
+                }
                 alt={snap.title}
                 className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
                 loading="lazy"
@@ -423,8 +452,8 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen }) {
             </button>
             <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
               {images.map((_, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className={`h-1 w-1 rounded-full transition-all ${i === currentIdx ? "w-3 bg-white" : "bg-white/50"}`}
                 />
               ))}
@@ -438,7 +467,7 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen }) {
 
       {/* Body */}
       <div className="p-4">
-        <div 
+        <div
           className="mb-3 line-clamp-2 text-sm text-foreground"
           dangerouslySetInnerHTML={{ __html: snap.about }}
         />

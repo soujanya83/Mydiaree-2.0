@@ -18,10 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import {
-  PERMISSION_GROUPS as STATIC_GROUPS,
-  ROLE_OPTIONS,
-} from "@/components/permissions/permissionsData";
+import { PERMISSION_GROUPS as STATIC_GROUPS } from "@/components/permissions/permissionsData";
 import { PermissionCard } from "@/components/permissions/PermissionCard";
 import { usePermissionStore } from "@/stores/permissionStore";
 import { useCentreStore } from "@/stores/centreStore";
@@ -31,25 +28,39 @@ export default function PermissionsPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const {
     users,
+    roles,
     permissionColumns,
     isLoading,
+    isFetchingRoles,
+    isFetchingRoleDetails,
     fetchManagePermissions,
-    updateUserPermissions,
+    fetchRoles,
+    fetchRoleDetails,
+    updateRolePermissions,
     bulkAssignPermissions,
   } = usePermissionStore();
 
-
-
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedKeys, setSelectedKeys] = useState([]);
+  const [selectedRole, setSelectedRole] = useState(null);
 
   useEffect(() => {
-    fetchManagePermissions();
-  }, [fetchManagePermissions]);
+    if (activeCentreId) {
+      fetchManagePermissions(activeCentreId);
+      fetchRoles(activeCentreId);
+      setSelectedUsers([]);
+      setSelectedKeys([]);
+      setSelectedRole(null);
+    }
+  }, [activeCentreId, fetchManagePermissions, fetchRoles]);
 
   const dynamicGroups = useMemo(() => {
     const groups = [...STATIC_GROUPS.map((g) => ({ ...g, permissions: [] }))];
-    const otherGroup = groups.find((g) => g.key === "other") || { key: "other", label: "Other", permissions: [] };
+    const otherGroup = groups.find((g) => g.key === "other") || {
+      key: "other",
+      label: "Other",
+      permissions: [],
+    };
     if (!groups.find((g) => g.key === "other")) groups.push(otherGroup);
 
     (permissionColumns || []).forEach((col) => {
@@ -83,16 +94,18 @@ export default function PermissionsPage() {
     return groups.filter((g) => g.permissions.length > 0);
   }, [permissionColumns]);
 
-  const allKeys = useMemo(() => dynamicGroups.flatMap((g) => g.permissions.map((p) => p.key)), [dynamicGroups]);
+  const allKeys = useMemo(
+    () => dynamicGroups.flatMap((g) => g.permissions.map((p) => p.key)),
+    [dynamicGroups],
+  );
 
   const activeApiUsers = useMemo(() => {
     return (users || []).filter((u) => u.status === "ACTIVE" || u.status === "active");
   }, [users]);
 
-
   const togglePermission = (_groupKey, permKey) => {
     setSelectedKeys((prev) =>
-      prev.includes(permKey) ? prev.filter((k) => k !== permKey) : [...prev, permKey]
+      prev.includes(permKey) ? prev.filter((k) => k !== permKey) : [...prev, permKey],
     );
   };
 
@@ -108,26 +121,52 @@ export default function PermissionsPage() {
 
   const selectAll = () => setSelectedKeys(allKeys);
 
+  const permissionsMap = useMemo(() => {
+    const map = {};
+    permissionColumns.forEach((col) => {
+      map[col.name] = selectedKeys.includes(col.name) ? 1 : 0;
+    });
+    return map;
+  }, [permissionColumns, selectedKeys]);
+
   const addUser = (u) => {
     setSelectedUsers((prev) => (prev.find((x) => x.id === u.id) ? prev : [...prev, u]));
   };
   const removeUser = (id) => setSelectedUsers((prev) => prev.filter((x) => x.id !== id));
 
-  const applyRolePreset = (role) => {
-    if (role === "admin") setSelectedKeys(allKeys);
-    else if (role === "viewer")
-      setSelectedKeys(allKeys.filter((k) => k.toLowerCase().startsWith("view")));
-    else if (role === "manager")
-      setSelectedKeys(
-        allKeys.filter(
-          (k) => !k.toLowerCase().startsWith("delete")
-        )
-      );
-    else setSelectedKeys([]);
-    toast.success(`Applied ${role} role preset`);
+  const applyRole = async (role) => {
+    setSelectedRole(role);
+    const roleKeys = permissionColumns
+      .filter((permission) => Number(role?.[permission.name]) === 1)
+      .map((permission) => permission.name);
+    setSelectedKeys(roleKeys);
+
+    try {
+      await fetchRoleDetails(role.id);
+      toast.success(`Applied ${role.name} role`);
+    } catch (error) {
+      toast.error(error?.message || "Failed to load latest role details");
+    }
+  };
+
+  const clearSelectedRole = () => {
+    setSelectedRole(null);
+    setSelectedKeys([]);
   };
 
   const handleSubmit = async () => {
+    if (selectedRole) {
+      try {
+        await updateRolePermissions(selectedRole.id, permissionsMap);
+        await fetchRoleDetails(selectedRole.id);
+        if (activeCentreId) await fetchRoles(activeCentreId);
+        toast.success(`Permissions updated for ${selectedRole.name}`);
+      } catch (error) {
+        toast.error(error?.response?.data?.message || error?.message || "Failed to update role");
+      }
+      return;
+    }
+
     if (selectedUsers.length === 0) {
       toast.error("Please select at least one user");
       return;
@@ -138,13 +177,11 @@ export default function PermissionsPage() {
     }
 
     try {
-      const permsMap = {};
-      permissionColumns.forEach((col) => {
-        permsMap[col.name] = selectedKeys.includes(col.name) ? 1 : 0;
-      });
-
       // Update all selected users in one bulk call
-      await bulkAssignPermissions(selectedUsers.map((u) => u.id), permsMap);
+      await bulkAssignPermissions(
+        selectedUsers.map((u) => u.id),
+        permissionsMap,
+      );
 
       toast.success(`Permissions updated for ${selectedUsers.length} users`);
       setSelectedUsers([]);
@@ -157,7 +194,7 @@ export default function PermissionsPage() {
 
   const availableUsers = useMemo(
     () => activeApiUsers.filter((u) => !selectedUsers.find((s) => s.id === u.id)),
-    [selectedUsers, activeApiUsers]
+    [selectedUsers, activeApiUsers],
   );
 
   if (isLoading) {
@@ -178,7 +215,7 @@ export default function PermissionsPage() {
             </Button>
             <Button onClick={handleSubmit}>
               <Send className="h-4 w-4" />
-              Assign Permissions
+              {selectedRole ? "Save Role Permissions" : "Assign Permissions"}
             </Button>
           </>
         }
@@ -271,18 +308,41 @@ export default function PermissionsPage() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
                 <CheckCircle2 className="h-4 w-4" />
-                Select Role
+                {isFetchingRoles || isFetchingRoleDetails
+                  ? "Loading Roles"
+                  : selectedRole?.name || "Select Role"}
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {ROLE_OPTIONS.map((r) => (
-                <DropdownMenuItem key={r.value} onClick={() => applyRolePreset(r.value)}>
-                  {r.label}
-                </DropdownMenuItem>
-              ))}
+              {roles.length === 0 ? (
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                  No roles found
+                </div>
+              ) : (
+                roles.map((r) => (
+                  <DropdownMenuItem key={r.id} onSelect={() => applyRole(r)}>
+                    {r.name}
+                  </DropdownMenuItem>
+                ))
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {selectedRole && (
+            <div className="flex min-h-10 items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 text-sm">
+              <span className="text-muted-foreground">Selected role:</span>
+              <span className="font-medium text-primary">{selectedRole.name}</span>
+              <button
+                type="button"
+                onClick={clearSelectedRole}
+                className="rounded p-1 text-muted-foreground hover:bg-background hover:text-destructive"
+                aria-label="Clear selected role"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -305,10 +365,10 @@ export default function PermissionsPage() {
           size="lg"
           className="shadow-xl"
           onClick={handleSubmit}
-          disabled={selectedUsers.length === 0}
+          disabled={!selectedRole && selectedUsers.length === 0}
         >
           <Send className="h-4 w-4" />
-          Submit
+          {selectedRole ? "Save Role Permissions" : "Submit"}
         </Button>
       </div>
     </div>
