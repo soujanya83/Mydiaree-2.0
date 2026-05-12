@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Upload } from "lucide-react";
+import { X, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +27,7 @@ const blank = {
 
 
 
-export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
+export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving }) {
   const [form, setForm] = useState(blank);
   const [preview, setPreview] = useState("");
 
@@ -269,10 +269,13 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial }) {
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">
-          <Button type="button" variant="ghost" onClick={onClose}>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button type="submit">{initial ? "Update" : "Submit"}</Button>
+          <Button type="submit" disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {initial ? "Update" : "Submit"}
+          </Button>
         </div>
       </form>
     </div>

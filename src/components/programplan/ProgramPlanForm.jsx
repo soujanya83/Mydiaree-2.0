@@ -12,6 +12,7 @@ import {
   Target,
   BookOpen,
   Activity as ActivityIcon,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import { EylfPickerModal } from "./EylfPickerModal";
 import { useCentreStore } from "@/stores/centreStore";
 import { childrenService } from "@/services/centre/childrenService";
 import { programPlanService } from "@/services/learning/programPlanService";
+import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -128,15 +130,16 @@ export function ProgramPlanForm({
     const loadRoomsAndStaff = async () => {
       if (!data.centreId) return;
       try {
-        const response = await programPlanService.getRoomsAndStaff(data.centreId);
-        if (response.status) {
-          setAvailableRooms(response.rooms || response.data?.rooms || []);
+        const [roomsResponse, staffResponse] = await Promise.all([
+          programPlanService.getRoomsAndStaff(data.centreId),
+          staffService.getStaffSettings(data.centreId),
+        ]);
+        if (roomsResponse.status) {
+          setAvailableRooms(roomsResponse.rooms || roomsResponse.data?.rooms || []);
+        }
+        if (staffResponse.status) {
           setAvailableEducators(
-            response.roomStaffs ||
-              response.staff ||
-              response.data?.roomStaffs ||
-              response.data?.staff ||
-              [],
+            (staffResponse.data?.staff || []).filter((s) => s.status === "ACTIVE"),
           );
         }
       } catch (error) {
@@ -169,7 +172,7 @@ export function ProgramPlanForm({
     label: room.name,
   }));
   const educatorOptions = availableEducators.map((educator) => ({
-    value: String(educator.staffid ?? educator.id),
+    value: String(educator.id),
     label: educator.name,
   }));
   const childOptions = availableChildren.map((child) => ({
@@ -507,46 +510,46 @@ export function ProgramPlanForm({
 
         {/* Status */}
         <Section icon={BookOpen} title="Status">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => update("status", "draft")}
+          <div className="w-full max-w-xs">
+            <Select
+              value={data.status}
+              onValueChange={(v) => update("status", v)}
               disabled={isSaving}
-              className={cn(
-                "rounded-full px-5 py-2 text-sm font-semibold transition-all",
-                data.status === "draft"
-                  ? "bg-destructive text-destructive-foreground shadow"
-                  : "border border-border bg-background text-muted-foreground hover:bg-muted",
-              )}
             >
-              Draft
-            </button>
-            <button
-              type="button"
-              onClick={() => update("status", "published")}
-              disabled={isSaving}
-              className={cn(
-                "rounded-full px-5 py-2 text-sm font-semibold transition-all",
-                data.status === "published"
-                  ? "bg-emerald-600 text-white shadow"
-                  : "border border-border bg-background text-muted-foreground hover:bg-muted",
-              )}
-            >
-              Published
-            </button>
+              <SelectTrigger
+                className={cn(
+                  "h-12 rounded-2xl border-none font-bold uppercase tracking-wider text-xs",
+                  data.status === "published"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-amber-100 text-amber-700",
+                )}
+              >
+                <SelectValue placeholder="Select Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </Section>
 
         {/* Actions */}
-        <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-border pt-6">
+        <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-border pt-6">
           <Button
             onClick={() => handleSubmit(data.status)}
             disabled={isSaving}
-            className="bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"
+            size="lg"
+            className="h-12 rounded-xl bg-primary px-10 font-bold text-white shadow-xl shadow-primary/20 hover:bg-primary/90"
           >
-            <Save className="mr-1.5 h-4 w-4" />
-            {isSaving ? "Saving..." : mode === "edit" ? "Update" : "Save"}
+            {isSaving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-1.5 h-4 w-4" />
+            )}
+            {isSaving ? "Saving..." : mode === "edit" ? "Update Plan" : "Save Plan"}
           </Button>
+
           {mode === "edit" && (
             <Button
               onClick={() => {
@@ -566,13 +569,21 @@ export function ProgramPlanForm({
               }}
               disabled={isSaving}
               variant="default"
-              className="bg-emerald-600 hover:bg-emerald-700"
+              size="lg"
+              className="h-12 rounded-xl bg-emerald-600 px-8 font-bold hover:bg-emerald-700"
             >
               <Save className="mr-1.5 h-4 w-4" />
               {isSaving ? "Saving..." : "Save as New"}
             </Button>
           )}
-          <Button variant="destructive" onClick={onCancel} disabled={isSaving}>
+
+          <Button
+            variant="destructive"
+            size="lg"
+            className="h-12 rounded-xl px-8"
+            onClick={onCancel}
+            disabled={isSaving}
+          >
             <X className="mr-1.5 h-4 w-4" />
             Cancel
           </Button>

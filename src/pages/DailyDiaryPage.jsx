@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Baby, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import dailyDiaryService from "@/services/daily-operations/dailyDiaryService";
@@ -51,7 +51,7 @@ export default function DailyDiaryPage() {
 
   const [isFetching, setIsFetching] = useState(false);
 
-  const fetchDiary = async () => {
+  const fetchDiary = useCallback(async () => {
     if (!activeCentreId || !activeRoomId) return;
     setIsFetching(true);
     try {
@@ -72,7 +72,7 @@ export default function DailyDiaryPage() {
           const c = item.child;
           extracted.push({
             ...c,
-            name: `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.name || "Child"
+            name: `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.name || "Child",
           });
           const cid = c.id;
           const entries = {};
@@ -129,11 +129,11 @@ export default function DailyDiaryPage() {
     } finally {
       setIsFetching(false);
     }
-  };
+  }, [activeCentreId, activeRoomId, date]);
 
   useEffect(() => {
     fetchDiary();
-  }, [activeRoomId, date]);
+  }, [fetchDiary]);
 
   useEffect(() => {
     if (activeCentreId && activeRoomId) {
@@ -167,10 +167,6 @@ export default function DailyDiaryPage() {
         apiPayload.wake_time = payload.wakeTime;
         delete apiPayload.sleepTime;
         delete apiPayload.wakeTime;
-      }
-
-      if (activityKey === "toileting" && payload.item) {
-        apiPayload.item = payload.item; // "item" is "Type" in UI for toileting
       }
 
       // Omit optional fields if empty

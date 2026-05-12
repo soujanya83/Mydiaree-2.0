@@ -9,7 +9,18 @@ import {
   IdCard,
   DoorOpen,
   Users,
+  Loader2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +69,9 @@ export default function ChildrenPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [chosenRoom, setChosenRoom] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [deleteId, setDeleteId] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const currentFilters = useMemo(() => ({
     center_id: activeCentreId,
@@ -90,29 +104,40 @@ export default function ChildrenPage() {
     setAddOpen(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this child?")) return;
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setIsDeleting(true);
     try {
-      await deleteChildren([id], currentFilters);
+      await deleteChildren([deleteId], currentFilters);
       toast.success("Child deleted successfully");
     } catch (error) {
       toast.error(error?.message || "Failed to delete child");
+    } finally {
+      setIsDeleting(false);
+      setDeleteId(null);
     }
   };
 
 
   const handleSubmit = async (data) => {
+    setIsSaving(true);
     try {
-      const payload = {
-        ...data,
-        centerid: activeCentreId,
-        roomid: chosenRoom?.id || editing?.room,
-      };
-
       if (editing) {
-        await updateChild({ ...payload, id: editing.id }, currentFilters);
+        // For updates: id is child ID, roomid is the room identifier
+        await updateChild({ 
+          ...data, 
+          centerid: activeCentreId,
+          roomid: chosenRoom?.id || editing?.roomId || editing?.room,
+          id: editing.id 
+        }, currentFilters);
         toast.success("Child updated successfully");
       } else {
+        // For creation: id carries the room identifier as per /add-children spec
+        const payload = {
+          ...data,
+          centerid: activeCentreId,
+          id: chosenRoom?.id || editing?.roomId || editing?.room,
+        };
         await addChild(payload, currentFilters);
         toast.success("Child added successfully");
       }
@@ -121,6 +146,8 @@ export default function ChildrenPage() {
       setChosenRoom(null);
     } catch (error) {
       toast.error(error?.message || "Failed to save child");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -215,7 +242,7 @@ export default function ChildrenPage() {
               child={child}
               rooms={rooms}
               onEdit={() => handleEdit(child)}
-              onDelete={() => handleDelete(child.id)}
+              onDelete={() => setDeleteId(child.id)}
             />
           ))}
         </div>
@@ -239,7 +266,34 @@ export default function ChildrenPage() {
         room={chosenRoom}
         initial={editing}
         onSubmit={handleSubmit}
+        isSaving={isSaving}
       />
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Child Profile?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the child's profile and documentation records. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

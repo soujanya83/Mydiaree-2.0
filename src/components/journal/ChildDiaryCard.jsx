@@ -78,7 +78,12 @@ export const ACTIVITY_DEFS = [
 
 function statusFor(def, entry) {
   if (!entry) return def.emptyStatus;
-  if (entry.status) return entry.status;
+  if (entry.status) {
+    if (typeof entry.status === "object") return entry.status;
+    const status = String(entry.status).toLowerCase();
+    const tone = status === "solid" ? "danger" : status === "wet" ? "warning" : "success";
+    return { label: status.toUpperCase(), tone };
+  }
 
   // Generic in-progress/completed logic
   const hasTime = !!(entry.time || entry.sleepTime);
@@ -97,7 +102,6 @@ const toneClasses = {
   info: "bg-info/10 text-info border-info/50",
   danger: "bg-destructive/10 text-destructive border-destructive/50",
 };
-
 
 function ActivitySection({ def, entry, onSave }) {
   const [open, setOpen] = useState(def.key === "breakfast");
@@ -118,17 +122,14 @@ function ActivitySection({ def, entry, onSave }) {
           <span
             className={cn(
               "inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-              toneClasses[status.tone]
+              toneClasses[status.tone],
             )}
           >
             {status.label}
           </span>
         </div>
         <ChevronDown
-          className={cn(
-            "h-4 w-4 text-muted-foreground transition-transform",
-            open && "rotate-180"
-          )}
+          className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")}
         />
       </button>
 
@@ -141,17 +142,13 @@ function ActivitySection({ def, entry, onSave }) {
                 {def.key === "sleep" ? (
                   <>
                     <p>
-                      <span className="font-semibold text-foreground">
-                        Sleep Time:{" "}
-                      </span>
+                      <span className="font-semibold text-foreground">Sleep Time: </span>
                       <span className="text-muted-foreground">
                         {entry?.sleepTime || "No Update"}
                       </span>
                     </p>
                     <p>
-                      <span className="font-semibold text-foreground">
-                        Wake Time:{" "}
-                      </span>
+                      <span className="font-semibold text-foreground">Wake Time: </span>
                       <span className="text-muted-foreground">
                         {entry?.wakeTime || "No Update"}
                       </span>
@@ -160,41 +157,27 @@ function ActivitySection({ def, entry, onSave }) {
                 ) : (
                   <p>
                     <span className="font-semibold text-foreground">Time: </span>
-                    <span className="text-muted-foreground">
-                      {entry?.time || "No Update"}
-                    </span>
+                    <span className="text-muted-foreground">{entry?.time || "No Update"}</span>
                   </p>
                 )}
 
-                {["breakfast", "lunch", "late_snacks", "bottle"].includes(
-                  def.key
-                ) && (
+                {["breakfast", "lunch", "late_snacks", "bottle"].includes(def.key) && (
                   <p>
                     <span className="font-semibold text-foreground">Item: </span>
-                    <span className="text-muted-foreground">
-                      {entry?.item || "No Update"}
-                    </span>
+                    <span className="text-muted-foreground">{entry?.item || "No Update"}</span>
                   </p>
                 )}
 
                 {def.key === "lunch" && (
                   <p>
-                    <span className="font-semibold text-foreground">
-                      No of Serve:{" "}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {entry?.noOfServe || "No Update"}
-                    </span>
+                    <span className="font-semibold text-foreground">No of Serve: </span>
+                    <span className="text-muted-foreground">{entry?.noOfServe || "No Update"}</span>
                   </p>
                 )}
 
                 <p className="sm:col-span-2">
-                  <span className="font-semibold text-foreground">
-                    Comments:{" "}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {entry?.comments || "No Update"}
-                  </span>
+                  <span className="font-semibold text-foreground">Comments: </span>
+                  <span className="text-muted-foreground">{entry?.comments || "No Update"}</span>
                 </p>
               </div>
               <Button
@@ -204,17 +187,12 @@ function ActivitySection({ def, entry, onSave }) {
                 onClick={() => setEditOpen(true)}
                 aria-label={entry ? "Edit entry" : "Add entry"}
               >
-                {entry ? (
-                  <Pencil className="h-4 w-4" />
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
+                {entry ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
               </Button>
             </div>
           </div>
         </div>
       )}
-
 
       <ActivityEditModal
         open={editOpen}
@@ -237,8 +215,7 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
 
   const totalActivities = ACTIVITY_DEFS.length;
   const completedActivities = Object.keys(entries).length;
-  const meals = ["breakfast", "lunch", "afternoon_tea"].filter((k) => entries[k])
-    .length;
+  const meals = ["breakfast", "lunch", "afternoon_tea"].filter((k) => entries[k]).length;
   const naps = entries.sleep ? 1 : 0; // Keeping it 1 for now as it's a single category
 
   return (
@@ -251,15 +228,14 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
           </AvatarFallback>
         </Avatar>
         <div>
-          <h3 className="text-base font-bold">
-            {child.name}
-          </h3>
+          <h3 className="text-base font-bold">{child.name}</h3>
           <p className="text-xs text-primary-foreground/90">
             <span className="font-medium">Age:</span> {child.age || "—"}
           </p>
           <p className="flex items-center gap-1 text-xs text-primary-foreground/90">
             <CalendarDays className="h-3 w-3" />
-            Today: {new Date(date).toLocaleDateString("en-AU", {
+            Today:{" "}
+            {new Date(date).toLocaleDateString("en-AU", {
               month: "long",
               day: "numeric",
               year: "numeric",
@@ -277,9 +253,7 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
         ].map((s) => (
           <div key={s.label} className="text-center">
             <p className="text-lg font-bold text-primary">{s.value}</p>
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              {s.label}
-            </p>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{s.label}</p>
           </div>
         ))}
       </div>

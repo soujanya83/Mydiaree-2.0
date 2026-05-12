@@ -27,7 +27,6 @@ export default function PublicHolidaysPage() {
   const [holidays, setHolidays] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [month, setMonth] = useState("All Months");
-  const [appliedMonth, setAppliedMonth] = useState("All Months");
   const [deleteId, setDeleteId] = useState(null);
   const [selected, setSelected] = useState([]);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -35,7 +34,7 @@ export default function PublicHolidaysPage() {
   const fetchHolidays = useCallback(async () => {
     setIsLoading(true);
     try {
-      const monthNum = appliedMonth === "All Months" ? "" : months.indexOf(appliedMonth);
+      const monthNum = month === "All Months" ? "" : months.indexOf(month);
       const res = await holidayService.getHolidays(monthNum);
       if (res.status) {
         setHolidays(res.holidays || []);
@@ -47,7 +46,7 @@ export default function PublicHolidaysPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [appliedMonth]);
+  }, [month]);
 
   useEffect(() => {
     fetchHolidays();
@@ -177,19 +176,16 @@ export default function PublicHolidaysPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => setAppliedMonth(month)} className="h-10">
-            <FilterIcon className="h-4 w-4" /> Apply filter
-          </Button>
           <Button
             variant="outline"
             className="h-10"
-            onClick={() => { setMonth("All Months"); setAppliedMonth("All Months"); }}
+            onClick={() => setMonth("All Months")}
           >
             <RotateCcw className="h-4 w-4" /> Reset
           </Button>
-          {appliedMonth !== "All Months" && (
+          {month !== "All Months" && (
             <Badge variant="secondary" className="ml-auto">
-              Filtered by: {appliedMonth}
+              Filtered by: {month}
             </Badge>
           )}
         </div>

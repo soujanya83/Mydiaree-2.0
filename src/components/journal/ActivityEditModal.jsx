@@ -18,13 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export function ActivityEditModal({
-  open,
-  onOpenChange,
-  activityLabel,
-  initial,
-  onSave,
-}) {
+export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, onSave }) {
   const [time, setTime] = useState("");
   const [item, setItem] = useState("");
   const [comments, setComments] = useState("");
@@ -32,7 +26,7 @@ export function ActivityEditModal({
   const [sleepTime, setSleepTime] = useState("");
   const [wakeTime, setWakeTime] = useState("");
   const [signature, setSignature] = useState("");
-  const [status, setStatus] = useState("wet");
+  const [status, setStatus] = useState("clean");
 
   const key = activityLabel?.toLowerCase().replace(/\s+/g, "_");
 
@@ -45,14 +39,14 @@ export function ActivityEditModal({
       setSleepTime(initial?.sleepTime || "");
       setWakeTime(initial?.wakeTime || "");
       setSignature(initial?.signature || "");
-      setStatus(initial?.status || "wet");
+      setStatus(initial?.status || "clean");
     }
   }, [open, initial]);
 
   const handleSave = () => {
-    const payload = { 
+    const payload = {
       comments,
-      ...(initial?.id ? { id: initial.id } : {})
+      ...(initial?.id ? { id: initial.id } : {}),
     };
 
     if (key === "sleep") {
@@ -62,7 +56,7 @@ export function ActivityEditModal({
       payload.time = time;
     }
 
-    if (["breakfast", "lunch", "late_snacks", "bottle", "sunscreen", "toileting"].includes(key)) {
+    if (["breakfast", "lunch", "late_snacks", "bottle"].includes(key)) {
       payload.item = item;
     }
 
@@ -86,9 +80,7 @@ export function ActivityEditModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
         <DialogHeader className="bg-gradient-to-r from-primary to-primary/80 px-6 py-4 text-primary-foreground">
-          <DialogTitle className="text-primary-foreground">
-            Add/Edit {activityLabel}
-          </DialogTitle>
+          <DialogTitle className="text-primary-foreground">Add/Edit {activityLabel}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 p-6">
           {key === "sleep" ? (
@@ -103,37 +95,23 @@ export function ActivityEditModal({
               </div>
               <div className="space-y-1.5">
                 <Label>Wake Time</Label>
-                <Input
-                  type="time"
-                  value={wakeTime}
-                  onChange={(e) => setWakeTime(e.target.value)}
-                />
+                <Input type="time" value={wakeTime} onChange={(e) => setWakeTime(e.target.value)} />
               </div>
             </>
           ) : (
             <div className="space-y-1.5">
               <Label>Time</Label>
-              <Input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
           )}
 
-          {["breakfast", "lunch", "late_snacks", "bottle", "sunscreen", "toileting"].includes(key) && (
+          {["breakfast", "lunch", "late_snacks", "bottle"].includes(key) && (
             <div className="space-y-1.5">
-              <Label>{key === "toileting" ? "Type" : key === "sunscreen" ? "Brand / SPF" : "Item"}</Label>
+              <Label>Item</Label>
               <Input
                 value={item}
                 onChange={(e) => setItem(e.target.value)}
-                placeholder={
-                  key === "bottle"
-                    ? "e.g. 120ml formula"
-                    : key === "sunscreen"
-                    ? "e.g. Cancer Council SPF 50+"
-                    : "e.g. Toast with butter"
-                }
+                placeholder={key === "bottle" ? "e.g. 120ml formula" : "e.g. Toast with butter"}
               />
             </div>
           )}
@@ -158,13 +136,13 @@ export function ActivityEditModal({
 
           {key === "toileting" && (
             <div className="space-y-1.5">
-              <Label>Status</Label>
+              <Label>Nappy Status</Label>
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  {["wet", "dirty", "dry", "potty", "toilet"].map((s) => (
+                  {["clean", "wet", "solid", "successfully"].map((s) => (
                     <SelectItem key={s} value={s} className="capitalize">
                       {s}
                     </SelectItem>
@@ -199,11 +177,7 @@ export function ActivityEditModal({
           <Button size="sm" onClick={handleSave}>
             Save
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button size="sm" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
         </DialogFooter>

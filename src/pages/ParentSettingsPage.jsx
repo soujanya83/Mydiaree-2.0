@@ -75,6 +75,7 @@ export default function ParentSettingsPage() {
 
             const mappedParents = (res.data.parents || []).map((p) => ({
               ...p,
+              gender: p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1).toLowerCase()) : "",
               avatar: p.imageUrl
                 ? p.imageUrl.startsWith("http")
                   ? p.imageUrl
@@ -163,6 +164,7 @@ export default function ParentSettingsPage() {
 
           const mappedParents = (refetch.data.parents || []).map((p) => ({
             ...p,
+            gender: p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1).toLowerCase()) : "",
             avatar: p.imageUrl
               ? p.imageUrl.startsWith("http")
                 ? p.imageUrl

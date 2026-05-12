@@ -34,4 +34,11 @@ export const snapshotService = {
     });
     return res.data;
   },
+
+  async printSnapshot(id) {
+    const res = await api.get(`/snapshot/print/${id}`, {
+      responseType: "blob",
+    });
+    return res.data;
+  },
 };

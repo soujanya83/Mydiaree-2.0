@@ -16,7 +16,7 @@ const empty = {
   capacity: "",
   fromAge: "",
   toAge: "",
-  status: "active",
+  status: "Active",
   color: "#25176F",
   educatorIds: [],
 };
@@ -34,7 +34,7 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
               capacity: initial.capacity ?? "",
               fromAge: initial.ageFrom ?? initial.fromAge ?? "",
               toAge: initial.ageTo ?? initial.toAge ?? "",
-              status: initial.status || "active",
+              status: initial.status || "Active",
               color: initial.color || "#25176F",
               educatorIds: (initial.educators || []).map((e) => String(e.userid || e.id)),
             }
@@ -129,8 +129,8 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
           </Field>

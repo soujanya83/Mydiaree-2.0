@@ -54,7 +54,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
   const [amount, setAmount] = useState("");
   const [server, setServer] = useState("1");
   const [signature, setSignature] = useState("");
-  const [status, setStatus] = useState("wet");
+  const [status, setStatus] = useState("clean");
 
   const current = ACTIVITIES.find((a) => a.key === activity);
   const Icon = current.icon;
@@ -62,29 +62,20 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
   const filteredChildren = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return children;
-    return children.filter((c) =>
-      c.name.toLowerCase().includes(q)
-    );
+    return children.filter((c) => c.name.toLowerCase().includes(q));
   }, [search, children]);
 
   const allSelected =
-    filteredChildren.length > 0 &&
-    filteredChildren.every((c) => selected.includes(c.id));
+    filteredChildren.length > 0 && filteredChildren.every((c) => selected.includes(c.id));
 
   const toggleChild = (id) =>
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const toggleAll = () => {
     if (allSelected) {
-      setSelected((prev) =>
-        prev.filter((id) => !filteredChildren.some((c) => c.id === id))
-      );
+      setSelected((prev) => prev.filter((id) => !filteredChildren.some((c) => c.id === id)));
     } else {
-      setSelected((prev) =>
-        Array.from(new Set([...prev, ...filteredChildren.map((c) => c.id)]))
-      );
+      setSelected((prev) => Array.from(new Set([...prev, ...filteredChildren.map((c) => c.id)])));
     }
   };
 
@@ -99,42 +90,43 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
     setAmount("");
     setServer("1");
     setSignature("");
-    setStatus("wet");
+    setStatus("clean");
   };
 
   const handleSave = () => {
-    onSubmit?.({
+    const payload = {
       activity,
       date,
       children: selected,
       time,
       wakeTime,
-      item,
       amount,
       server,
       signature,
-      status,
       notes,
-    });
+    };
+
+    if (["breakfast", "lunch", "late_snacks", "bottle"].includes(activity)) {
+      payload.item = item;
+    }
+
+    if (activity === "toileting") {
+      payload.status = status;
+    }
+
+    onSubmit?.(payload);
     reset();
     onOpenChange(false);
   };
 
-  const valueLabel =
-    activity === "toileting"
-      ? "Type"
-      : activity === "sunscreen"
-      ? "Brand / SPF"
-      : activity === "bottle"
-      ? "Volume (ml)"
-      : `${current.label} Item`;
+  const valueLabel = activity === "bottle" ? "Volume (ml)" : `${current.label} Item`;
 
   const timeLabel =
     activity === "sleep"
       ? "Sleep Time"
       : activity === "sunscreen"
-      ? "Applied At"
-      : `${current.label} Time`;
+        ? "Applied At"
+        : `${current.label} Time`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -173,7 +165,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                         "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                         active
                           ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-foreground/70 hover:bg-card hover:text-foreground"
+                          : "text-foreground/70 hover:bg-card hover:text-foreground",
                       )}
                     >
                       <ItemIcon className="h-4 w-4" />
@@ -193,9 +185,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                   <Icon className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold">
-                    Add {current.label} Entry
-                  </h3>
+                  <h3 className="text-base font-semibold">Add {current.label} Entry</h3>
                   <p className="text-xs text-muted-foreground">
                     Fill in details below — fields adapt to activity type.
                   </p>
@@ -256,7 +246,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                           "flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all",
                           isSel
                             ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                            : "border-border bg-card hover:border-primary/50"
+                            : "border-border bg-card hover:border-primary/50",
                         )}
                       >
                         <Avatar className="h-9 w-9">
@@ -265,9 +255,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {c.name}
-                          </p>
+                          <p className="truncate text-sm font-medium">{c.name}</p>
                           <p className="truncate text-xs text-muted-foreground">
                             {c.room || "Room"}
                           </p>
@@ -310,18 +298,14 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                       />
                     </div>
                   ) : (
-                    ["breakfast", "lunch", "late_snacks", "bottle", "sunscreen", "toileting"].includes(activity) && (
+                    ["breakfast", "lunch", "late_snacks", "bottle"].includes(activity) && (
                       <div className="space-y-1.5">
                         <Label>{valueLabel}</Label>
                         <Input
                           value={item}
                           onChange={(e) => setItem(e.target.value)}
                           placeholder={`e.g. ${
-                            activity === "bottle"
-                              ? "120ml formula"
-                              : activity === "sunscreen"
-                              ? "Cancer Council SPF 50+"
-                              : "Toast with butter"
+                            activity === "bottle" ? "120ml formula" : "Toast with butter"
                           }`}
                         />
                       </div>
@@ -342,7 +326,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                             "rounded-full border px-4 py-1.5 text-xs font-medium transition",
                             server === String(val)
                               ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
+                              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
                           )}
                         >
                           {val}
@@ -354,9 +338,9 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
 
                 {activity === "toileting" && (
                   <div className="space-y-1.5">
-                    <Label>Status</Label>
+                    <Label>Nappy Status</Label>
                     <div className="flex flex-wrap gap-2">
-                      {["wet", "dirty", "dry", "potty", "toilet"].map((s) => (
+                      {["clean", "wet", "solid", "successfully"].map((s) => (
                         <button
                           key={s}
                           type="button"
@@ -365,7 +349,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                             "rounded-full border px-4 py-1.5 text-xs font-medium capitalize transition",
                             status === s
                               ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
+                              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
                           )}
                         >
                           {s}
@@ -403,7 +387,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                             "rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition",
                             amount === a
                               ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary"
+                              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
                           )}
                         >
                           {a}
@@ -425,9 +409,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
               </section>
               {selected.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/50 p-3 text-xs">
-                  <span className="font-medium text-muted-foreground">
-                    Logging for:
-                  </span>
+                  <span className="font-medium text-muted-foreground">Logging for:</span>
                   {selected.slice(0, 6).map((id) => {
                     const c = children.find((x) => x.id === id);
                     if (!c) return null;

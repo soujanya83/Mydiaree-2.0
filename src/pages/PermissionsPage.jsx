@@ -22,12 +22,12 @@ import { PERMISSION_GROUPS as STATIC_GROUPS } from "@/components/permissions/per
 import { PermissionCard } from "@/components/permissions/PermissionCard";
 import { usePermissionStore } from "@/stores/permissionStore";
 import { useCentreStore } from "@/stores/centreStore";
+import { staffService } from "@/services/admin/staffService";
 
 export default function PermissionsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const {
-    users,
     roles,
     permissionColumns,
     isLoading,
@@ -43,6 +43,8 @@ export default function PermissionsPage() {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedKeys, setSelectedKeys] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
+  const [staffUsers, setStaffUsers] = useState([]);
+  const [isStaffLoading, setIsStaffLoading] = useState(false);
 
   useEffect(() => {
     if (activeCentreId) {
@@ -53,6 +55,30 @@ export default function PermissionsPage() {
       setSelectedRole(null);
     }
   }, [activeCentreId, fetchManagePermissions, fetchRoles]);
+
+  useEffect(() => {
+    const loadStaff = async () => {
+      if (!activeCentreId) {
+        setStaffUsers([]);
+        return;
+      }
+
+      setIsStaffLoading(true);
+      try {
+        const response = await staffService.getStaffSettings(activeCentreId);
+        const staff = response?.data?.staff || [];
+        setStaffUsers(staff.filter((staffMember) => staffMember.status === "ACTIVE"));
+      } catch (error) {
+        console.error("Failed to load staff for permissions:", error);
+        toast.error(error?.response?.data?.message || error?.message || "Failed to load staff");
+        setStaffUsers([]);
+      } finally {
+        setIsStaffLoading(false);
+      }
+    };
+
+    loadStaff();
+  }, [activeCentreId]);
 
   const dynamicGroups = useMemo(() => {
     const groups = [...STATIC_GROUPS.map((g) => ({ ...g, permissions: [] }))];
@@ -98,10 +124,6 @@ export default function PermissionsPage() {
     () => dynamicGroups.flatMap((g) => g.permissions.map((p) => p.key)),
     [dynamicGroups],
   );
-
-  const activeApiUsers = useMemo(() => {
-    return (users || []).filter((u) => u.status === "ACTIVE" || u.status === "active");
-  }, [users]);
 
   const togglePermission = (_groupKey, permKey) => {
     setSelectedKeys((prev) =>
@@ -193,8 +215,8 @@ export default function PermissionsPage() {
   };
 
   const availableUsers = useMemo(
-    () => activeApiUsers.filter((u) => !selectedUsers.find((s) => s.id === u.id)),
-    [selectedUsers, activeApiUsers],
+    () => staffUsers.filter((u) => !selectedUsers.find((s) => s.id === u.id)),
+    [selectedUsers, staffUsers],
   );
 
   if (isLoading) {
@@ -272,7 +294,11 @@ export default function PermissionsPage() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[280px]">
-              {availableUsers.length === 0 ? (
+              {isStaffLoading ? (
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                  Loading staff...
+                </div>
+              ) : availableUsers.length === 0 ? (
                 <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                   All users selected
                 </div>

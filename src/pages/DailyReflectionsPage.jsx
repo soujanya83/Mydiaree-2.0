@@ -6,6 +6,7 @@ import {
   Filter,
   Printer,
   Trash2,
+  Recycle,
   ImageIcon,
   Sparkles,
   Search,
@@ -234,6 +235,10 @@ export default function DailyReflectionsPage() {
             <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
               <Filter className="mr-1.5 h-4 w-4" />
               Filters
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/daily-reflections/recycle-bin")}>
+              <Recycle className="mr-1.5 h-4 w-4" />
+              Recycle Bin
             </Button>
             <Button onClick={() => setTitleModalOpen(true)}>
               <Plus className="mr-1.5 h-4 w-4" />

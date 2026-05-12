@@ -26,14 +26,12 @@ export const childrenService = {
     try {
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]) => {
-        if (key === "days" && Array.isArray(value)) {
-          value.forEach((day) => formData.append("days[]", day));
-        } else if (value !== null && value !== undefined) {
+        if (value !== null && value !== undefined) {
           formData.append(key, value);
         }
       });
 
-      const response = await api.post("/child/store", formData, {
+      const response = await api.post("/add-children", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       return response.data;

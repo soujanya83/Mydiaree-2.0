@@ -7,4 +7,11 @@ export const serviceDetailsService = {
     });
     return res.data;
   },
+
+  async updateServiceDetails(formData) {
+    const res = await api.post("/ServiceDetails", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
 };

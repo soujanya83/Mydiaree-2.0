@@ -5,6 +5,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Recycle,
   Filter,
   Sparkles,
   X,
@@ -407,6 +408,10 @@ export default function ProgramPlanPage() {
             >
               <Activity className="mr-1.5 h-4 w-4" />
               Activities
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/program-plan/recycle-bin")}>
+              <Recycle className="mr-1.5 h-4 w-4" />
+              Recycle Bin
             </Button>
             <Button onClick={() => setPlanModalOpen(true)}>
               <Plus className="mr-1.5 h-4 w-4" />

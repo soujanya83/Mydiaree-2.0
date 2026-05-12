@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { roomService } from "@/services/centre/roomService";
+import { staffService } from "@/services/admin/staffService";
 
 export const useRoomStore = create(
   persist(
@@ -30,10 +31,21 @@ export const useRoomStore = create(
               children: r.children || [],
             }));
 
-            const staffList = (response.roomStaffs || []).map((s) => ({
-              staffid: String(s.staffid),
-              name: s.name,
-            }));
+            // Fetch active staff from staffService for the educator selection list
+            let staffList = [];
+            try {
+              const staffResponse = await staffService.getStaffSettings(centerId);
+              if (staffResponse.status) {
+                staffList = (staffResponse.data?.staff || [])
+                  .filter(s => s.status === "ACTIVE")
+                  .map((s) => ({
+                    staffid: String(s.id),
+                    name: s.name,
+                  }));
+              }
+            } catch (err) {
+              console.error("Failed to fetch staff in roomStore:", err);
+            }
 
             const currentActiveId = get().activeRoomId;
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -7,6 +7,7 @@ import {
   Filter,
   Printer,
   Trash2,
+  Recycle,
   ImageIcon,
   Camera,
   Search,
@@ -16,6 +17,8 @@ import {
   Pencil,
   UserCircle2,
   DoorOpen,
+  X,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -61,6 +64,8 @@ export default function SnapshotsPage() {
 
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [gallerySnap, setGallerySnap] = useState(null);
+  const [isPrinting, setIsPrinting] = useState(null);
 
   const fetchSnapshots = useCallback(async () => {
     if (!activeCentreId) return;
@@ -145,6 +150,20 @@ export default function SnapshotsPage() {
     }
   };
 
+  const handlePrint = async (id) => {
+    setIsPrinting(id);
+    try {
+      const blob = await snapshotService.printSnapshot(id);
+      const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      window.open(url, "_blank");
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to generate PDF for printing");
+    } finally {
+      setIsPrinting(null);
+    }
+  };
+
   const activeCentre = centres.find((c) => c.id === activeCentreId);
 
   const resetFilters = () => {
@@ -166,6 +185,10 @@ export default function SnapshotsPage() {
             <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
               <Filter className="mr-1.5 h-4 w-4" />
               Filters
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/snapshots/recycle-bin")}>
+              <Recycle className="mr-1.5 h-4 w-4" />
+              Recycle Bin
             </Button>
             <Button onClick={() => setTitleModalOpen(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
@@ -322,6 +345,9 @@ export default function SnapshotsPage() {
               onDelete={() => setDeleteModal({ open: true, id: s.id })}
               onEdit={() => navigate(`/snapshots/${s.id}/edit`)}
               onOpen={() => navigate(`/snapshots/${s.id}`)}
+              onViewGallery={() => setGallerySnap(s)}
+              onPrint={() => handlePrint(s.id)}
+              isPrinting={isPrinting === s.id}
             />
           ))}
         </div>
@@ -373,11 +399,159 @@ export default function SnapshotsPage() {
         title="Delete Snapshot?"
         description="This will permanently remove this snapshot and its shared media. Families will no longer be able to view it."
       />
+
+      {gallerySnap && (
+        <SnapshotGalleryModal snap={gallerySnap} onClose={() => setGallerySnap(null)} />
+      )}
     </div>
   );
 }
 
-function SnapshotCard({ snap, onDelete, onEdit, onOpen }) {
+function SnapshotGalleryModal({ snap, onClose }) {
+  const images = (snap.media || []).filter((m) => m.mediaUrl);
+  const [idx, setIdx] = useState(0);
+  const timerRef = useRef(null);
+
+  const getUrl = (m) =>
+    m.mediaUrl.startsWith("http") ? m.mediaUrl : `https://mydiaree.com.au/${m.mediaUrl}`;
+
+  // Auto-scroll every 4 seconds
+  useEffect(() => {
+    if (images.length <= 1) return;
+    timerRef.current = setInterval(() => {
+      setIdx((prev) => (prev + 1) % images.length);
+    }, 4000);
+    return () => clearInterval(timerRef.current);
+  }, [images.length]);
+
+  // Reset timer on manual navigation
+  const goTo = useCallback(
+    (newIdx) => {
+      setIdx(newIdx);
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setIdx((prev) => (prev + 1) % images.length);
+      }, 4000);
+    },
+    [images.length],
+  );
+
+  const goPrev = useCallback(
+    () => goTo((idx - 1 + images.length) % images.length),
+    [goTo, idx, images.length],
+  );
+  const goNext = useCallback(() => goTo((idx + 1) % images.length), [goTo, idx, images.length]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "ArrowRight") goNext();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goNext, goPrev, onClose]);
+
+  const cleanTitle = (snap.title || "").replace(/<[^>]*>/g, "");
+
+  if (images.length === 0) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center shadow-2xl">
+          <ImageIcon className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" />
+          <h3 className="text-lg font-bold text-foreground">No Images</h3>
+          <p className="mt-1 text-sm text-muted-foreground">This snapshot has no media attached.</p>
+          <Button onClick={onClose} className="mt-5 rounded-full" variant="outline">
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950 shadow-2xl animate-in zoom-in-95 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-white">{cleanTitle || "Snapshot Gallery"}</h2>
+            <p className="text-xs font-medium text-white/50">
+              {idx + 1} of {images.length} images
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Image area */}
+        <div
+          className="relative flex items-center justify-center bg-black"
+          style={{ minHeight: "420px" }}
+        >
+          <img
+            key={images[idx]?.id || idx}
+            src={getUrl(images[idx])}
+            alt={`${cleanTitle} - ${idx + 1}`}
+            className="max-h-[70vh] w-full object-contain transition-opacity duration-500 animate-in fade-in"
+          />
+
+          {/* Prev/Next buttons */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={goPrev}
+                className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg transition-all hover:scale-110 hover:bg-black/70"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+              <button
+                onClick={goNext}
+                className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg transition-all hover:scale-110 hover:bg-black/70"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Dot indicators + thumbnail strip */}
+        {images.length > 1 && (
+          <div className="flex items-center justify-center gap-2 border-t border-white/10 px-6 py-4">
+            {images.map((m, i) => (
+              <button
+                key={m.id || i}
+                onClick={() => goTo(i)}
+                className={`overflow-hidden rounded-lg border-2 transition-all ${
+                  i === idx
+                    ? "border-emerald-400 shadow-lg shadow-emerald-500/30 scale-110"
+                    : "border-transparent opacity-50 hover:opacity-80"
+                }`}
+              >
+                <img src={getUrl(m)} alt={`Thumb ${i + 1}`} className="h-12 w-12 object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, isPrinting }) {
   const images = snap.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
 
@@ -401,7 +575,13 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen }) {
           className="truncate text-sm font-bold"
           dangerouslySetInnerHTML={{ __html: snap.title }}
         ></h3>
-        <span className="rounded-full bg-emerald-200/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+            snap.status?.toLowerCase() === "published"
+              ? "bg-emerald-200/90 text-emerald-800"
+              : "bg-amber-200/90 text-amber-800"
+          }`}
+        >
           {snap.status}
         </span>
       </div>
@@ -511,16 +691,21 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen }) {
         <div className="flex items-center justify-start gap-2 pt-1">
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={onPrint}
             title="Print"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white hover:bg-emerald-600"
+            disabled={isPrinting}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50"
           >
-            <Printer className="h-4 w-4" />
+            {isPrinting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
           </button>
           <button
             type="button"
-            onClick={onOpen}
-            title="View"
+            onClick={onViewGallery}
+            title="View Gallery"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-white hover:bg-sky-600"
           >
             <Eye className="h-4 w-4" />

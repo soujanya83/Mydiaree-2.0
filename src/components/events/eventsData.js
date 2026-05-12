@@ -1,4 +1,4 @@
-export const eventTypes = ["Announcement", "Events", "Public Holiday"];
+export const eventTypes = ["Announcement", "Events"];
 export const accessOptions = ["All", "Parents", "Staff"];
 
 export const initialEvents = [

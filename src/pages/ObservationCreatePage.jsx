@@ -39,6 +39,7 @@ import { OBSERVATION_TREE } from "@/components/observation/data";
 import { observationService } from "@/services/learning/observationService";
 import { childrenService } from "@/services/centre/childrenService";
 import { programPlanService } from "@/services/learning/programPlanService";
+import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
 
 const TABS = [
@@ -78,7 +79,7 @@ export default function ObservationCreatePage() {
   const [rooms, setRooms] = useState([]);
   const [children, setChildren] = useState([]);
   const [educators, setEducators] = useState([]);
-  
+
   const [availableEducators, setAvailableEducators] = useState([]);
   const [availableChildren, setAvailableChildren] = useState([]);
   const [isChildrenLoading, setIsChildrenLoading] = useState(false);
@@ -90,6 +91,7 @@ export default function ObservationCreatePage() {
   const [futurePlan, setFuturePlan] = useState("");
   const [implementation, setImplementation] = useState("");
   const [criticalReflection, setCriticalReflection] = useState("");
+  const [status, setStatus] = useState("draft");
   const [media, setMedia] = useState([]); // { file, preview, isExisting, url }
 
   // Assessment state
@@ -111,26 +113,20 @@ export default function ObservationCreatePage() {
   const [showChildrenPicker, setShowChildrenPicker] = useState(false);
   const [showEducatorsPicker, setShowEducatorsPicker] = useState(false);
 
-  // 1. Fetch Rooms and Staff on Centre Change
+  // 1. Fetch Staff on Centre Change
   useEffect(() => {
-    const loadRoomsAndStaff = async () => {
+    const loadStaff = async () => {
       if (!activeCentreId) return;
       try {
-        const response = await programPlanService.getRoomsAndStaff(activeCentreId);
+        const response = await staffService.getStaffSettings(activeCentreId);
         if (response.status) {
-          setAvailableEducators(
-            response.roomStaffs ||
-            response.staff ||
-            response.data?.roomStaffs ||
-            response.data?.staff ||
-            []
-          );
+          setAvailableEducators((response.data?.staff || []).filter((s) => s.status === "ACTIVE"));
         }
       } catch (error) {
         console.error("Failed to load staff:", error);
       }
     };
-    loadRoomsAndStaff();
+    loadStaff();
   }, [activeCentreId]);
 
   // 2. Fetch Children when selected Rooms change
@@ -143,11 +139,11 @@ export default function ObservationCreatePage() {
       setIsChildrenLoading(true);
       try {
         const results = await Promise.all(
-          rooms.map(roomId => childrenService.filterChildren({ room: roomId }))
+          rooms.map((roomId) => childrenService.filterChildren({ room: roomId })),
         );
-        const merged = results.flatMap(res => res.children || res.data || []);
+        const merged = results.flatMap((res) => res.children || res.data || []);
         // Unique by ID
-        const unique = Array.from(new Map(merged.map(c => [c.id, c])).values());
+        const unique = Array.from(new Map(merged.map((c) => [c.id, c])).values());
         setAvailableChildren(unique);
       } catch (error) {
         console.error("Failed to load children for selected rooms:", error);
@@ -173,10 +169,11 @@ export default function ObservationCreatePage() {
             setFuturePlan(d.future_plan || "");
             setImplementation(d.implementation || "");
             setRooms(d.room ? d.room.split(",") : []);
-            setChildren(d.child ? d.child.map(c => String(c.childId)) : []);
+            setChildren(d.child ? d.child.map((c) => String(c.childId)) : []);
             setEducators(d.tagged_staff ? d.tagged_staff.split(",") : []);
+            setStatus(d.status?.toLowerCase() === "published" ? "published" : "draft");
             if (d.media) {
-              setMedia(d.media.map(m => ({ isExisting: true, url: m.mediaUrl, id: m.id })));
+              setMedia(d.media.map((m) => ({ isExisting: true, url: m.mediaUrl, id: m.id })));
             }
           }
         } catch (error) {
@@ -195,22 +192,22 @@ export default function ObservationCreatePage() {
       toast.error("Maximum 3 media files allowed");
       return;
     }
-    const newMedia = files.map(file => ({
+    const newMedia = files.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
-      isExisting: false
+      isExisting: false,
     }));
-    setMedia(prev => [...prev, ...newMedia]);
+    setMedia((prev) => [...prev, ...newMedia]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeMedia = (index) => {
-    setMedia(prev => prev.filter((_, i) => i !== index));
+    setMedia((prev) => prev.filter((_, i) => i !== index));
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSave = async (status) => {
+  const handleSave = async () => {
     if (!rooms.length || !children.length || !title || !observation) {
       toast.error("Please fill in all required fields (Rooms, Children, Title, Observation)");
       return;
@@ -230,7 +227,7 @@ export default function ObservationCreatePage() {
         selected_rooms: rooms, // Will be appended as selected_rooms[] by service
         selected_children: children.join(","), // Screenshot shows comma-separated string
         selected_staff: educators, // Will be appended as selected_staff[] by service
-        media: media.filter(m => !m.isExisting).map(m => m.file),
+        media: media.filter((m) => !m.isExisting).map((m) => m.file),
         status: status === "published" ? "Published" : "Draft",
       };
 
@@ -253,7 +250,9 @@ export default function ObservationCreatePage() {
     }
   };
 
-  const today = new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+  const today = new Date()
+    .toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
+    .toUpperCase();
 
   return (
     <div className="min-h-screen pb-20">
@@ -261,7 +260,12 @@ export default function ObservationCreatePage() {
       <div className="sticky top-0 z-40 -mx-6 mb-6 border-b border-border bg-background/80 px-6 py-4 backdrop-blur-md">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/observation")} className="h-9 w-9 rounded-full">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate("/observation")}
+              className="h-9 w-9 rounded-full"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
@@ -269,7 +273,9 @@ export default function ObservationCreatePage() {
                 {isEdit ? "Edit Observation" : "Create New Observation"}
               </h1>
               <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Link to="/observation" className="hover:text-foreground">Observations</Link>
+                <Link to="/observation" className="hover:text-foreground">
+                  Observations
+                </Link>
                 <span>/</span>
                 <span>{isEdit ? "Edit" : "New"}</span>
               </nav>
@@ -280,26 +286,38 @@ export default function ObservationCreatePage() {
             <div className="hidden items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-bold text-muted-foreground md:flex">
               <Calendar className="h-3.5 w-3.5" /> {today}
             </div>
-            <Button variant="outline" className="h-9 rounded-full border-sky-500/30 text-sky-600 hover:bg-sky-50">
+            <Button
+              variant="outline"
+              className="h-9 rounded-full border-sky-500/30 text-sky-600 hover:bg-sky-50"
+            >
               <Eye className="mr-1.5 h-4 w-4" /> Preview
             </Button>
-            <Button 
-              onClick={() => handleSave("draft")} 
-              variant="outline" 
-              className="h-9 rounded-full border-amber-500/30 text-amber-600 hover:bg-amber-50"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />}
-              Draft
-            </Button>
-            <Button 
-              onClick={() => handleSave("published")} 
-              className="h-9 rounded-full bg-emerald-600 px-6 shadow-lg shadow-emerald-500/20 hover:bg-emerald-700"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
-              {isEdit ? "Update" : "Publish"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger
+                  className={`h-9 w-[120px] rounded-full border-none font-bold uppercase tracking-wider text-[10px] ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
+                >
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                onClick={() => handleSave()}
+                className="h-9 rounded-full bg-primary px-6 shadow-lg shadow-primary/20 hover:bg-primary/90"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-1.5 h-4 w-4" />
+                )}
+                {isEdit ? "Update" : "Save"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -320,7 +338,9 @@ export default function ObservationCreatePage() {
                     : "text-muted-foreground hover:bg-muted"
                 }`}
               >
-                <Icon className={`h-4 w-4 transition-transform ${active ? "scale-110" : "group-hover:scale-110"}`} />
+                <Icon
+                  className={`h-4 w-4 transition-transform ${active ? "scale-110" : "group-hover:scale-110"}`}
+                />
                 {t.label}
                 {active && (
                   <span className="absolute -bottom-1.5 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-foreground" />
@@ -340,14 +360,17 @@ export default function ObservationCreatePage() {
                 </div>
                 <h3 className="text-base font-bold text-foreground">Tagging & Classification</h3>
               </div>
-              
+
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <PremiumPickerField
                   label="Rooms"
                   icon={DoorOpen}
                   colour="emerald"
-                  selectedItems={rooms.map(id => ({ id, label: allRooms.find(r => String(r.id) === String(id))?.name || id }))}
-                  onRemove={(id) => setRooms(prev => prev.filter(x => x !== id))}
+                  selectedItems={rooms.map((id) => ({
+                    id,
+                    label: allRooms.find((r) => String(r.id) === String(id))?.name || id,
+                  }))}
+                  onRemove={(id) => setRooms((prev) => prev.filter((x) => x !== id))}
                   onClick={() => setShowRoomsPicker(true)}
                   placeholder="Select rooms"
                 />
@@ -355,8 +378,11 @@ export default function ObservationCreatePage() {
                   label="Children"
                   icon={User}
                   colour="sky"
-                  selectedItems={children.map(id => ({ id, label: availableChildren.find(c => String(c.id) === String(id))?.name || id }))}
-                  onRemove={(id) => setChildren(prev => prev.filter(x => x !== id))}
+                  selectedItems={children.map((id) => ({
+                    id,
+                    label: availableChildren.find((c) => String(c.id) === String(id))?.name || id,
+                  }))}
+                  onRemove={(id) => setChildren((prev) => prev.filter((x) => x !== id))}
                   onClick={() => setShowChildrenPicker(true)}
                   placeholder="Select children"
                 />
@@ -364,11 +390,11 @@ export default function ObservationCreatePage() {
                   label="Educators"
                   icon={User}
                   colour="rose"
-                  selectedItems={educators.map(id => {
-                    const found = availableEducators.find(e => String(e.staffid || e.id) === String(id));
+                  selectedItems={educators.map((id) => {
+                    const found = availableEducators.find((e) => String(e.id) === String(id));
                     return { id, label: found ? found.name : id };
                   })}
-                  onRemove={(id) => setEducators(prev => prev.filter(x => x !== id))}
+                  onRemove={(id) => setEducators((prev) => prev.filter((x) => x !== id))}
                   onClick={() => setShowEducatorsPicker(true)}
                   placeholder="Select educators"
                 />
@@ -389,18 +415,21 @@ export default function ObservationCreatePage() {
 
                   <div className="space-y-6">
                     <FormGroup label="Title" info="A short descriptive title for the observation">
-                      <Input 
-                        value={title} 
+                      <Input
+                        value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder="e.g., Outdoor Play at the Sandpit"
-                        className="h-12 border-none bg-muted/30 focus-visible:ring-sky-500/50" 
+                        className="h-12 border-none bg-muted/30 focus-visible:ring-sky-500/50"
                       />
                     </FormGroup>
 
-                    <FormGroup label="Observation" info="What did you see? Describe the event objectively.">
-                      <Textarea 
-                        value={observation} 
-                        onChange={(e) => setObservation(e.target.value)} 
+                    <FormGroup
+                      label="Observation"
+                      info="What did you see? Describe the event objectively."
+                    >
+                      <Textarea
+                        value={observation}
+                        onChange={(e) => setObservation(e.target.value)}
                         rows={6}
                         placeholder="Describe the child's actions, words, and interactions in detail..."
                         className="border-none bg-muted/30 focus-visible:ring-sky-500/50 resize-none"
@@ -420,10 +449,13 @@ export default function ObservationCreatePage() {
                   </div>
 
                   <div className="space-y-6">
-                    <FormGroup label="Learning Analysis" info="What learning did you observe taking place?">
-                      <Textarea 
-                        value={learningAnalysis} 
-                        onChange={(e) => setLearningAnalysis(e.target.value)} 
+                    <FormGroup
+                      label="Learning Analysis"
+                      info="What learning did you observe taking place?"
+                    >
+                      <Textarea
+                        value={learningAnalysis}
+                        onChange={(e) => setLearningAnalysis(e.target.value)}
                         rows={4}
                         placeholder="Interpret the learning through the lens of developmental milestones or EYLF outcomes..."
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
@@ -431,10 +463,13 @@ export default function ObservationCreatePage() {
                       <RefineButton />
                     </FormGroup>
 
-                    <FormGroup label="Child's Voice" info="How did the child express themselves during or after?">
-                      <Textarea 
-                        value={childVoice} 
-                        onChange={(e) => setChildVoice(e.target.value)} 
+                    <FormGroup
+                      label="Child's Voice"
+                      info="How did the child express themselves during or after?"
+                    >
+                      <Textarea
+                        value={childVoice}
+                        onChange={(e) => setChildVoice(e.target.value)}
                         rows={3}
                         placeholder="Quotes from the child or descriptions of their non-verbal expressions..."
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
@@ -449,17 +484,24 @@ export default function ObservationCreatePage() {
                 {/* Media Section */}
                 <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Media</h3>
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase">{media.length}/3 Files</span>
+                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                      Media
+                    </h3>
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase">
+                      {media.length}/3 Files
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
                     {media.map((m, i) => (
-                      <div key={i} className="group relative aspect-video overflow-hidden rounded-xl border border-border bg-muted">
-                        <img 
-                          src={m.isExisting ? m.url : m.preview} 
-                          className="h-full w-full object-cover transition-transform group-hover:scale-105" 
-                          alt="preview" 
+                      <div
+                        key={i}
+                        className="group relative aspect-video overflow-hidden rounded-xl border border-border bg-muted"
+                      >
+                        <img
+                          src={m.isExisting ? m.url : m.preview}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          alt="preview"
                         />
                         <button
                           onClick={() => removeMedia(i)}
@@ -469,7 +511,7 @@ export default function ObservationCreatePage() {
                         </button>
                       </div>
                     ))}
-                    
+
                     {media.length < 3 && (
                       <button
                         onClick={() => fileInputRef.current?.click()}
@@ -478,15 +520,19 @@ export default function ObservationCreatePage() {
                         <div className="rounded-full bg-primary/10 p-2 text-primary">
                           <Upload className="h-5 w-5" />
                         </div>
-                        <span className="mt-2 text-xs font-semibold text-foreground">Add Media</span>
-                        <span className="text-[10px] text-muted-foreground mt-1">PNG, JPG, MP4</span>
+                        <span className="mt-2 text-xs font-semibold text-foreground">
+                          Add Media
+                        </span>
+                        <span className="text-[10px] text-muted-foreground mt-1">
+                          PNG, JPG, MP4
+                        </span>
                       </button>
                     )}
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      multiple 
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      multiple
                       accept="image/*,video/*"
                       onChange={handleMediaSelect}
                     />
@@ -495,21 +541,23 @@ export default function ObservationCreatePage() {
 
                 {/* Plans */}
                 <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                  <h3 className="mb-4 text-sm font-bold text-foreground uppercase tracking-wider">Next Steps</h3>
+                  <h3 className="mb-4 text-sm font-bold text-foreground uppercase tracking-wider">
+                    Next Steps
+                  </h3>
                   <div className="space-y-4">
                     <FormGroup label="Future Plan">
-                      <Textarea 
-                        value={futurePlan} 
-                        onChange={(e) => setFuturePlan(e.target.value)} 
+                      <Textarea
+                        value={futurePlan}
+                        onChange={(e) => setFuturePlan(e.target.value)}
                         rows={3}
                         placeholder="What will you do next to support this learning?"
                         className="text-xs border-none bg-muted/20"
                       />
                     </FormGroup>
                     <FormGroup label="Implementation">
-                      <Textarea 
-                        value={implementation} 
-                        onChange={(e) => setImplementation(e.target.value)} 
+                      <Textarea
+                        value={implementation}
+                        onChange={(e) => setImplementation(e.target.value)}
                         rows={3}
                         placeholder="How was this plan implemented?"
                         className="text-xs border-none bg-muted/20"
@@ -519,58 +567,73 @@ export default function ObservationCreatePage() {
                 </section>
               </div>
             </div>
-            
-          {/* Bottom Actions */}
-          <div className="mt-12 flex flex-wrap items-center justify-end gap-4 border-t border-border pt-8">
-            <Button 
-              size="lg" 
-              variant="outline"
-              onClick={() => handleSave("draft")} 
-              className="h-12 rounded-xl border-amber-500/30 px-8 text-amber-600 hover:bg-amber-50 shadow-sm"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
-              Save as Draft
-            </Button>
-            <Button 
-              size="lg" 
-              onClick={() => handleSave("published")} 
-              className="h-12 rounded-xl bg-primary px-10 font-bold text-white shadow-xl shadow-primary/20 hover:bg-primary/90"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-              {isEdit ? "Update Observation" : "Publish Now"}
-            </Button>
+
+            {/* Bottom Actions */}
+            <div className="mt-12 space-y-4 border-t border-border pt-8">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
+                <div className="w-full sm:w-64">
+                  <FormGroup
+                    label="Status"
+                    info="Choose whether to keep as draft or publish to families"
+                  >
+                    <Select value={status} onValueChange={setStatus}>
+                      <SelectTrigger
+                        className={`h-12 w-full rounded-2xl border-none font-bold uppercase tracking-wider text-xs ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
+                      >
+                        <SelectValue placeholder="Select Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="published">Published</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormGroup>
+                </div>
+
+                <Button
+                  size="lg"
+                  onClick={() => handleSave()}
+                  className="h-14 rounded-2xl bg-primary px-10 text-base font-bold text-white shadow-xl shadow-primary/20 hover:bg-primary/90 min-w-[200px]"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-5 w-5" />
+                  )}
+                  {isEdit ? "Update Observation" : "Save Observation"}
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
         )}
 
         {/* Assessment & Link tabs remain functional but wrapped in similar premium containers */}
         {tab === "assessment" && (
-           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm animate-in fade-in slide-in-from-bottom-4">
-             {/* Content similar to before but with improved styling */}
-             <div className="flex flex-wrap items-center gap-2 mb-6">
-                {ASSESS_TABS.map((t) => {
-                  const Icon = t.Icon;
-                  const active = assessTab === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setAssessTab(t.id)}
-                      className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all ${
-                        active
-                          ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80"
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" />
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-              {/* ... Rest of Assessment Tab UI with Select and List ... */}
-           </div>
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm animate-in fade-in slide-in-from-bottom-4">
+            {/* Content similar to before but with improved styling */}
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              {ASSESS_TABS.map((t) => {
+                const Icon = t.Icon;
+                const active = assessTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setAssessTab(t.id)}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all ${
+                      active
+                        ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+            {/* ... Rest of Assessment Tab UI with Select and List ... */}
+          </div>
         )}
       </div>
 
@@ -581,7 +644,10 @@ export default function ObservationCreatePage() {
         items={allRooms.map((r) => ({ id: r.id, label: r.name }))}
         selected={rooms}
         onClose={() => setShowRoomsPicker(false)}
-        onSave={(v) => { setRooms(v); setShowRoomsPicker(false); }}
+        onSave={(v) => {
+          setRooms(v);
+          setShowRoomsPicker(false);
+        }}
       />
       <MultiPickerModal
         open={showChildrenPicker}
@@ -589,21 +655,35 @@ export default function ObservationCreatePage() {
         items={availableChildren.map((c) => ({ id: String(c.id), label: c.name }))}
         selected={children}
         onClose={() => setShowChildrenPicker(false)}
-        onSave={(v) => { setChildren(v); setShowChildrenPicker(false); }}
+        onSave={(v) => {
+          setChildren(v);
+          setShowChildrenPicker(false);
+        }}
       />
       <MultiPickerModal
         open={showEducatorsPicker}
         title="Select Educators"
-        items={availableEducators.map((e) => ({ id: String(e.staffid || e.id), label: e.name }))}
+        items={availableEducators.map((e) => ({ id: String(e.id), label: e.name }))}
         selected={educators}
         onClose={() => setShowEducatorsPicker(false)}
-        onSave={(v) => { setEducators(v); setShowEducatorsPicker(false); }}
+        onSave={(v) => {
+          setEducators(v);
+          setShowEducatorsPicker(false);
+        }}
       />
     </div>
   );
 }
 
-function PremiumPickerField({ label, icon: Icon, selectedItems, onRemove, onClick, placeholder, colour }) {
+function PremiumPickerField({
+  label,
+  icon: Icon,
+  selectedItems,
+  onRemove,
+  onClick,
+  placeholder,
+  colour,
+}) {
   const colours = {
     emerald: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20",
     sky: "bg-sky-500/10 text-sky-600 border-sky-500/20 hover:bg-sky-500/20",
@@ -618,7 +698,9 @@ function PremiumPickerField({ label, icon: Icon, selectedItems, onRemove, onClic
 
   return (
     <div className="space-y-3">
-      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</label>
+      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </label>
       <div className="flex flex-wrap gap-2">
         {selectedItems?.map((item) => (
           <div
@@ -679,29 +761,74 @@ function RefineButton() {
 
 function DoorOpen(props) {
   return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 4h3a2 2 0 0 1 2 2v14"/><path d="M2 20h3"/><path d="M13 20h9"/><path d="M10 12v.01"/><path d="M13 4H6a2 2 0 0 0-2 2v14h9V4Z"/></svg>
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M13 4h3a2 2 0 0 1 2 2v14" />
+      <path d="M2 20h3" />
+      <path d="M13 20h9" />
+      <path d="M10 12v.01" />
+      <path d="M13 4H6a2 2 0 0 0-2 2v14h9V4Z" />
+    </svg>
   );
 }
 
 function User(props) {
   return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
   );
 }
 
-function MultiPickerModal({ open, title, items, selected, onClose, onSave, isLoading, emptyMessage }) {
+function MultiPickerModal({
+  open,
+  title,
+  items,
+  selected,
+  onClose,
+  onSave,
+  isLoading,
+  emptyMessage,
+}) {
   const [local, setLocal] = useState(selected || []);
-  useEffect(() => { if (open) setLocal(selected || []); }, [open, selected]);
+  useEffect(() => {
+    if (open) setLocal(selected || []);
+  }, [open, selected]);
   if (!open) return null;
   const toggle = (id) => {
-    setLocal((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setLocal((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between border-b border-border px-8 py-6">
           <h2 className="text-xl font-bold text-foreground">{title}</h2>
-          <button onClick={onClose} className="rounded-full p-2 text-muted-foreground hover:bg-muted">
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 text-muted-foreground hover:bg-muted"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -719,7 +846,10 @@ function MultiPickerModal({ open, title, items, selected, onClose, onSave, isLoa
           ) : (
             <div className="grid grid-cols-1 gap-2">
               {items.map((it) => (
-                <label key={it.id} className={`flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors ${local.includes(it.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}>
+                <label
+                  key={it.id}
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors ${local.includes(it.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
+                >
                   <input
                     type="checkbox"
                     checked={local.includes(it.id)}
@@ -733,8 +863,14 @@ function MultiPickerModal({ open, title, items, selected, onClose, onSave, isLoa
           )}
         </div>
         <div className="flex justify-end gap-3 border-t border-border bg-muted/20 px-8 py-6">
-          <Button variant="ghost" onClick={onClose} className="rounded-xl">Cancel</Button>
-          <Button onClick={() => onSave(local)} className="rounded-xl bg-primary px-8 shadow-lg shadow-primary/20" disabled={isLoading || items.length === 0}>
+          <Button variant="ghost" onClick={onClose} className="rounded-xl">
+            Cancel
+          </Button>
+          <Button
+            onClick={() => onSave(local)}
+            className="rounded-xl bg-primary px-8 shadow-lg shadow-primary/20"
+            disabled={isLoading || items.length === 0}
+          >
             Save Selection
           </Button>
         </div>

@@ -6,6 +6,7 @@ import {
   Filter,
   Printer,
   Trash2,
+  Recycle,
   MessageSquare,
   ImageIcon,
   Eye,
@@ -101,18 +102,19 @@ export default function ObservationPage() {
         const obsRoomStr = String(o.room || "");
         const targetIdStr = String(activeRoomId);
         // Check if targetId is in the comma-separated string or exactly matches
-        const isMatch = obsRoomStr.split(",").some(r => r.trim() === targetIdStr) || 
-                       obsRoomStr.includes(`"${targetIdStr}"`);
+        const isMatch =
+          obsRoomStr.split(",").some((r) => r.trim() === targetIdStr) ||
+          obsRoomStr.includes(`"${targetIdStr}"`);
         if (!isMatch) return false;
       }
 
       if (status !== "all" && o.status.toLowerCase() !== status.toLowerCase()) return false;
       if (author !== "all" && o.user?.name !== author) return false;
-      
+
       const rawTitle = o.obestitle || "";
       const cleanTitle = rawTitle.replace(/<[^>]*>/g, "");
       if (search && !cleanTitle.toLowerCase().includes(search.toLowerCase())) return false;
-      
+
       if (!inDateRange(o.created_at, dateRange)) return false;
       return true;
     });
@@ -170,6 +172,10 @@ export default function ObservationPage() {
               <Filter className="mr-1.5 h-4 w-4" />
               Filters
             </Button>
+            <Button variant="outline" onClick={() => navigate("/observation/recycle-bin")}>
+              <Recycle className="mr-1.5 h-4 w-4" />
+              Recycle Bin
+            </Button>
             <Button onClick={() => setTitleModalOpen(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
               Add New
@@ -187,7 +193,10 @@ export default function ObservationPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={activeRoomId || "all"} onValueChange={(val) => setActiveRoom(val === "all" ? null : val)}>
+            <Select
+              value={activeRoomId || "all"}
+              onValueChange={(val) => setActiveRoom(val === "all" ? null : val)}
+            >
               <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
                 <DoorOpen className="mr-1.5 h-4 w-4" />
                 <SelectValue placeholder="Room" />
@@ -233,10 +242,14 @@ export default function ObservationPage() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {STATUS_FILTERS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -244,10 +257,14 @@ export default function ObservationPage() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Date</label>
               <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {DATE_FILTERS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                    <SelectItem key={d.value} value={d.value}>
+                      {d.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -255,11 +272,15 @@ export default function ObservationPage() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Author</label>
               <Select value={author} onValueChange={setAuthor}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All authors</SelectItem>
                   {AUTHORS.map((a) => (
-                    <SelectItem key={a} value={a}>{a}</SelectItem>
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -267,7 +288,9 @@ export default function ObservationPage() {
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Child</label>
               <Select value={childId} onValueChange={setChildId}>
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All children</SelectItem>
                   {childrenInRoom.map((c) => (
@@ -379,19 +402,29 @@ function DeleteConfirmationModal({ open, onClose, onConfirm, isLoading }) {
           </div>
           <h2 className="mb-2 text-xl font-bold text-foreground">Delete Observation?</h2>
           <p className="text-sm text-muted-foreground">
-            This action cannot be undone. All data and media associated with this observation will be permanently removed.
+            This action cannot be undone. All data and media associated with this observation will
+            be permanently removed.
           </p>
         </div>
         <div className="flex gap-3 border-t border-border bg-muted/20 px-8 py-6">
-          <Button variant="ghost" onClick={onClose} className="flex-1 rounded-xl" disabled={isLoading}>
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className="flex-1 rounded-xl"
+            disabled={isLoading}
+          >
             Cancel
           </Button>
-          <Button 
-            onClick={onConfirm} 
+          <Button
+            onClick={onConfirm}
             className="flex-1 rounded-xl bg-rose-600 font-bold text-white shadow-lg shadow-rose-500/20 hover:bg-rose-700"
             disabled={isLoading}
           >
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            {isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="mr-2 h-4 w-4" />
+            )}
             Delete
           </Button>
         </div>
@@ -401,9 +434,10 @@ function DeleteConfirmationModal({ open, onClose, onConfirm, isLoading }) {
 }
 
 function ObservationCard({ obs, onDelete, onComment }) {
-  const statusClasses = obs.status.toLowerCase() === "published" 
-    ? "bg-emerald-500 text-white" 
-    : "bg-amber-400 text-amber-950";
+  const statusClasses =
+    obs.status.toLowerCase() === "published"
+      ? "bg-emerald-500 text-white"
+      : "bg-amber-400 text-amber-950";
 
   return (
     <Link
@@ -411,7 +445,9 @@ function ObservationCard({ obs, onDelete, onComment }) {
       className={`group relative flex overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md`}
     >
       {/* Left media */}
-      <div className={`relative flex h-32 w-40 shrink-0 items-center justify-center bg-muted/40 ${PATTERN_BG}`}>
+      <div
+        className={`relative flex h-32 w-40 shrink-0 items-center justify-center bg-muted/40 ${PATTERN_BG}`}
+      >
         {obs.media?.length > 0 ? (
           <img src={obs.media[0].mediaUrl} className="h-full w-full object-cover" alt="obs" />
         ) : (
@@ -426,9 +462,9 @@ function ObservationCard({ obs, onDelete, onComment }) {
 
       {/* Body */}
       <div className={`relative flex-1 p-4 ${PATTERN_BG}`}>
-        <div 
+        <div
           className="text-sm font-bold text-primary line-clamp-1"
-          dangerouslySetInnerHTML={{ __html: obs.obestitle }} 
+          dangerouslySetInnerHTML={{ __html: obs.obestitle }}
         />
         <p className="mt-1.5 text-xs text-foreground">
           <span className="font-semibold">By:</span> {obs.user?.name || "Unknown"}
@@ -460,7 +496,10 @@ function ObservationCard({ obs, onDelete, onComment }) {
       <div className="flex flex-col items-center justify-start gap-2 border-l border-border bg-card/60 p-3">
         <button
           type="button"
-          onClick={(e) => { e.preventDefault(); window.print(); }}
+          onClick={(e) => {
+            e.preventDefault();
+            window.print();
+          }}
           className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           title="Print"
         >
@@ -468,7 +507,10 @@ function ObservationCard({ obs, onDelete, onComment }) {
         </button>
         <button
           type="button"
-          onClick={(e) => { e.preventDefault(); onDelete(); }}
+          onClick={(e) => {
+            e.preventDefault();
+            onDelete();
+          }}
           className="inline-flex h-7 w-7 items-center justify-center rounded-md text-rose-500 hover:bg-rose-500/10"
           title="Delete"
         >

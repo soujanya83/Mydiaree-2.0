@@ -49,6 +49,10 @@ import StaffSettingsPage from "@/pages/StaffSettingsPage";
 import SuperAdminSettingsPage from "@/pages/SuperAdminSettingsPage";
 import ParentSettingsPage from "@/pages/ParentSettingsPage";
 import StyleGuidePage from "@/pages/StyleGuidePage";
+import ProgramPlanRecycleBinPage from "@/pages/ProgramPlanRecycleBinPage";
+import ObservationRecycleBinPage from "@/pages/ObservationRecycleBinPage";
+import DailyReflectionsRecycleBinPage from "@/pages/DailyReflectionsRecycleBinPage";
+import SnapshotsRecycleBinPage from "@/pages/SnapshotsRecycleBinPage";
 
 export default function App() {
   return (
@@ -65,6 +69,10 @@ export default function App() {
           <Route path="/daily-journal" element={<DailyJournalPage />} />
           <Route path="/daily-reflections" element={<DailyReflectionsPage />} />
           <Route path="/daily-reflections/create" element={<DailyReflectionCreatePage />} />
+          <Route
+            path="/daily-reflections/recycle-bin"
+            element={<DailyReflectionsRecycleBinPage />}
+          />
           <Route path="/daily-reflections/:id" element={<DailyReflectionDetailsPage />} />
           <Route path="/daily-reflections/:id/edit" element={<DailyReflectionCreatePage />} />
           <Route path="/events" element={<EventsPage />} />
@@ -84,6 +92,7 @@ export default function App() {
           <Route path="/observation" element={<ObservationPage />} />
           <Route path="/observation/activity" element={<ObservationActivityPage />} />
           <Route path="/observation/create" element={<ObservationCreatePage />} />
+          <Route path="/observation/recycle-bin" element={<ObservationRecycleBinPage />} />
           <Route path="/observation/:id" element={<ObservationDetailsPage />} />
           <Route path="/observation/:id/edit" element={<ObservationCreatePage />} />
           <Route path="/permissions" element={<PermissionsPage />} />
@@ -99,6 +108,7 @@ export default function App() {
           <Route path="/permissions/roles" element={<PermissionsRolesPage />} />
           <Route path="/permissions/roles/:roleId" element={<PermissionsRoleDetailsPage />} />
           <Route path="/program-plan" element={<ProgramPlanPage />} />
+          <Route path="/program-plan/recycle-bin" element={<ProgramPlanRecycleBinPage />} />
           <Route path="/qip" element={<QipPage />} />
           <Route path="/ptm" element={<PtmPage />} />
           <Route path="/ptm/create" element={<PtmCreatePage />} />
@@ -110,6 +120,7 @@ export default function App() {
           <Route path="/sleep-check" element={<SleepCheckPage />} />
           <Route path="/snapshots" element={<SnapshotsPage />} />
           <Route path="/snapshots/create" element={<SnapshotCreatePage />} />
+          <Route path="/snapshots/recycle-bin" element={<SnapshotsRecycleBinPage />} />
           <Route path="/snapshots/:id/edit" element={<SnapshotCreatePage />} />
           <Route path="/staff-settings" element={<StaffSettingsPage />} />
           <Route path="/super-admin-settings" element={<SuperAdminSettingsPage />} />
