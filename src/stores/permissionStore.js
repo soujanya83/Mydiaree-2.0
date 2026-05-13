@@ -8,19 +8,37 @@ export const usePermissionStore = create((set) => ({
   assignedUsers: [],
   singleUserPermission: null,
   selectedRoleDetails: null,
+  modulePermissions: [],
   isLoading: false,
-  isFetchingRoles: false,
-  isFetchingRoleDetails: false,
-  isFetchingAssigned: false,
-  error: null,
 
   fetchManagePermissions: async (centerId) => {
     set({ isLoading: true, error: null });
     try {
-      const data = await permissionService.getManagePermissions(centerId);
+      // 1. Get nested permissions structure
+      const modules = await permissionService.getAllPermissions();
+
+      // 2. Extract all permissions into a flat list for compatibility
+      const flatPermissions = [];
+      modules.forEach((mod) => {
+        if (mod.permissions) {
+          mod.permissions.forEach((p) => {
+            flatPermissions.push({ name: p.name, label: p.label });
+          });
+        }
+        if (mod.submodules) {
+          mod.submodules.forEach((sub) => {
+            if (sub.permissions) {
+              sub.permissions.forEach((p) => {
+                flatPermissions.push({ name: p.name, label: p.label });
+              });
+            }
+          });
+        }
+      });
+
       set({
-        users: data.users || [],
-        permissionColumns: data.permissionColumns || [],
+        modulePermissions: modules,
+        permissionColumns: flatPermissions,
         isLoading: false,
       });
     } catch (error) {

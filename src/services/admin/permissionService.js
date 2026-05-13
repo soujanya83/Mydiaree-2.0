@@ -1,7 +1,21 @@
 import api from "../../api/api";
 
 export const permissionService = {
-  // 1. List of permissions and users
+  // 1. List of permissions and users (New API)
+  getAllPermissions: async () => {
+    try {
+      const response = await api.get("/settings/all-permissions");
+      if (response.data && response.data.status) {
+        return response.data.data; // returns array of module objects
+      }
+      throw new Error("Failed to fetch all permissions");
+    } catch (error) {
+      console.error("Error fetching all permissions:", error);
+      throw error;
+    }
+  },
+
+  // Keep old one for now if needed, but we will mostly use getAllPermissions
   getManagePermissions: async (centerId) => {
     try {
       const response = await api.get("/settings/manage_permissions", {

@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Eye, Trash2, Search } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Eye,
+  Trash2,
+  Search,
+  Shield,
+  Briefcase,
+  Calendar,
+  Filter,
+  ChevronRight,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -12,14 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +36,7 @@ import {
 import { AddRoleModal } from "@/components/permissions/AddRoleModal";
 import { usePermissionStore } from "@/stores/permissionStore";
 import { useCentreStore } from "@/stores/centreStore";
+import { cn } from "@/lib/utils";
 
 export default function PermissionsRolesPage() {
   const navigate = useNavigate();
@@ -90,32 +94,41 @@ export default function PermissionsRolesPage() {
   };
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="Permissions Role List"
-        breadcrumbs={[{ label: "Permissions Assign", to: "/permissions" }, { label: "Role List" }]}
+        title="Permission Roles"
+        description="Define and manage role-based access control templates"
+        breadcrumbs={[
+          { label: "Permissions", to: "/permissions" },
+          { label: "Role Templates" }
+        ]}
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate("/permissions")}>
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
             <Button
+              className="shadow-md"
               onClick={() => {
                 setModalOpen(true);
               }}
             >
               <Plus className="h-4 w-4" />
-              Add Role
+              Create New Role
             </Button>
-          </>
+          </div>
         }
       />
 
-      <div className="rounded-xl border bg-card shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
+      {/* Filter Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Filter className="h-5 w-5" />
+          </div>
           <Select value={activeCentreId} onValueChange={setActiveCentre}>
-            <SelectTrigger className="w-full bg-background sm:w-64">
+            <SelectTrigger className="w-full sm:w-64 bg-background border-muted-foreground/20 rounded-xl">
               <SelectValue placeholder="Select Center" />
             </SelectTrigger>
             <SelectContent>
@@ -126,87 +139,147 @@ export default function PermissionsRolesPage() {
               ))}
             </SelectContent>
           </Select>
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search Role Name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
-            />
-          </div>
         </div>
+        <div className="relative w-full sm:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+          <Input
+            placeholder="Search role templates..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-10 rounded-xl border-muted-foreground/20 focus-visible:ring-primary/20"
+          />
+        </div>
+      </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="w-16 px-4">S.No</TableHead>
-              <TableHead>Role Name</TableHead>
-              <TableHead>Created on</TableHead>
-              <TableHead className="text-right pr-4">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
-                  {isFetchingRoles ? "Loading roles..." : "No roles found"}
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((r, i) => (
-                <TableRow key={r.id}>
-                  <TableCell className="px-4">{i + 1}</TableCell>
-                  <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell>{formatDate(r.created_at)}</TableCell>
-                  <TableCell className="pr-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        size="sm"
-                        className="h-8 rounded-full bg-blue-600 px-3 text-white hover:bg-blue-700"
-                        onClick={() => navigate(`/permissions/roles/${r.id}`)}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        View
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-8 rounded-full px-3"
-                        onClick={() => setDeleteId(r.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
+      {/* Roles List Table */}
+      <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="px-6 py-4 font-bold text-foreground w-16">#</th>
+                <th className="px-6 py-4 font-bold text-foreground">Role Template</th>
+                <th className="px-6 py-4 font-bold text-foreground text-center">Creation Date</th>
+                <th className="px-6 py-4 font-bold text-foreground text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {isFetchingRoles ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-6 py-4"><div className="h-4 w-4 rounded bg-muted" /></td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-lg bg-muted" />
+                        <div className="h-4 w-32 rounded bg-muted" />
+                      </div>
+                    </td>
+                    <td className="px-6 py-4"><div className="mx-auto h-4 w-24 rounded bg-muted" /></td>
+                    <td className="px-6 py-4"><div className="ml-auto h-8 w-24 rounded bg-muted" /></td>
+                  </tr>
+                ))
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-20 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground/30">
+                        <Briefcase className="h-8 w-8" />
+                      </div>
+                      <h3 className="text-lg font-bold text-foreground">No roles defined yet</h3>
+                      <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                        Roles allow you to quickly assign a preset group of permissions to staff members.
+                      </p>
+                      <Button variant="outline" className="mt-4" onClick={() => setModalOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add First Role
                       </Button>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((r, i) => (
+                  <tr key={r.id} className="group transition-colors hover:bg-muted/30">
+                    <td className="px-6 py-4 text-muted-foreground/60 font-medium">
+                      {String(i + 1).padStart(2, "0")}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition-transform group-hover:scale-105 border border-indigo-100 shadow-sm">
+                          <Shield className="h-5 w-5" />
+                        </div>
+                        <span className="font-bold text-foreground text-base tracking-tight">{r.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-muted/50 px-3 py-1 text-xs text-muted-foreground border">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {formatDate(r.created_at)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 w-9 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+                          onClick={() => navigate(`/permissions/roles/${r.id}`)}
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 w-9 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          onClick={() => setDeleteId(r.id)}
+                          title="Delete Role"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <div className="h-4 w-px bg-muted mx-1" />
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-9 rounded-xl px-4 font-bold shadow-sm"
+                          onClick={() => navigate(`/permissions/roles/${r.id}`)}
+                        >
+                          Manage
+                          <ChevronRight className="ml-1 h-3.5 w-3.5 opacity-50" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <AddRoleModal
         open={modalOpen}
-        onOpenChange={(o) => {
-          setModalOpen(o);
-        }}
+        onOpenChange={setModalOpen}
         onSave={handleSave}
         mode="add"
         isSaving={isLoading}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl border-none shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this role?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle className="text-xl font-bold">Delete Role Template?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Are you sure you want to delete this role? This action cannot be undone and will remove the template for future assignments.
+            </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isLoading}>
-              {isLoading ? "Deleting..." : "Delete"}
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="rounded-xl border-muted-foreground/20">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete} 
+              disabled={isLoading}
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isLoading ? "Deleting..." : "Delete Role"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
