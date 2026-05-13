@@ -568,26 +568,9 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
   const roomTags = snap.rooms || [];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
-      {/* Header strip */}
-      <div className="flex items-center justify-between bg-emerald-500/80 px-4 py-2.5 text-white">
-        <h3
-          className="truncate text-sm font-bold"
-          dangerouslySetInnerHTML={{ __html: snap.title }}
-        ></h3>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-            snap.status?.toLowerCase() === "published"
-              ? "bg-emerald-200/90 text-emerald-800"
-              : "bg-amber-200/90 text-amber-800"
-          }`}
-        >
-          {snap.status}
-        </span>
-      </div>
-
-      {/* Image Container */}
-      <div className="group relative h-40 w-full overflow-hidden bg-muted/40">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
+      {/* 1. Image Container (Top) */}
+      <div className="group relative h-48 w-full shrink-0 overflow-hidden bg-muted/40">
         <button type="button" onClick={onOpen} className="block h-full w-full">
           {cover ? (
             <div className="relative h-full w-full">
@@ -617,7 +600,7 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
                 e.stopPropagation();
                 setCurrentIdx((prev) => (prev - 1 + images.length) % images.length);
               }}
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60"
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity hover:bg-black/60 group-hover:opacity-100"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -626,7 +609,7 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
                 e.stopPropagation();
                 setCurrentIdx((prev) => (prev + 1) % images.length);
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity hover:bg-black/60 group-hover:opacity-100"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -634,67 +617,101 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
               {images.map((_, i) => (
                 <div
                   key={i}
-                  className={`h-1 w-1 rounded-full transition-all ${i === currentIdx ? "w-3 bg-white" : "bg-white/50"}`}
+                  className={`h-1.5 w-1.5 rounded-full transition-all ${i === currentIdx ? "w-4 bg-white" : "bg-white/50"}`}
                 />
               ))}
             </div>
           </>
         )}
-        <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-2 py-0.5 text-[10px] font-bold text-white">
+        <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white shadow-sm">
           <ImageIcon className="h-3 w-3" /> {currentIdx + 1}/{images.length}
         </span>
       </div>
 
-      {/* Body */}
-      <div className="p-4">
-        <div
-          className="mb-3 line-clamp-2 text-sm text-foreground"
-          dangerouslySetInnerHTML={{ __html: snap.about }}
-        />
+      {/* 2. Body (Title, Status, Dropdowns, Actions) */}
+      <div className="flex flex-grow flex-col p-4">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <h3
+            className="line-clamp-2 text-base font-semibold leading-tight text-foreground"
+            dangerouslySetInnerHTML={{ __html: snap.title }}
+          ></h3>
+          <span
+            className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+              snap.status?.toLowerCase() === "published"
+                ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+            }`}
+          >
+            {snap.status}
+          </span>
+        </div>
 
-        <div className="mb-3">
-          <h4 className="mb-1.5 inline-flex items-center gap-1 text-xs font-bold text-foreground">
-            <UserCircle2 className="h-3.5 w-3.5" /> Children
-          </h4>
-          <div className="flex flex-wrap gap-1.5">
-            {(snap.children || []).map((c) => (
-              <span
-                key={c.id}
-                className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700"
-              >
-                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-rose-300 text-[8px] text-white">
-                  {c.child?.name?.charAt(0) || "?"}
+        {snap.about && (
+          <div
+            className="mb-4 line-clamp-2 text-sm text-muted-foreground"
+            dangerouslySetInnerHTML={{ __html: snap.about }}
+          />
+        )}
+
+        {/* 3. Dropdowns for Children and Rooms */}
+        <div className="mt-auto space-y-2">
+          {childTags.length > 0 && (
+            <details className="group [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer items-center justify-between gap-1.5 rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300 dark:hover:bg-slate-800/50">
+                <div className="flex items-center gap-1.5">
+                  <UserCircle2 className="h-4 w-4 text-slate-400" />
+                  <span>Children ({childTags.length})</span>
+                </div>
+                <span className="transition duration-300 group-open:rotate-90">
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
                 </span>
-                {c.child?.name}
-              </span>
-            ))}
-          </div>
+              </summary>
+              <div className="mt-1 flex flex-wrap gap-1 px-1 py-1.5">
+                {childTags.map((c) => (
+                  <span
+                    key={c.id}
+                    className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    {c.child?.name}
+                  </span>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {roomTags.length > 0 && (
+            <details className="group [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer items-center justify-between gap-1.5 rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300 dark:hover:bg-slate-800/50">
+                <div className="flex items-center gap-1.5">
+                  <DoorOpen className="h-4 w-4 text-slate-400" />
+                  <span>Rooms ({roomTags.length})</span>
+                </div>
+                <span className="transition duration-300 group-open:rotate-90">
+                  <ChevronRight className="h-4 w-4 text-slate-400" />
+                </span>
+              </summary>
+              <div className="mt-1 flex flex-wrap gap-1 px-1 py-1.5">
+                {roomTags.map((r) => (
+                  <span
+                    key={r.id}
+                    className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    {r.name}
+                  </span>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
 
-        <div className="mb-3">
-          <h4 className="mb-1.5 inline-flex items-center gap-1 text-xs font-bold text-foreground">
-            <DoorOpen className="h-3.5 w-3.5" /> Rooms
-          </h4>
-          <div className="flex flex-wrap gap-1.5">
-            {(snap.rooms || []).map((r) => (
-              <span
-                key={r.id}
-                className="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700"
-              >
-                {r.name}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-start gap-2 pt-1">
+        {/* 4. Actions (Formal, not rang-birangi) */}
+        <div className="mt-4 flex items-center justify-end gap-1 border-t border-border/50 pt-3">
           <button
             type="button"
             onClick={onPrint}
             title="Print"
             disabled={isPrinting}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
           >
             {isPrinting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -706,7 +723,7 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
             type="button"
             onClick={onViewGallery}
             title="View Gallery"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500 text-white hover:bg-sky-600"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
           >
             <Eye className="h-4 w-4" />
           </button>
@@ -714,7 +731,7 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
             type="button"
             onClick={onEdit}
             title="Edit"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-white hover:bg-violet-600"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -722,7 +739,7 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
             type="button"
             onClick={onDelete}
             title="Delete"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
           >
             <Trash2 className="h-4 w-4" />
           </button>

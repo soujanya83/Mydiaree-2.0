@@ -125,4 +125,18 @@ export const observationService = {
       throw error;
     }
   },
+  
+  // 8. Print Observation
+  printObservation: async (id) => {
+    try {
+      const response = await api.get("/observation/print", {
+        params: { id },
+        responseType: "blob",
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error printing observation:", error);
+      throw error;
+    }
+  },
 };

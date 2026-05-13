@@ -48,14 +48,14 @@ export function Header() {
       </button>
 
       {/* Search */}
-      <div className="relative hidden max-w-md flex-1 md:block">
+      {/* <div className="relative hidden max-w-md flex-1 md:block">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="search"
           placeholder="Search children, rooms, forms..."
           className="h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
         />
-      </div>
+      </div> */}
 
       <div className="ml-auto flex items-center gap-2">
         {/* Theme switcher */}

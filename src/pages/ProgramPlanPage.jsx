@@ -12,6 +12,7 @@ import {
   Activity,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -540,66 +541,76 @@ export default function ProgramPlanPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {pageItems.map((r) => (
-              <article
+              <div
                 key={r.id}
-                className="group relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-amber-50/40 to-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md dark:from-amber-950/10"
+                className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md"
               >
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-2xl"
-                />
-                <div className="flex items-start justify-between">
-                  <h3 className="text-lg font-bold text-foreground">
-                    {r.month} {r.year}
-                  </h3>
-                  <span
-                    className={cn(
-                      "rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                      r.status === "published"
-                        ? "bg-rose-500 text-white"
-                        : "bg-indigo-500 text-white",
-                    )}
-                  >
-                    {r.statusLabel || r.status}
-                  </span>
-                </div>
+                {/* Body (Title, Status, Details, Actions) */}
+                <div className="flex flex-grow flex-col p-5">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <h3 className="line-clamp-1 text-base font-semibold leading-tight text-foreground">
+                      {r.month} {r.year}
+                    </h3>
+                    <span
+                      className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                        r.status?.toLowerCase() === "published"
+                          ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                          : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+                      }`}
+                    >
+                      {r.statusLabel || r.status}
+                    </span>
+                  </div>
 
-                <dl className="mt-3 space-y-1.5 text-sm">
-                  <Row label="Room(s)" value={r.roomName} />
-                  <Row label="Created By" value={r.createdBy || "—"} />
-                  <Row label="Published on" value={fmtDDMMYYYY(r.publishedAt)} />
-                </dl>
+                  <div className="mb-4 flex flex-col gap-1.5 text-xs text-muted-foreground">
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-bold text-foreground">Room(s):</span>
+                      <span className="truncate">{r.roomName}</span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-bold text-foreground">Created By:</span>
+                      <span className="truncate">{r.createdBy || "—"}</span>
+                    </div>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="font-bold text-foreground">Published on:</span>
+                      <span className="truncate">{fmtDDMMYYYY(r.publishedAt)}</span>
+                    </div>
+                  </div>
 
-                <div className="mt-4 flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-9 w-9 text-primary hover:bg-primary/10"
-                    onClick={() => setViewId(r.id)}
-                    aria-label="View"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    className="h-9 w-9 bg-sky-500 hover:bg-sky-600"
-                    onClick={() => goEdit(r.id)}
-                    aria-label="Edit"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="destructive"
-                    className="h-9 w-9"
-                    disabled={isDeletingPlan}
-                    onClick={() => setConfirmId(r.id)}
-                    aria-label="Delete"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {/* Actions (Formal, like snapshot) */}
+                  <div className="mt-auto flex items-center justify-end gap-1 border-t border-border/50 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setViewId(r.id)}
+                      title="View"
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => goEdit(r.id)}
+                      title="Edit"
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmId(r.id)}
+                      title="Delete"
+                      disabled={isDeletingPlan}
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 disabled:opacity-50"
+                    >
+                      {isDeletingPlan ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
-              </article>
+              </div>
             ))}
           </div>
 

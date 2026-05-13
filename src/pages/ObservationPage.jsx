@@ -16,6 +16,7 @@ import {
   DoorOpen,
   Loader2,
   AlertTriangle,
+  UserCircle2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,7 @@ export default function ObservationPage() {
 
   const [deleteModalId, setDeleteModalId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPrintingId, setIsPrintingId] = useState(null);
 
   const handleSubmitTitle = (title) => {
     setTitleModalOpen(false);
@@ -150,6 +152,20 @@ export default function ObservationPage() {
     } finally {
       setIsDeleting(false);
       setDeleteModalId(null);
+    }
+  };
+
+  const handlePrint = async (id) => {
+    setIsPrintingId(id);
+    try {
+      const blob = await observationService.printObservation(id);
+      const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      window.open(url, "_blank");
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to generate PDF for printing");
+    } finally {
+      setIsPrintingId(null);
     }
   };
 
@@ -323,13 +339,15 @@ export default function ObservationPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((o) => (
             <ObservationCard
               key={o.id}
               obs={o}
               onDelete={() => handleDelete(o.id)}
               onComment={() => setCommentModalId(o.id)}
+              onPrint={() => handlePrint(o.id)}
+              isPrinting={isPrintingId === o.id}
             />
           ))}
         </div>
@@ -433,90 +451,151 @@ function DeleteConfirmationModal({ open, onClose, onConfirm, isLoading }) {
   );
 }
 
-function ObservationCard({ obs, onDelete, onComment }) {
-  const statusClasses =
-    obs.status.toLowerCase() === "published"
-      ? "bg-emerald-500 text-white"
-      : "bg-amber-400 text-amber-950";
+function ObservationCard({ obs, onDelete, onComment, onPrint, isPrinting }) {
+  const images = obs.media || [];
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentIdx((prev) => (prev + 1) % images.length);
+    }, 3000); // Change image every 3 seconds
+    return () => clearInterval(interval);
+  }, [images.length]);
+
+  const cover = images[currentIdx];
 
   return (
-    <Link
-      to={`/observation/${obs.id}`}
-      className={`group relative flex overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md`}
-    >
-      {/* Left media */}
-      <div
-        className={`relative flex h-32 w-40 shrink-0 items-center justify-center bg-muted/40 ${PATTERN_BG}`}
-      >
-        {obs.media?.length > 0 ? (
-          <img src={obs.media[0].mediaUrl} className="h-full w-full object-cover" alt="obs" />
+    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
+      {/* 1. Image Container (Top) */}
+      <Link to={`/observation/${obs.id}`} className="group relative h-48 w-full shrink-0 overflow-hidden bg-muted/40 block">
+        {cover ? (
+          <div className="relative h-full w-full">
+            <img
+              key={cover.id || currentIdx}
+              src={
+                cover.mediaUrl.startsWith("http")
+                  ? cover.mediaUrl
+                  : `https://mydiaree.com.au/${cover.mediaUrl}`
+              }
+              alt="Observation Media"
+              className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
+              loading="lazy"
+            />
+          </div>
         ) : (
-          <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+          <div className="flex h-full w-full items-center justify-center">
+            <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+          </div>
         )}
-        <span
-          className={`absolute left-2 top-2 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusClasses}`}
-        >
-          {obs.status}
+
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setCurrentIdx((prev) => (prev - 1 + images.length) % images.length);
+              }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity hover:bg-black/60 group-hover:opacity-100"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setCurrentIdx((prev) => (prev + 1) % images.length);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity hover:bg-black/60 group-hover:opacity-100"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+              {images.map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-1.5 w-1.5 rounded-full transition-all ${i === currentIdx ? "w-4 bg-white" : "bg-white/50"}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+        <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white shadow-sm">
+          <ImageIcon className="h-3 w-3" /> {currentIdx + 1}/{Math.max(1, images.length)}
         </span>
-      </div>
+      </Link>
 
-      {/* Body */}
-      <div className={`relative flex-1 p-4 ${PATTERN_BG}`}>
-        <div
-          className="text-sm font-bold text-primary line-clamp-1"
-          dangerouslySetInnerHTML={{ __html: obs.obestitle }}
-        />
-        <p className="mt-1.5 text-xs text-foreground">
-          <span className="font-semibold">By:</span> {obs.user?.name || "Unknown"}
-        </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{formatObsDate(obs.created_at)}</p>
+      {/* 2. Body (Title, Status, Details, Dropdowns, Actions) */}
+      <div className="flex flex-grow flex-col p-4">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <Link to={`/observation/${obs.id}`} className="hover:underline">
+            <h3
+              className="line-clamp-2 text-base font-semibold leading-tight text-foreground"
+              dangerouslySetInnerHTML={{ __html: obs.obestitle }}
+            ></h3>
+          </Link>
+          <span
+            className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+              obs.status?.toLowerCase() === "published"
+                ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+            }`}
+          >
+            {obs.status}
+          </span>
+        </div>
 
-        <div className="mt-3 flex items-center gap-3">
+        <div className="mb-4 flex flex-col gap-0.5 text-xs text-muted-foreground">
+          <p>
+            <span className="font-semibold">By:</span> {obs.user?.name || "Unknown"}
+          </p>
+          <p>{formatObsDate(obs.created_at)}</p>
+        </div>
+
+
+        {/* 4. Actions (Formal, not rang-birangi) */}
+        <div className="mt-4 flex items-center justify-end gap-1 border-t border-border/50 pt-3">
           <button
             type="button"
             onClick={(e) => {
               e.preventDefault();
               onComment();
             }}
-            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+            title="Comments"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
           >
-            <MessageSquare className="h-3 w-3" />
-            {obs.child?.length || 0} Children
+            <MessageSquare className="h-4 w-4" />
           </button>
-          {obs.media?.length > 0 && (
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <ImageIcon className="h-3 w-3" />
-              {obs.media.length} Media
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onPrint();
+            }}
+            title="Print"
+            disabled={isPrinting}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+          >
+            {isPrinting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onDelete();
+            }}
+            title="Delete"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       </div>
-
-      {/* Right actions */}
-      <div className="flex flex-col items-center justify-start gap-2 border-l border-border bg-card/60 p-3">
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            window.print();
-          }}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-          title="Print"
-        >
-          <Printer className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            onDelete();
-          }}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-rose-500 hover:bg-rose-500/10"
-          title="Delete"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    </Link>
+    </div>
   );
 }
