@@ -187,12 +187,12 @@ export default function EventsPage() {
         </div>
       </div>
 
-      {/* Header banner */}
-      <div className="mb-4 flex items-center justify-between rounded-lg bg-primary px-4 py-3 text-primary-foreground shadow-sm">
-        <h2 className="flex items-center gap-2 font-semibold">
-          <CalendarDays className="h-5 w-5" /> Events
+      {/* Header banner replacement — more formal */}
+      <div className="mb-4 flex items-center justify-between px-1">
+        <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
+          <CalendarDays className="h-5 w-5 text-primary" /> Recent Events
         </h2>
-        <span className="rounded-md bg-background/95 px-2.5 py-0.5 text-xs font-semibold text-foreground">
+        <span className="rounded-md bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground">
           {filtered.length} TOTAL
         </span>
       </div>

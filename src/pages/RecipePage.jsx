@@ -136,11 +136,13 @@ export default function RecipePage() {
             if (items.length === 0) return null;
             return (
               <section key={meal.id} className="space-y-3">
-                <div className="flex items-center gap-2 border-b-2 border-primary/40 pb-2">
-                  <UtensilsCrossed className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-bold text-primary">{meal.label}</h2>
-                  <span className="text-xs text-muted-foreground">
-                    ({items.length})
+                <div className="flex items-center justify-between border-b border-border pb-2 px-1">
+                  <div className="flex items-center gap-2">
+                    <UtensilsCrossed className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-bold text-foreground">{meal.label}</h2>
+                  </div>
+                  <span className="rounded-md bg-muted px-2.5 py-1 text-xs font-bold text-muted-foreground uppercase">
+                    {items.length} Recipes
                   </span>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -222,77 +224,94 @@ export default function RecipePage() {
 function RecipeCard({ recipe, onEdit, onDelete }) {
   const foodLabel = FOOD_TYPES.find((f) => f.id === recipe.foodType || f.id === recipe.foodType?.toLowerCase())?.label || recipe.foodType;
   const isVeg = recipe.foodType?.toLowerCase() === "veg";
-
   const imageUrl = recipe.image?.startsWith("http") ? recipe.image : `https://mydiaree.com.au/${recipe.image}`;
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-sm transition hover:shadow-md">
-      <div className="border-b bg-muted/30 px-4 py-2">
-        <h3 className="truncate text-sm font-bold text-primary">{recipe.name}</h3>
-      </div>
-      <div className="relative h-40 w-full overflow-hidden bg-muted">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md h-full">
+      {/* 1. Image Container (Top) */}
+      <div className="relative h-44 w-full shrink-0 overflow-hidden bg-muted/40">
         {recipe.image ? (
           <img
             src={imageUrl}
             alt={recipe.name}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
+            loading="lazy"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-            <ImageOff className="h-8 w-8" />
+          <div className="flex h-full w-full items-center justify-center">
+            <UtensilsCrossed className="h-10 w-10 text-muted-foreground/40" />
           </div>
         )}
-        {foodLabel && (
-          <Badge
-            className={`absolute bottom-2 left-2 ${
-              isVeg
-                ? "bg-emerald-600 hover:bg-emerald-600"
-                : "bg-rose-600 hover:bg-rose-600"
-            } text-white border-0`}
-          >
-            {foodLabel.toUpperCase()}
-          </Badge>
-        )}
+
       </div>
 
-      <div className="space-y-2 px-4 py-3">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <User className="h-3.5 w-3.5" />
-          <span className="truncate">{recipe.author}</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Calendar className="h-3.5 w-3.5" />
-          <span>{formatDate(recipe.date)}</span>
+      {/* 2. Body */}
+      <div className="flex flex-grow flex-col p-4">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <h3 className="line-clamp-2 text-base font-semibold leading-tight text-foreground">
+            {recipe.name}
+          </h3>
+          {foodLabel && (
+            <div
+              className={`shrink-0 flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                isVeg
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50"
+                  : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50"
+              }`}
+            >
+              <div
+                className={`h-1 w-1 rounded-full ${isVeg ? "bg-emerald-500" : "bg-rose-500"}`}
+              />
+              {foodLabel}
+            </div>
+          )}
         </div>
 
-        {recipe.videoUrl && (
-          <a
-            href={recipe.videoUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-500/20"
-          >
-            <Youtube className="h-3.5 w-3.5" />
-            Watch Video
-          </a>
-        )}
+        <div className="mb-4 space-y-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold dark:bg-slate-800 dark:text-slate-400">
+               {(recipe.author || "?").charAt(0)}
+            </div>
+            <p className="font-medium text-foreground line-clamp-1">
+              <span className="text-muted-foreground font-normal">By: </span>
+              {recipe.author}
+            </p>
+          </div>
 
-        <div className="flex items-center justify-center gap-2 pt-2">
+          <div className="flex items-center gap-1.5 pt-1">
+            <Calendar className="h-3.5 w-3.5" />
+            <span>{formatDate(recipe.date)}</span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="mt-auto flex items-center justify-end gap-1 border-t border-border/50 pt-3">
+          {recipe.videoUrl && (
+            <a
+              href={recipe.videoUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Watch Video"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-rose-500 transition hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/50 dark:hover:text-rose-300"
+            >
+              <Youtube className="h-4 w-4" />
+            </a>
+          )}
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-blue-500/40 bg-blue-500/10 text-blue-600 hover:bg-blue-500/20"
-            aria-label="Edit"
+            title="Edit"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
           >
-            <Pencil className="h-3.5 w-3.5" />
+            <Pencil className="h-4 w-4" />
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
-            aria-label="Delete"
+            title="Delete"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>

@@ -305,82 +305,77 @@ function ChildCard({ child, rooms, onEdit, onDelete }) {
   const imageUrl = child.imageUrl?.startsWith("http") ? child.imageUrl : `https://mydiaree.com.au/${child.imageUrl}`;
 
   return (
-    <div className="group overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-      <div className="relative h-44 overflow-hidden bg-muted">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
+      {/* 1. Image Container (Top) */}
+      <div className="relative h-44 w-full shrink-0 overflow-hidden bg-muted/40">
         {child.imageUrl ? (
           <img
             src={imageUrl}
             alt={child.name}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
+            loading="lazy"
           />
-
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-            No image
+          <div className="flex h-full w-full items-center justify-center">
+            <Users className="h-10 w-10 text-muted-foreground/40" />
           </div>
         )}
-        <span
-          className={`absolute right-3 top-3 rounded-md px-2.5 py-1 text-xs font-semibold shadow-sm ${
-            isActive
-              ? "bg-emerald-500 text-white"
-              : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {isActive ? "Active" : child.status || "Inactive"}
-        </span>
       </div>
 
-      <div className="space-y-3 p-4">
-        <h3 className="text-lg font-bold text-primary truncate">
-          {child.name} {child.lastname}
-        </h3>
-
-
-        <div className="flex flex-wrap gap-2 text-xs">
-          <span className="rounded-md border border-border px-2 py-1 font-medium text-foreground">
-            DOB: {fmtDate(child.dob)}
-          </span>
-          <span className="rounded-md border border-border px-2 py-1 font-medium text-foreground">
-            {genderLabel}
+      {/* 2. Body */}
+      <div className="flex flex-grow flex-col p-4">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <h3 className="line-clamp-1 text-base font-semibold leading-tight text-foreground">
+            {child.name} {child.lastname}
+          </h3>
+          <span
+            className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+              isActive
+                ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+            }`}
+          >
+            {isActive ? "Active" : child.status || "Inactive"}
           </span>
         </div>
 
-        <div className="space-y-1.5 text-sm text-foreground">
-          <div className="flex items-center gap-2">
-            <IdCard className="h-4 w-4 text-muted-foreground" />
+        <div className="mb-4 flex flex-col gap-1.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5">
+            <IdCard className="h-3.5 w-3.5" />
             <span>ID: {child.id}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <DoorOpen className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-1.5">
+            <DoorOpen className="h-3.5 w-3.5" />
             <span>Room: {roomName}</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-            <span>Joined: {fmtDate(child.startDate)}</span>
-          </div>
-
-          <div className="text-xs text-muted-foreground">
-            Age: {ageFrom(child.dob)}
+          <div className="mt-1 flex flex-wrap gap-1 text-[10px] font-medium">
+             <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">DOB: {fmtDate(child.dob)}</span>
+             <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">{genderLabel}</span>
+             <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">AGE: {ageFrom(child.dob)}</span>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-1">
+        {/* Actions */}
+        <div className="mt-auto flex items-center justify-end gap-1 border-t border-border/50 pt-3">
           <button
-            className="rounded-md bg-sky-100 p-2 text-sky-700 hover:bg-sky-200 dark:bg-sky-950 dark:text-sky-300"
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
             title="View"
           >
             <Eye className="h-4 w-4" />
           </button>
           <button
+            type="button"
             onClick={onEdit}
-            className="rounded-md bg-blue-100 p-2 text-blue-700 hover:bg-blue-200 dark:bg-blue-950 dark:text-blue-300"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
             title="Edit"
           >
             <Pencil className="h-4 w-4" />
           </button>
           <button
+            type="button"
             onClick={onDelete}
-            className="rounded-md bg-rose-100 p-2 text-rose-700 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
             title="Delete"
           >
             <Trash2 className="h-4 w-4" />
