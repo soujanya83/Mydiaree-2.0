@@ -59,7 +59,8 @@ function fmtDate(s) {
 export default function ChildrenPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { children, isLoading, fetchChildren, deleteChildren, addChild, updateChild } = useChildrenStore();
+  const { children, isLoading, fetchChildren, deleteChildren, addChild, updateChild } =
+    useChildrenStore();
 
   const [search, setSearch] = useState("");
   const [genderFilter, setGenderFilter] = useState("all");
@@ -73,20 +74,28 @@ export default function ChildrenPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const currentFilters = useMemo(() => ({
-    center_id: activeCentreId,
-    room_id: activeRoomId,
-    gender: genderFilter === "all" ? undefined : (genderFilter.charAt(0).toUpperCase() + genderFilter.slice(1)),
-    status: statusFilter === "all" ? undefined : (statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)),
-    search: search || undefined
-  }), [activeCentreId, activeRoomId, genderFilter, statusFilter, search]);
+  const currentFilters = useMemo(
+    () => ({
+      center_id: activeCentreId,
+      room_id: activeRoomId,
+      gender:
+        genderFilter === "all"
+          ? undefined
+          : genderFilter.charAt(0).toUpperCase() + genderFilter.slice(1),
+      status:
+        statusFilter === "all"
+          ? undefined
+          : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1),
+      search: search || undefined,
+    }),
+    [activeCentreId, activeRoomId, genderFilter, statusFilter, search],
+  );
 
   useEffect(() => {
     if (activeCentreId) {
       fetchChildren(currentFilters);
     }
   }, [currentFilters, fetchChildren, activeCentreId]);
-
 
   const handleNewChild = () => setSelectRoomOpen(true);
 
@@ -118,18 +127,20 @@ export default function ChildrenPage() {
     }
   };
 
-
   const handleSubmit = async (data) => {
     setIsSaving(true);
     try {
       if (editing) {
         // For updates: id is child ID, roomid is the room identifier
-        await updateChild({ 
-          ...data, 
-          centerid: activeCentreId,
-          roomid: chosenRoom?.id || editing?.roomId || editing?.room,
-          id: editing.id 
-        }, currentFilters);
+        await updateChild(
+          {
+            ...data,
+            centerid: activeCentreId,
+            roomid: chosenRoom?.id || editing?.roomId || editing?.room,
+            id: editing.id,
+          },
+          currentFilters,
+        );
         toast.success("Child updated successfully");
       } else {
         // For creation: id carries the room identifier as per /add-children spec
@@ -150,7 +161,6 @@ export default function ChildrenPage() {
       setIsSaving(false);
     }
   };
-
 
   return (
     <div>
@@ -248,7 +258,6 @@ export default function ChildrenPage() {
         </div>
       )}
 
-
       <SelectRoomModal
         open={selectRoomOpen}
         onClose={() => setSelectRoomOpen(false)}
@@ -274,7 +283,8 @@ export default function ChildrenPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Child Profile?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the child's profile and documentation records. This action cannot be undone.
+              This will permanently delete the child's profile and documentation records. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -301,8 +311,10 @@ export default function ChildrenPage() {
 function ChildCard({ child, rooms, onEdit, onDelete }) {
   const isActive = child.status?.toLowerCase() === "active";
   const genderLabel = child.gender ? child.gender.toUpperCase() : "—";
-  const roomName = rooms.find(r => r.id == child.room)?.name || child.room || "—";
-  const imageUrl = child.imageUrl?.startsWith("http") ? child.imageUrl : `https://mydiaree.com.au/${child.imageUrl}`;
+  const roomName = rooms.find((r) => r.id == child.room)?.name || child.room || "—";
+  const imageUrl = child.imageUrl?.startsWith("http")
+    ? child.imageUrl
+    : `https://mydiaree.com.au/${child.imageUrl}`;
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
@@ -340,18 +352,24 @@ function ChildCard({ child, rooms, onEdit, onDelete }) {
         </div>
 
         <div className="mb-4 flex flex-col gap-1.5 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
+          {/* <div className="flex items-center gap-1.5">
             <IdCard className="h-3.5 w-3.5" />
             <span>ID: {child.id}</span>
-          </div>
+          </div> */}
           <div className="flex items-center gap-1.5">
             <DoorOpen className="h-3.5 w-3.5" />
             <span>Room: {roomName}</span>
           </div>
           <div className="mt-1 flex flex-wrap gap-1 text-[10px] font-medium">
-             <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">DOB: {fmtDate(child.dob)}</span>
-             <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">{genderLabel}</span>
-             <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">AGE: {ageFrom(child.dob)}</span>
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">
+              DOB: {fmtDate(child.dob)}
+            </span>
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">
+              {genderLabel}
+            </span>
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">
+              AGE: {ageFrom(child.dob)}
+            </span>
           </div>
         </div>
 

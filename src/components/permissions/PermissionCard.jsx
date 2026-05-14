@@ -5,7 +5,6 @@ import {
   Eye,
   CheckCircle2,
   Settings,
-  CheckCircle,
   Shield,
   Printer,
   Download,

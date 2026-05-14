@@ -51,6 +51,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE_OPTIONS = [8, 12, 24, 48];
+const CARD_PRIMARY_ACTION_CLASSES =
+  "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
+const CARD_PRIMARY_ACTION_STYLE = {
+  color: "var(--primary)",
+};
 
 const stripHtml = (value = "") =>
   String(value)
@@ -583,7 +588,8 @@ export default function ProgramPlanPage() {
                       type="button"
                       onClick={() => setViewId(r.id)}
                       title="View"
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+                      className={CARD_PRIMARY_ACTION_CLASSES}
+                      style={CARD_PRIMARY_ACTION_STYLE}
                     >
                       <Eye className="h-4 w-4" />
                     </button>
@@ -591,7 +597,8 @@ export default function ProgramPlanPage() {
                       type="button"
                       onClick={() => goEdit(r.id)}
                       title="Edit"
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+                      className={CARD_PRIMARY_ACTION_CLASSES}
+                      style={CARD_PRIMARY_ACTION_STYLE}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -600,7 +607,7 @@ export default function ProgramPlanPage() {
                       onClick={() => setConfirmId(r.id)}
                       title="Delete"
                       disabled={isDeletingPlan}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 disabled:opacity-50"
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30 disabled:opacity-50"
                     >
                       {isDeletingPlan ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

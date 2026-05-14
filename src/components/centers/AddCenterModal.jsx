@@ -87,11 +87,11 @@ export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-sm font-semibold">ZIP Code</Label>
+                  <Label className="text-sm font-semibold">Postal Code</Label>
                   <Input
                     value={form.addressZip}
                     onChange={(e) => set("addressZip", e.target.value)}
-                    placeholder="Enter ZIP code"
+                    placeholder="Enter postal code"
                   />
                 </div>
               </div>

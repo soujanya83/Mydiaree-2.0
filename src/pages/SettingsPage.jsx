@@ -142,7 +142,7 @@ export default function SettingsPage() {
                   <span className="text-muted-foreground">{c.addressState || "—"}</span>
                 </p>
                 <p className="text-foreground">
-                  <span className="font-semibold">Zip: </span>
+                  <span className="font-semibold">Postal Code: </span>
                   <span className="text-muted-foreground">{c.addressZip || "—"}</span>
                 </p>
               </div>

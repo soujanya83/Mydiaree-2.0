@@ -10,6 +10,7 @@ import {
   MessageSquare,
   ImageIcon,
   Eye,
+  Pencil,
   Search,
   ChevronLeft,
   ChevronRight,
@@ -47,6 +48,11 @@ const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
 
 const PAGE_SIZE = 13;
+const CARD_PRIMARY_ACTION_CLASSES =
+  "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
+const CARD_PRIMARY_ACTION_STYLE = {
+  color: "var(--primary)",
+};
 
 export default function ObservationPage() {
   const navigate = useNavigate();
@@ -346,6 +352,8 @@ export default function ObservationPage() {
               obs={o}
               onDelete={() => handleDelete(o.id)}
               onComment={() => setCommentModalId(o.id)}
+              onOpen={() => navigate(`/observation/${o.id}`)}
+              onEdit={() => navigate(`/observation/${o.id}/edit`)}
               onPrint={() => handlePrint(o.id)}
               isPrinting={isPrintingId === o.id}
             />
@@ -435,7 +443,7 @@ function DeleteConfirmationModal({ open, onClose, onConfirm, isLoading }) {
           </Button>
           <Button
             onClick={onConfirm}
-            className="flex-1 rounded-xl bg-rose-600 font-bold text-white shadow-lg shadow-rose-500/20 hover:bg-rose-700"
+            className="flex-1 rounded-xl bg-rose-500 font-bold text-white shadow-lg shadow-rose-500/20 hover:bg-rose-600 active:scale-[0.98]"
             disabled={isLoading}
           >
             {isLoading ? (
@@ -451,7 +459,7 @@ function DeleteConfirmationModal({ open, onClose, onConfirm, isLoading }) {
   );
 }
 
-function ObservationCard({ obs, onDelete, onComment, onPrint, isPrinting }) {
+function ObservationCard({ obs, onDelete, onComment, onOpen, onEdit, onPrint, isPrinting }) {
   const images = obs.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
 
@@ -560,10 +568,35 @@ function ObservationCard({ obs, onDelete, onComment, onPrint, isPrinting }) {
             type="button"
             onClick={(e) => {
               e.preventDefault();
+              onOpen();
+            }}
+            title="View"
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onEdit();
+            }}
+            title="Edit"
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
               onComment();
             }}
             title="Comments"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
           >
             <MessageSquare className="h-4 w-4" />
           </button>
@@ -575,7 +608,8 @@ function ObservationCard({ obs, onDelete, onComment, onPrint, isPrinting }) {
             }}
             title="Print"
             disabled={isPrinting}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
           >
             {isPrinting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -590,7 +624,7 @@ function ObservationCard({ obs, onDelete, onComment, onPrint, isPrinting }) {
               onDelete();
             }}
             title="Delete"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
           >
             <Trash2 className="h-4 w-4" />
           </button>

@@ -16,6 +16,7 @@ import {
   FileText,
   UserCircle2,
   Users,
+  Eye,
   Pencil,
   Video,
   Loader2,
@@ -50,6 +51,11 @@ const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
 
 const PAGE_SIZE = 10;
+const CARD_PRIMARY_ACTION_CLASSES =
+  "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
+const CARD_PRIMARY_ACTION_STYLE = {
+  color: "var(--primary)",
+};
 
 const stripHtml = (value = "") => String(value).replace(/<[^>]*>/g, "");
 
@@ -619,10 +625,20 @@ function ReflectionCard({ refl, onDelete, onEdit, onOpen, onPrint, isPrinting })
         <div className="mt-4 flex items-center justify-end gap-1 border-t border-border/50 pt-3">
           <button
             type="button"
+            onClick={onOpen}
+            title="View"
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
             onClick={onPrint}
             title="Print"
             disabled={isPrinting}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
           >
             {isPrinting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -634,7 +650,8 @@ function ReflectionCard({ refl, onDelete, onEdit, onOpen, onPrint, isPrinting })
             type="button"
             onClick={onEdit}
             title="Edit"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -642,7 +659,7 @@ function ReflectionCard({ refl, onDelete, onEdit, onOpen, onPrint, isPrinting })
             type="button"
             onClick={onDelete}
             title="Delete"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
           >
             <Trash2 className="h-4 w-4" />
           </button>
