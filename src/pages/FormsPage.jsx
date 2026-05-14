@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText, Mail, Table as TableIcon, LayoutGrid,
@@ -12,6 +12,10 @@ import {
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { getFormOptions } from "@/services/admin/formOptionsService";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -26,35 +30,42 @@ const VIEW = { FORM: "form", TABLE: "table", CARDS: "cards" };
 function StatTile({ label, value, icon: Icon, gradient }) {
   return (
     <div className={cn(
-      "relative overflow-hidden rounded-2xl px-6 py-5 text-white shadow-md",
+      "group relative overflow-hidden rounded-3xl p-[1px] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
       gradient
     )}>
-      <div className="flex flex-col items-center justify-center text-center">
-        <Icon className="mb-2 h-6 w-6 opacity-90" />
-        <p className="text-3xl font-bold leading-tight">{value}</p>
-        <p className="mt-1 text-xs font-medium uppercase tracking-wider opacity-90">{label}</p>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      <div className="relative flex h-full flex-col items-center justify-center rounded-[23px] bg-background/95 p-6 text-center backdrop-blur-xl transition-colors duration-300 group-hover:bg-background/80">
+        <div className={cn(
+          "mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-inner",
+          gradient
+        )}>
+          <Icon className="h-6 w-6" />
+        </div>
+        <p className="text-4xl font-extrabold tracking-tight text-foreground">{value}</p>
+        <p className="mt-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
       </div>
     </div>
   );
 }
 
 function ViewToggleButton({ active, onClick, icon: Icon, children, color = "primary" }) {
-  const colorMap = {
-    primary: "bg-primary text-primary-foreground",
-    info: "bg-info text-info-foreground",
-    teal: "bg-primary text-primary-foreground",
-  };
   return (
-    <Button
+    <button
       type="button"
-      variant={active ? "default" : "outline"}
-      size="sm"
       onClick={onClick}
-      className={cn(active && colorMap[color], "rounded-full px-4")}
+      className={cn(
+        "group relative flex items-center gap-2 overflow-hidden rounded-full px-5 py-2 text-sm font-semibold transition-all duration-300",
+        active 
+          ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md"
+          : "bg-transparent text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+      )}
     >
-      <Icon className="h-4 w-4" />
-      {children}
-    </Button>
+      <Icon className={cn("h-4 w-4 transition-transform duration-300", active ? "scale-110" : "group-hover:scale-110")} />
+      <span>{children}</span>
+      {active && (
+        <span className="absolute inset-0 rounded-full ring-2 ring-primary ring-offset-2 ring-offset-background animate-in fade-in zoom-in duration-300" />
+      )}
+    </button>
   );
 }
 
@@ -126,6 +137,26 @@ export default function FormsPage() {
   const [dateFilter, setDateFilter] = useState("");
   const [openId, setOpenId] = useState(null);
   const [emailOpen, setEmailOpen] = useState(false);
+  const [formModalOpen, setFormModalOpen] = useState(false);
+  const [formOptions, setFormOptions] = useState([]);
+  const [isLoadingFormOptions, setIsLoadingFormOptions] = useState(false);
+
+  useEffect(() => {
+    if (formModalOpen) {
+      const fetchFormOptions = async () => {
+        setIsLoadingFormOptions(true);
+        try {
+          const options = await getFormOptions();
+          setFormOptions(options);
+        } catch (error) {
+          console.error("Failed to fetch form options", error);
+        } finally {
+          setIsLoadingFormOptions(false);
+        }
+      };
+      fetchFormOptions();
+    }
+  }, [formModalOpen]);
 
   const stats = useMemo(() => {
     const total = submissions.length;
@@ -176,7 +207,7 @@ export default function FormsPage() {
         <div className="flex flex-wrap items-center gap-2 rounded-full border bg-card p-1.5 shadow-sm">
           <ViewToggleButton
             active={view === VIEW.FORM}
-            onClick={() => navigate("/forms/re-enrollment")}
+            onClick={() => setFormModalOpen(true)}
             icon={FileText}
           >
             Form
@@ -235,19 +266,22 @@ export default function FormsPage() {
       </div>
 
       {/* Filters */}
-      <div className="rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4">
+      <div className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-5 shadow-sm backdrop-blur-xl transition-shadow hover:shadow-md">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent opacity-50" />
+        <div className="relative grid gap-4 md:grid-cols-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
             <Input
               placeholder="Search by child name or parent email"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              className="rounded-full border-border/50 bg-background/50 pl-9 transition-colors focus:bg-background"
             />
           </div>
           <Select value={sessionFilter} onValueChange={setSessionFilter}>
-            <SelectTrigger><SelectValue placeholder="All Sessions" /></SelectTrigger>
+            <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background">
+              <SelectValue placeholder="All Sessions" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sessions</SelectItem>
               {sessionOptions.map((s) => (
@@ -256,7 +290,9 @@ export default function FormsPage() {
             </SelectContent>
           </Select>
           <Select value={kinderFilter} onValueChange={setKinderFilter}>
-            <SelectTrigger><SelectValue placeholder="All Kinder" /></SelectTrigger>
+            <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background">
+              <SelectValue placeholder="All Kinder" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Kinder</SelectItem>
               {kinderOptions.map((k) => (
@@ -268,6 +304,7 @@ export default function FormsPage() {
             type="date"
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
+            className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background"
           />
         </div>
       </div>
@@ -286,37 +323,89 @@ export default function FormsPage() {
       />
 
       <SendReEnrollmentEmailModal open={emailOpen} onOpenChange={setEmailOpen} />
+
+      <Dialog open={formModalOpen} onOpenChange={setFormModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="mb-2 text-2xl font-bold text-primary">Select a Form</DialogTitle>
+            <p className="mt-0 text-sm text-muted-foreground">Choose a form below to proceed.</p>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto pr-2 py-2">
+            {isLoadingFormOptions ? (
+              <div className="flex flex-col items-center justify-center space-y-3 p-8">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                <span className="text-sm font-medium text-muted-foreground">Loading premium forms...</span>
+              </div>
+            ) : formOptions?.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {formOptions.map((form) => (
+                  <button
+                    key={form.slug}
+                    onClick={() => {
+                      window.open(form.url, "_blank");
+                    }}
+                    className="group relative flex items-center justify-between overflow-hidden rounded-2xl border border-border/50 bg-gradient-to-br from-card to-muted/20 p-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                    <div className="relative z-10 flex items-center gap-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors duration-300 group-hover:bg-primary group-hover:text-primary-foreground">
+                        <FileText className="h-6 w-6" />
+                      </div>
+                      <div className="overflow-hidden">
+                        <h4 className="text-lg font-bold text-foreground transition-colors group-hover:text-primary">{form.name}</h4>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground max-w-[250px]">{form.url}</p>
+                      </div>
+                    </div>
+                    <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1 group-hover:bg-primary/20 group-hover:text-primary">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-8 text-center">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <FileText className="h-6 w-6 text-muted-foreground/50" />
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">No forms available at the moment.</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 function TableView({ rows, onView }) {
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-      <div className="flex items-center gap-2 border-b bg-gradient-to-r from-teal-500 to-emerald-500 px-5 py-3 text-white">
-        <TableIcon className="h-4 w-4" />
-        <h3 className="text-sm font-semibold">Re-Enrollment Submissions</h3>
+    <div className="overflow-hidden rounded-3xl border border-border/50 bg-card shadow-lg">
+      <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-primary/90 to-primary/70 px-6 py-4 text-primary-foreground backdrop-blur-md">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+          <TableIcon className="h-4 w-4" />
+        </div>
+        <h3 className="text-base font-bold tracking-tight">Re-Enrollment Submissions</h3>
       </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40">
-              <TableHead className="w-16">ID</TableHead>
-              <TableHead>Child Name</TableHead>
-              <TableHead>Parent Email</TableHead>
-              <TableHead className="text-center">Current Days</TableHead>
-              <TableHead className="text-center">Requested Days</TableHead>
-              <TableHead className="text-center">Session</TableHead>
-              <TableHead className="text-center">Kinder</TableHead>
-              <TableHead>Submitted</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableHead className="w-16 font-semibold">ID</TableHead>
+              <TableHead className="font-semibold">Child Name</TableHead>
+              <TableHead className="font-semibold">Parent Email</TableHead>
+              <TableHead className="text-center font-semibold">Current Days</TableHead>
+              <TableHead className="text-center font-semibold">Requested Days</TableHead>
+              <TableHead className="text-center font-semibold">Session</TableHead>
+              <TableHead className="text-center font-semibold">Kinder</TableHead>
+              <TableHead className="font-semibold">Submitted</TableHead>
+              <TableHead className="text-right font-semibold">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((r) => {
               const submitted = formatSubmittedAt(r.submittedAt);
               return (
-                <TableRow key={r.id} className="hover:bg-muted/30">
+                <TableRow key={r.id} className="group hover:bg-muted/40 transition-colors">
                   <TableCell className="font-semibold text-muted-foreground">#{r.id}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -328,14 +417,14 @@ function TableView({ rows, onView }) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <a href={`mailto:${r.parentEmail}`} className="text-sm text-primary hover:underline">
+                    <a href={`mailto:${r.parentEmail}`} className="text-sm text-primary transition-colors hover:text-primary/80 hover:underline">
                       {r.parentEmail}
                     </a>
                   </TableCell>
                   <TableCell><CurrentDayChips days={r.currentDays} /></TableCell>
                   <TableCell><DayChips days={r.requestedDays} /></TableCell>
                   <TableCell className="text-center">
-                    <span className="inline-flex items-center rounded bg-info px-2 py-1 text-[10px] font-bold uppercase text-info-foreground">
+                    <span className="inline-flex items-center rounded-md bg-info/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-info">
                       {r.session}
                     </span>
                   </TableCell>
@@ -345,12 +434,12 @@ function TableView({ rows, onView }) {
                     <div className="text-xs text-muted-foreground">{submitted.time}</div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onView(r.id)}>
-                        <MoreHorizontal className="h-3.5 w-3.5" />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-muted/50 transition-colors hover:bg-primary/10 hover:text-primary" onClick={() => onView(r.id)}>
+                        <MoreHorizontal className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onView(r.id)}>
-                        <Eye className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-muted/50 transition-colors hover:bg-primary/10 hover:text-primary" onClick={() => onView(r.id)}>
+                        <Eye className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -359,8 +448,11 @@ function TableView({ rows, onView }) {
             })}
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
-                  No submissions match your filters.
+                <TableCell colSpan={9} className="py-16 text-center text-sm text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <TableIcon className="h-8 w-8 opacity-20" />
+                    <span>No submissions match your filters.</span>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
@@ -373,74 +465,88 @@ function TableView({ rows, onView }) {
 
 function CardsView({ rows, onView }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {rows.map((r) => {
         const submitted = formatSubmittedAt(r.submittedAt);
         return (
-          <div key={r.id} className="overflow-hidden rounded-2xl border bg-card shadow-sm transition hover:shadow-md">
-            <div className="flex items-center gap-2 bg-gradient-to-r from-slate-600 to-slate-500 px-5 py-3 text-white">
-              <Users className="h-4 w-4" />
-              <h3 className="text-sm font-semibold">{r.childName}</h3>
+          <div key={r.id} className="group overflow-hidden rounded-3xl border border-border/50 bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5">
+            <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-slate-700 to-slate-500 px-6 py-4 text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
+                <Users className="h-4 w-4" />
+              </div>
+              <h3 className="text-base font-bold tracking-tight">{r.childName}</h3>
             </div>
-            <div className="space-y-3 p-5 text-sm">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-4 p-6 text-sm">
+              <div className="grid grid-cols-2 gap-4 rounded-2xl bg-muted/30 p-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">Date of Birth</p>
-                  <p className="font-semibold">{formatDob(r.dob)}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Date of Birth</p>
+                  <p className="font-semibold text-foreground">{formatDob(r.dob)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Submitted</p>
-                  <p className="font-semibold">{submitted.date}</p>
+                  <p className="text-xs font-medium text-muted-foreground">Submitted</p>
+                  <p className="font-semibold text-foreground">{submitted.date}</p>
                 </div>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Parent Email</p>
-                <p className="font-medium text-primary">{r.parentEmail}</p>
+                <p className="text-xs font-medium text-muted-foreground">Parent Email</p>
+                <a href={`mailto:${r.parentEmail}`} className="font-medium text-primary transition-colors hover:text-primary/80 hover:underline">
+                  {r.parentEmail}
+                </a>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground">Current Days (2025)</p>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {r.currentDays.map((d) => (
-                    <span key={d} className="rounded bg-warning/30 px-2 py-0.5 text-[10px] font-bold uppercase text-warning-foreground">
-                      {d}
-                    </span>
-                  ))}
+              <div className="space-y-3 border-y border-border/50 py-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current Days (2025)</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {r.currentDays.map((d) => (
+                      <span key={d} className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                        {d}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Requested Days (2026)</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {r.requestedDays.map((d) => (
+                      <span key={d} className="rounded-md bg-warning/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warning-foreground shadow-sm">
+                        {d}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground">Requested Days (2026)</p>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {r.requestedDays.map((d) => (
-                    <span key={d} className="rounded bg-warning/30 px-2 py-0.5 text-[10px] font-bold uppercase text-warning-foreground">
-                      {d}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <span className="inline-flex items-center rounded bg-info px-2 py-1 text-[10px] font-bold uppercase text-info-foreground">
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center rounded-md bg-info/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-info">
                   {r.session}
                 </span>
                 {r.kinder && r.kinder !== "Not Attending" && (
-                  <span className="ml-2 inline-flex items-center"><KinderBadge value={r.kinder} /></span>
+                  <span className="inline-flex items-center"><KinderBadge value={r.kinder} /></span>
                 )}
               </div>
               {r.holidayPlans && (
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground">Holiday Plans</p>
-                  <p className="mt-1 text-sm">{r.holidayPlans}</p>
+                <div className="rounded-xl bg-muted/20 p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Holiday Plans</p>
+                  <p className="mt-1 text-sm text-foreground/90">{r.holidayPlans}</p>
                 </div>
               )}
-              <Button variant="outline" size="sm" className="w-full rounded-full" onClick={() => onView(r.id)}>
-                <Eye className="h-3.5 w-3.5" /> View
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full rounded-full border-primary/20 bg-primary/5 text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground group-hover:border-primary/50" 
+                onClick={() => onView(r.id)}
+              >
+                <Eye className="mr-2 h-4 w-4" /> View Details
               </Button>
             </div>
           </div>
         );
       })}
       {rows.length === 0 && (
-        <div className="col-span-full rounded-2xl border bg-card p-10 text-center text-sm text-muted-foreground">
-          No submissions match your filters.
+        <div className="col-span-full flex flex-col items-center justify-center rounded-3xl border border-dashed p-16 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Users className="h-6 w-6 text-muted-foreground/50" />
+          </div>
+          <p className="text-sm font-medium text-muted-foreground">No submissions match your filters.</p>
         </div>
       )}
     </div>
