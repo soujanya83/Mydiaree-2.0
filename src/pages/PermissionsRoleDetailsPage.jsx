@@ -1,24 +1,72 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  ClipboardList,
+  SlidersHorizontal,
+  PencilLine,
+  Camera,
+  ClipboardPlus,
+  GraduationCap,
+  DoorOpen,
+  Users2,
+  Users,
+  Megaphone,
+  Building2,
+  ChefHat,
+  UtensilsCrossed,
+  ListChecks,
+  Settings,
+  Shield,
+  BookOpen,
+  FileCheck,
+  Activity,
+  CalendarCheck,
+  ClipboardCheck,
+  CheckSquare,
+  ShieldPlus,
+  Moon,
+  BarChart3,
+  BookOpenCheck,
+  Salad,
+  Info,
+  Monitor,
+  Building,
+  UserCog,
+  KeyRound,
+  ShieldAlert,
+  Box,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
-import { PERMISSION_GROUPS as STATIC_GROUPS } from "@/components/permissions/permissionsData";
 import { PermissionCard } from "@/components/permissions/PermissionCard";
 import { usePermissionStore } from "@/stores/permissionStore";
+import { useCentreStore } from "@/stores/centreStore";
+import { cn } from "@/lib/utils";
 
 export default function PermissionsRoleDetailsPage() {
   const navigate = useNavigate();
   const { roleId } = useParams();
-  const { selectedRoleDetails, isFetchingRoleDetails, fetchRoleDetails, clearSelectedRoleDetails } =
-    usePermissionStore();
+  const { 
+    selectedRoleDetails, 
+    isFetchingRoleDetails, 
+    modulePermissions,
+    fetchRoleDetails, 
+    fetchManagePermissions,
+    clearSelectedRoleDetails 
+  } = usePermissionStore();
+  const { activeCentreId } = useCentreStore();
 
   useEffect(() => {
     if (roleId) {
       fetchRoleDetails(roleId);
     }
+    if (!modulePermissions || modulePermissions.length === 0) {
+      fetchManagePermissions(activeCentreId);
+    }
     return () => clearSelectedRoleDetails();
-  }, [roleId, fetchRoleDetails, clearSelectedRoleDetails]);
+  }, [roleId, fetchRoleDetails, fetchManagePermissions, clearSelectedRoleDetails, modulePermissions.length, activeCentreId]);
 
   const role = selectedRoleDetails?.role;
   const permissions = useMemo(() => selectedRoleDetails?.permissions || [], [selectedRoleDetails]);
@@ -28,57 +76,69 @@ export default function PermissionsRoleDetailsPage() {
     [permissions],
   );
 
-  const dynamicGroups = useMemo(() => {
-    const groups = [...STATIC_GROUPS.map((g) => ({ ...g, permissions: [] }))];
-    const otherGroup = groups.find((g) => g.key === "other") || {
-      key: "other",
-      label: "Other",
-      permissions: [],
-    };
-    if (!groups.find((g) => g.key === "other")) groups.push(otherGroup);
+  const getModuleMetadata = (moduleName) => {
+    const name = moduleName.toLowerCase();
 
-    permissions.forEach((permission) => {
-      const lowerName = permission.name.toLowerCase();
-      let assigned = false;
-      for (const group of groups) {
-        if (group.key !== "other" && lowerName.includes(group.key)) {
-          group.permissions.push({
-            key: permission.name,
-            label: permission.label,
-            icon: "settings",
-          });
-          assigned = true;
-          break;
-        }
-      }
+    // 1. Daily Operations (100)
+    if (name === "daily diary") return { weight: 101, icon: BookOpen };
+    if (name === "head check") return { weight: 102, icon: ShieldPlus };
+    if (name === "sleep check") return { weight: 103, icon: Moon };
+    if (name === "accident form") return { weight: 104, icon: ClipboardPlus };
 
-      if (!assigned) {
-        const match = permission.name.match(/[A-Z].*/);
-        if (match) {
-          const resource = match[0];
-          const resourceKey = resource.toLowerCase();
-          let group = groups.find((x) => x.key === resourceKey);
-          if (!group) {
-            group = { key: resourceKey, label: resource + " Manage", permissions: [] };
-            groups.splice(groups.length - 1, 0, group);
-          }
-          group.permissions.push({
-            key: permission.name,
-            label: permission.label,
-            icon: "settings",
-          });
-        } else {
-          otherGroup.permissions.push({
-            key: permission.name,
-            label: permission.label,
-            icon: "settings",
-          });
-        }
-      }
+    // 2. Learning & Documentation (200)
+    if (name === "program plan") return { weight: 201, icon: ClipboardList };
+    if (name === "learning & progress") return { weight: 202, icon: BarChart3 };
+    if (name === "daily reflections") return { weight: 203, icon: PencilLine };
+    if (name === "observation") return { weight: 204, icon: SlidersHorizontal };
+    if (name === "snapshots") return { weight: 205, icon: Camera };
+
+    // 3. Centre Management (300)
+    if (name === "rooms") return { weight: 301, icon: DoorOpen };
+    if (name === "children") return { weight: 302, icon: Users2 };
+    if (name === "events") return { weight: 303, icon: Megaphone };
+    if (name === "service details") return { weight: 304, icon: Info };
+    if (name === "ptm") return { weight: 305, icon: CalendarCheck };
+
+    // 4. Nutrition (400)
+    if (name === "menu") return { weight: 401, icon: ChefHat };
+    if (name === "recipe") return { weight: 402, icon: BookOpenCheck };
+    if (name === "ingredients") return { weight: 403, icon: Salad };
+
+    // 5. Quality & Compliance (500)
+    if (name === "qip") return { weight: 501, icon: ListChecks };
+    if (name === "forms") return { weight: 502, icon: FileText };
+
+    // 6. Administration (600)
+    if (name === "ip management") return { weight: 601, icon: Monitor };
+    if (name === "center settings") return { weight: 602, icon: Building };
+    if (name === "staff settings") return { weight: 603, icon: UserCog };
+    if (name === "super admin settings") return { weight: 604, icon: ShieldAlert };
+    if (name === "parent settings") return { weight: 605, icon: Users };
+    if (name === "manage permissions") return { weight: 606, icon: KeyRound };
+
+    // Other / Extra Modules (Render at the end)
+    if (name === "survey") return { weight: 901, icon: ClipboardCheck };
+    if (name === "lesson") return { weight: 902, icon: BookOpen };
+    if (name === "assessment") return { weight: 903, icon: FileCheck };
+    if (name === "activity") return { weight: 904, icon: Activity };
+    if (name === "modules") return { weight: 905, icon: Box };
+
+    // Fallbacks
+    if (name.includes("daily") || name.includes("diary")) return { weight: 101, icon: BookOpen };
+    if (name.includes("learning") || name.includes("progress")) return { weight: 202, icon: BarChart3 };
+    if (name.includes("admin") || name.includes("setting")) return { weight: 600, icon: Settings };
+
+    return { weight: 999, icon: Shield };
+  };
+
+  const sortedGroups = useMemo(() => {
+    return [...(modulePermissions || [])].sort((a, b) => {
+      const metaA = getModuleMetadata(a.module);
+      const metaB = getModuleMetadata(b.module);
+      if (metaA.weight !== metaB.weight) return metaA.weight - metaB.weight;
+      return a.module.localeCompare(b.module);
     });
-
-    return groups.filter((group) => group.permissions.length > 0);
-  }, [permissions]);
+  }, [modulePermissions]);
 
   if (isFetchingRoleDetails) {
     return <div className="py-20 text-center text-muted-foreground">Loading role details...</div>;
@@ -105,17 +165,18 @@ export default function PermissionsRoleDetailsPage() {
         <p className="mt-1 text-lg font-semibold">{role?.name || "-"}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {dynamicGroups.map((group) => (
-          <PermissionCard
-            key={group.key}
-            group={group}
-            selectedKeys={selectedKeys}
-            readOnly
-            showAllToggle={false}
-            showCount
-          />
-        ))}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {sortedGroups.map((group) => {
+          const meta = getModuleMetadata(group.module);
+          return (
+            <PermissionCard
+              key={group.module}
+              group={{ ...group, icon: meta.icon }}
+              selectedKeys={selectedKeys}
+              readOnly
+            />
+          );
+        })}
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ export const usePermissionStore = create((set) => ({
     set({ isLoading: true, error: null });
     try {
       // 1. Get nested permissions structure
-      const modules = await permissionService.getAllPermissions();
+      const modules = await permissionService.getAllPermissions(centerId);
 
       // 2. Extract all permissions into a flat list for compatibility
       const flatPermissions = [];
@@ -23,15 +23,6 @@ export const usePermissionStore = create((set) => ({
         if (mod.permissions) {
           mod.permissions.forEach((p) => {
             flatPermissions.push({ name: p.name, label: p.label });
-          });
-        }
-        if (mod.submodules) {
-          mod.submodules.forEach((sub) => {
-            if (sub.permissions) {
-              sub.permissions.forEach((p) => {
-                flatPermissions.push({ name: p.name, label: p.label });
-              });
-            }
           });
         }
       });
@@ -144,10 +135,10 @@ export const usePermissionStore = create((set) => ({
     }
   },
 
-  updateRolePermissions: async (roleId, permissionsMap) => {
+  updateRolePermissions: async (roleId, permissionsMap, centerId) => {
     set({ isLoading: true, error: null });
     try {
-      const role = await permissionService.updateRolePermissions(roleId, permissionsMap);
+      const role = await permissionService.updateRolePermissions(roleId, permissionsMap, centerId);
       set({ isLoading: false });
       return role;
     } catch (error) {
@@ -160,10 +151,10 @@ export const usePermissionStore = create((set) => ({
     }
   },
 
-  fetchUserPermission: async (userId) => {
+  fetchUserPermission: async (userId, centerId) => {
     set({ isLoading: true, error: null });
     try {
-      const data = await permissionService.getUserPermission(userId);
+      const data = await permissionService.getUserPermission(userId, centerId);
       set({
         singleUserPermission: data || null,
         isLoading: false,
@@ -180,10 +171,10 @@ export const usePermissionStore = create((set) => ({
     set({ singleUserPermission: null });
   },
 
-  updateUserPermissions: async (userId, permissionsMap) => {
+  updateUserPermissions: async (userId, permissionsMap, centerId) => {
     set({ isLoading: true, error: null });
     try {
-      await permissionService.updateUserPermissions(userId, permissionsMap);
+      await permissionService.updateUserPermissions(userId, permissionsMap, centerId);
       set({ isLoading: false });
       return true;
     } catch (error) {
@@ -195,10 +186,10 @@ export const usePermissionStore = create((set) => ({
     }
   },
 
-  bulkAssignPermissions: async (userIds, permissionsMap) => {
+  bulkAssignPermissions: async (userIds, permissionsMap, centerId) => {
     set({ isLoading: true, error: null });
     try {
-      await permissionService.bulkAssignPermissions(userIds, permissionsMap);
+      await permissionService.bulkAssignPermissions(userIds, permissionsMap, centerId);
       set({ isLoading: false });
       return true;
     } catch (error) {

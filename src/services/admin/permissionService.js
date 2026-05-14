@@ -2,9 +2,11 @@ import api from "../../api/api";
 
 export const permissionService = {
   // 1. List of permissions and users (New API)
-  getAllPermissions: async () => {
+  getAllPermissions: async (centerId) => {
     try {
-      const response = await api.get("/settings/all-permissions");
+      const response = await api.get("/settings/all-permissions", {
+        params: centerId ? { center_id: centerId } : {},
+      });
       if (response.data && response.data.status) {
         return response.data.data; // returns array of module objects
       }
@@ -112,9 +114,12 @@ export const permissionService = {
   },
 
   // 7. Update role permissions
-  updateRolePermissions: async (roleId, permissionsMap) => {
+  updateRolePermissions: async (roleId, permissionsMap, centerId) => {
     try {
       const formData = new FormData();
+      if (centerId) {
+        formData.append("center_id", centerId);
+      }
       Object.entries(permissionsMap).forEach(([key, value]) => {
         if (Number(value) === 1) {
           formData.append(`permissions[${key}]`, 1);
@@ -135,10 +140,13 @@ export const permissionService = {
   },
 
   // 8. Get single user permission
-  getUserPermission: async (userId) => {
+  getUserPermission: async (userId, centerId) => {
     try {
       const formData = new FormData();
       formData.append("userid", userId);
+      if (centerId) {
+        formData.append("center_id", centerId);
+      }
       const response = await api.post("/settings/user/permissions", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -153,14 +161,18 @@ export const permissionService = {
   },
 
   // 9. Update user permissions (uses the same bulk API but for a single user)
-  updateUserPermissions: async (userId, permissionsMap) => {
+  updateUserPermissions: async (userId, permissionsMap, centerId) => {
     try {
       const formData = new FormData();
       formData.append("user_ids[]", userId);
+      if (centerId) {
+        formData.append("centerid", centerId);
+      }
 
       // Add permissions in permissions[key] format
       Object.entries(permissionsMap).forEach(([key, value]) => {
-        formData.append(`permissions[${key}]`, value ? 1 : 0);
+        if(value)
+        formData.append(`permissions[${key}]`, 1);
       });
 
       const response = await api.post("/settings/assign-permissions", formData, {
@@ -178,9 +190,12 @@ export const permissionService = {
   },
 
   // 10. Bulk assign permissions
-  bulkAssignPermissions: async (userIds, permissionsMap) => {
+  bulkAssignPermissions: async (userIds, permissionsMap, centerId) => {
     try {
       const formData = new FormData();
+      if (centerId) {
+        formData.append("centerid", centerId);
+      }
 
       // Add user ids
       userIds.forEach((id) => {
@@ -189,7 +204,8 @@ export const permissionService = {
 
       // Add permissions in permissions[key] format
       Object.entries(permissionsMap).forEach(([key, value]) => {
-        formData.append(`permissions[${key}]`, value ? 1 : 0);
+        if (value)
+          formData.append(`permissions[${key}]`, 1);
       });
 
       const response = await api.post("/settings/assign-permissions", formData, {
