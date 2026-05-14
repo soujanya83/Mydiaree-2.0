@@ -53,6 +53,12 @@ function formatDate(d) {
   });
 }
 
+const CARD_PRIMARY_ACTION_CLASSES =
+  "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
+const CARD_PRIMARY_ACTION_STYLE = {
+  color: "var(--primary)",
+};
+
 export default function RecipePage() {
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const centres = useCentreStore((s) => s.centres);
@@ -292,7 +298,8 @@ function RecipeCard({ recipe, onEdit, onDelete }) {
               target="_blank"
               rel="noreferrer"
               title="Watch Video"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-rose-500 transition hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/50 dark:hover:text-rose-300"
+              className={CARD_PRIMARY_ACTION_CLASSES}
+              style={CARD_PRIMARY_ACTION_STYLE}
             >
               <Youtube className="h-4 w-4" />
             </a>
@@ -301,7 +308,8 @@ function RecipeCard({ recipe, onEdit, onDelete }) {
             type="button"
             onClick={onEdit}
             title="Edit"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -309,7 +317,7 @@ function RecipeCard({ recipe, onEdit, onDelete }) {
             type="button"
             onClick={onDelete}
             title="Delete"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
           >
             <Trash2 className="h-4 w-4" />
           </button>

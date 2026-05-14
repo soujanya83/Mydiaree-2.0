@@ -21,7 +21,18 @@ export const childrenService = {
     }
   },
 
-  // 2. Create child
+  // 2. Child details
+  getChildDetails: async (id) => {
+    try {
+      const response = await api.get(`/children/${id}/details`);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching child details:", error);
+      throw error;
+    }
+  },
+
+  // 3. Create child
   createChild: async (data) => {
     try {
       const formData = new FormData();
@@ -41,7 +52,7 @@ export const childrenService = {
     }
   },
 
-  // 3. Update child
+  // 4. Update child
   updateChild: async (data) => {
     try {
       const formData = new FormData();
@@ -63,7 +74,7 @@ export const childrenService = {
     }
   },
 
-  // 4. Delete child
+  // 5. Delete child
   deleteChildren: async (childIds) => {
     try {
       const formData = new FormData();

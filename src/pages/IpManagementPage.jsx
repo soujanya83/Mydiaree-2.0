@@ -44,6 +44,12 @@ const normalizeIp = (ip) => ({
 const getErrorMessage = (error, fallback) =>
   error?.response?.data?.message || error?.message || fallback;
 
+const CARD_PRIMARY_ACTION_CLASSES =
+  "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
+const CARD_PRIMARY_ACTION_STYLE = {
+  color: "var(--primary)",
+};
+
 export default function IpManagementPage() {
   const [ips, setIps] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -207,24 +213,25 @@ export default function IpManagementPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1.5">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
+                      <button
+                        type="button"
+                        className={CARD_PRIMARY_ACTION_CLASSES}
+                        style={CARD_PRIMARY_ACTION_STYLE}
                         onClick={() => openEdit(row)}
                         disabled={togglingId === row.id}
+                        title="Edit"
                       >
                         <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                      </button>
+                      <button
+                        type="button"
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
                         onClick={() => setDeleteId(row.id)}
                         disabled={togglingId === row.id}
+                        title="Delete"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </button>
                     </div>
                   </TableCell>
                 </TableRow>

@@ -10,6 +10,9 @@ import {
   DoorOpen,
   Users,
   Loader2,
+  Phone,
+  Home,
+  UserRound,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -31,11 +34,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
 import { SelectRoomModal } from "@/components/children/SelectRoomModal";
 import { AddChildModal } from "@/components/children/AddChildModal";
+import { childrenService } from "@/services/centre/childrenService";
 import { toast } from "sonner";
 
 function ageFrom(dob) {
@@ -56,6 +67,19 @@ function fmtDate(s) {
     .toUpperCase();
 }
 
+const CARD_PRIMARY_ACTION_CLASSES =
+  "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
+const CARD_PRIMARY_ACTION_STYLE = {
+  color: "var(--primary)",
+};
+
+const resolveImageUrl = (imageUrl) => {
+  if (!imageUrl) return "";
+  return imageUrl.startsWith("http") ? imageUrl : `https://mydiaree.com.au/${imageUrl}`;
+};
+
+const textOrDash = (value) => value || "—";
+
 export default function ChildrenPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
@@ -73,6 +97,9 @@ export default function ChildrenPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedChildDetails, setSelectedChildDetails] = useState(null);
+  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
 
   const currentFilters = useMemo(
     () => ({
@@ -111,6 +138,24 @@ export default function ChildrenPage() {
     setChosenRoom(room);
     setEditing(child);
     setAddOpen(true);
+  };
+
+  const handleView = async (child) => {
+    setDetailsOpen(true);
+    setSelectedChildDetails(null);
+    setIsDetailsLoading(true);
+
+    try {
+      const response = await childrenService.getChildDetails(child.id);
+      setSelectedChildDetails(response.data || response);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message || error?.message || "Failed to load child details",
+      );
+      setDetailsOpen(false);
+    } finally {
+      setIsDetailsLoading(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -251,6 +296,7 @@ export default function ChildrenPage() {
               key={child.id}
               child={child}
               rooms={rooms}
+              onView={() => handleView(child)}
               onEdit={() => handleEdit(child)}
               onDelete={() => setDeleteId(child.id)}
             />
@@ -276,6 +322,13 @@ export default function ChildrenPage() {
         initial={editing}
         onSubmit={handleSubmit}
         isSaving={isSaving}
+      />
+
+      <ChildDetailsModal
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        child={selectedChildDetails}
+        isLoading={isDetailsLoading}
       />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
@@ -308,16 +361,25 @@ export default function ChildrenPage() {
   );
 }
 
-function ChildCard({ child, rooms, onEdit, onDelete }) {
+function ChildCard({ child, rooms, onView, onEdit, onDelete }) {
   const isActive = child.status?.toLowerCase() === "active";
   const genderLabel = child.gender ? child.gender.toUpperCase() : "—";
   const roomName = rooms.find((r) => r.id == child.room)?.name || child.room || "—";
-  const imageUrl = child.imageUrl?.startsWith("http")
-    ? child.imageUrl
-    : `https://mydiaree.com.au/${child.imageUrl}`;
+  const imageUrl = resolveImageUrl(child.imageUrl);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onView}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onView();
+        }
+      }}
+      className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
+    >
       {/* 1. Image Container (Top) */}
       <div className="relative h-44 w-full shrink-0 overflow-hidden bg-muted/40">
         {child.imageUrl ? (
@@ -377,23 +439,35 @@ function ChildCard({ child, rooms, onEdit, onDelete }) {
         <div className="mt-auto flex items-center justify-end gap-1 border-t border-border/50 pt-3">
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+            onClick={(event) => {
+              event.stopPropagation();
+              onView();
+            }}
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
             title="View"
           >
             <Eye className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={onEdit}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit();
+            }}
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
             title="Edit"
           >
             <Pencil className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={onDelete}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300"
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
             title="Delete"
           >
             <Trash2 className="h-4 w-4" />
@@ -402,4 +476,151 @@ function ChildCard({ child, rooms, onEdit, onDelete }) {
       </div>
     </div>
   );
+}
+
+function ChildDetailsModal({ open, onOpenChange, child, isLoading }) {
+  const fullName = child ? `${child.name || ""} ${child.lastname || ""}`.trim() : "";
+  const imageUrl = resolveImageUrl(child?.imageUrl);
+  const isActive = child?.status?.toLowerCase() === "active";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-3xl">
+        <DialogHeader className="border-b border-border px-6 py-4">
+          <DialogTitle>Child Details</DialogTitle>
+          <DialogDescription>Complete profile information and family contacts.</DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex min-h-72 items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading child details...
+          </div>
+        ) : child ? (
+          <div className="max-h-[calc(90vh-96px)] overflow-y-auto px-6 py-5">
+            <div className="flex flex-col gap-5 sm:flex-row">
+              <div className="h-36 w-36 shrink-0 overflow-hidden rounded-lg bg-muted">
+                {imageUrl ? (
+                  <img src={imageUrl} alt={fullName} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Users className="h-10 w-10 text-muted-foreground/50" />
+                  </div>
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-2xl font-bold leading-tight text-foreground">
+                      {textOrDash(fullName)}
+                    </h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Child ID: {child.id}</p>
+                  </div>
+                  <span
+                    className={`rounded-md border px-2.5 py-1 text-xs font-semibold uppercase ${
+                      isActive
+                        ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                        : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+                    }`}
+                  >
+                    {child.status || "Inactive"}
+                  </span>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <DetailItem icon={Calendar} label="Date of Birth" value={fmtDate(child.dob)} />
+                  <DetailItem icon={Calendar} label="Start Date" value={fmtDate(child.startDate)} />
+                  <DetailItem icon={DoorOpen} label="Room" value={child.room} />
+                  <DetailItem icon={UserRound} label="Gender" value={child.gender} />
+                </div>
+              </div>
+            </div>
+
+            {(child.address || child.other_details) && (
+              <div className="mt-6 grid gap-5 lg:grid-cols-2">
+                {child.address && (
+                  <DetailSection title="Contact Details">
+                    <DetailItem icon={Home} label="Address" value={child.address} />
+                  </DetailSection>
+                )}
+
+                {child.other_details && (
+                  <DetailSection title="Other Details">
+                    <p className="text-sm leading-6 text-muted-foreground">{child.other_details}</p>
+                  </DetailSection>
+                )}
+              </div>
+            )}
+
+            {child.parents?.length ? (
+              <DetailSection title="Parents / Guardians" className="mt-5">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {child.parents.map((parent) => (
+                    <div key={parent.id} className="rounded-lg border border-border p-4">
+                      <p className="font-semibold text-foreground">{textOrDash(parent.name)}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {textOrDash(parent.relation)}
+                      </p>
+                      <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone className="h-4 w-4" />
+                        <span>{textOrDash(parent.phone)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </DetailSection>
+            ) : null}
+
+            {child.siblings?.length ? (
+              <DetailSection title="Siblings" className="mt-5">
+                <div className="flex flex-wrap gap-2">
+                  {child.siblings.map((sibling) => (
+                    <span
+                      key={sibling.id || sibling.childname || sibling.name}
+                      className="rounded-md bg-muted px-2.5 py-1 text-sm text-foreground"
+                    >
+                      {sibling.childname ||
+                        sibling.name ||
+                        `${sibling.firstname || ""} ${sibling.lastname || ""}`.trim()}
+                      {sibling.lastname ? ` ${sibling.lastname}` : ""}
+                    </span>
+                  ))}
+                </div>
+              </DetailSection>
+            ) : null}
+          </div>
+        ) : (
+          <div className="p-6 text-sm text-muted-foreground">No child details available.</div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DetailSection({ title, children, className = "" }) {
+  return (
+    <section className={`rounded-lg border border-border p-4 ${className}`}>
+      <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h4>
+      {children}
+    </section>
+  );
+}
+
+function DetailItem({ icon: Icon, label, value }) {
+  return (
+    <div className="flex gap-3 rounded-lg bg-muted/50 p-3">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+        <p className="mt-1 break-words text-sm font-medium text-foreground">{textOrDash(value)}</p>
+      </div>
+    </div>
+  );
+}
+
+function EmptyDetail({ children }) {
+  return <p className="text-sm text-muted-foreground">{children}</p>;
 }
