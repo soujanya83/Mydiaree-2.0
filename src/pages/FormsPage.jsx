@@ -326,18 +326,18 @@ export default function FormsPage() {
       {/* Filters */}
       <div className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-5 shadow-sm backdrop-blur-xl transition-shadow hover:shadow-md">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent opacity-50" />
-        <div className="relative grid gap-4 md:grid-cols-4">
-          <div className="relative">
+        <div className="relative grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="relative lg:col-span-1 sm:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
             <Input
-              placeholder="Search by child name or parent email"
+              placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="rounded-full border-border/50 bg-background/50 pl-9 transition-colors focus:bg-background"
             />
           </div>
           <Select value={sessionFilter} onValueChange={(v) => { setSessionFilter(v); setPage(1); }}>
-            <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background">
+            <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs">
               <SelectValue placeholder="All Sessions" />
             </SelectTrigger>
             <SelectContent>
@@ -350,7 +350,7 @@ export default function FormsPage() {
             </SelectContent>
           </Select>
           <Select value={kinderFilter} onValueChange={(v) => { setKinderFilter(v); setPage(1); }}>
-            <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background">
+            <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs">
               <SelectValue placeholder="All Kinder" />
             </SelectTrigger>
             <SelectContent>
@@ -362,23 +362,20 @@ export default function FormsPage() {
               ))}
             </SelectContent>
           </Select>
-          <div className="flex gap-2">
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-              className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background"
-            />
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-              className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background"
-            />
-          </div>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+            className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs"
+          />
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+            className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs"
+          />
         </div>
       </div>
-
       {/* Content */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
