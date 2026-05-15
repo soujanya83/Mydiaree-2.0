@@ -40,6 +40,8 @@ import {
 import { AddRecipeModal } from "@/components/recipes/AddRecipeModal";
 import { toast } from "sonner";
 import { useRecipeStore } from "@/stores/recipeStore";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 
 
 function formatDate(d) {
@@ -63,6 +65,8 @@ export default function RecipePage() {
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const centres = useCentreStore((s) => s.centres);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.recipe;
 
   const {
     recipesGrouped,
@@ -120,13 +124,15 @@ export default function RecipePage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              onClick={() => setModal({ open: true, initial: null })}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Recipe
-            </Button>
+            {can(perms.add) && (
+              <Button
+                onClick={() => setModal({ open: true, initial: null })}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Recipe
+              </Button>
+            )}
           </div>
         }
       />
@@ -169,6 +175,8 @@ export default function RecipePage() {
                       }}
                       onEdit={() => setModal({ open: true, initial: r })}
                       onDelete={() => setConfirmDelete(r)}
+                      canEdit={can(perms.edit)}
+                      canDelete={can(perms.delete)}
                     />
                   ))}
                 </div>
@@ -227,7 +235,7 @@ export default function RecipePage() {
   );
 }
 
-function RecipeCard({ recipe, onEdit, onDelete }) {
+function RecipeCard({ recipe, onEdit, onDelete, canEdit = true, canDelete = true }) {
   const foodLabel = FOOD_TYPES.find((f) => f.id === recipe.foodType || f.id === recipe.foodType?.toLowerCase())?.label || recipe.foodType;
   const isVeg = recipe.foodType?.toLowerCase() === "veg";
   const imageUrl = recipe.image?.startsWith("http") ? recipe.image : `https://mydiaree.com.au/${recipe.image}`;
@@ -304,23 +312,27 @@ function RecipeCard({ recipe, onEdit, onDelete }) {
               <Youtube className="h-4 w-4" />
             </a>
           )}
-          <button
-            type="button"
-            onClick={onEdit}
-            title="Edit"
-            className={CARD_PRIMARY_ACTION_CLASSES}
-            style={CARD_PRIMARY_ACTION_STYLE}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            title="Delete"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              title="Edit"
+              className={CARD_PRIMARY_ACTION_CLASSES}
+              style={CARD_PRIMARY_ACTION_STYLE}
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              title="Delete"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

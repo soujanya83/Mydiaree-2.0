@@ -23,11 +23,15 @@ import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { CreateRoomModal } from "@/components/rooms/CreateRoomModal";
 import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 
 export default function RoomsPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, isLoading, isSubmitting, fetchRooms, createRoom, bulkDeleteRooms } = useRoomStore();
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.rooms;
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -117,9 +121,11 @@ export default function RoomsPage() {
         description="Manage rooms, age groups, capacity and educators"
         breadcrumbs={[{ label: "Rooms" }]}
         actions={
-          <Button onClick={handleNew} className="gap-2">
-            <Plus className="h-4 w-4" /> Create Room
-          </Button>
+          can(perms.add) ? (
+            <Button onClick={handleNew} className="gap-2">
+              <Plus className="h-4 w-4" /> Create Room
+            </Button>
+          ) : null
         }
       />
 
@@ -158,7 +164,7 @@ export default function RoomsPage() {
             </SelectContent>
           </Select>
         </div>
-        {selected.length > 0 && (
+        {selected.length > 0 && can(perms.delete) && (
           <Button
             variant="destructive"
             onClick={handleDeleteSelected}
@@ -189,6 +195,8 @@ export default function RoomsPage() {
               onToggle={() => toggleSelect(room.id)}
               onEdit={() => handleEdit(room)}
               onDelete={() => handleDeleteOne(room.id)}
+              canEdit={can(perms.edit)}
+              canDelete={can(perms.delete)}
             />
           ))}
         </div>
@@ -216,7 +224,7 @@ export default function RoomsPage() {
   );
 }
 
-function RoomCard({ room, checked, onToggle, onEdit, onDelete }) {
+function RoomCard({ room, checked, onToggle, onEdit, onDelete, canEdit = true, canDelete = true }) {
   const isActive = room.status === "active" || room.status === "Active";
   const educators = room.educators || [];
   
@@ -253,20 +261,24 @@ function RoomCard({ room, checked, onToggle, onEdit, onDelete }) {
           </div>
         </div>
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            onClick={onEdit}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-            title="Edit"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950"
-            title="Delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {canEdit && (
+            <button
+              onClick={onEdit}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Edit"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={onDelete}
+              className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950"
+              title="Delete"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

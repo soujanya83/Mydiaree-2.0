@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { initialQips, qipCenters } from "@/components/qip/qipData";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import AddQipModal from "@/components/qip/AddQipModal";
 
 const PAGE_SIZE = 10;
@@ -32,6 +34,8 @@ export default function QipPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.qip;
 
   const filtered = useMemo(() => {
     let rows = qips.filter((q) => q.center === center);
@@ -113,12 +117,14 @@ export default function QipPage() {
         breadcrumbs={[{ label: "QIP" }]}
         actions={
           <>
-            <Button
-              onClick={openAdd}
-              className="rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" /> Add New
-            </Button>
+            {can(perms.add) && (
+              <Button
+                onClick={openAdd}
+                className="rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 text-white hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" /> Add New
+              </Button>
+            )}
             <Select value={center} onValueChange={setCenter}>
               <SelectTrigger className="h-9 min-w-[180px] rounded-full border-emerald-300 bg-card text-emerald-700">
                 <Building2 className="h-4 w-4" />
@@ -189,22 +195,26 @@ export default function QipPage() {
                       <TableCell className="font-semibold">{row.name}</TableCell>
                       <TableCell>{row.educators}</TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => openEdit(row)}
-                          className="h-8 rounded-md bg-sky-500 text-white hover:bg-sky-600"
-                        >
-                          <Pencil className="h-3.5 w-3.5" /> Edit
-                        </Button>
+                        {can(perms.edit) && (
+                          <Button
+                            size="sm"
+                            onClick={() => openEdit(row)}
+                            className="h-8 rounded-md bg-sky-500 text-white hover:bg-sky-600"
+                          >
+                            <Pencil className="h-3.5 w-3.5" /> Edit
+                          </Button>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          onClick={() => setDeleteId(row.id)}
-                          className="h-8 rounded-md bg-destructive text-destructive-foreground hover:opacity-90"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" /> Delete
-                        </Button>
+                        {can(perms.delete) && (
+                          <Button
+                            size="sm"
+                            onClick={() => setDeleteId(row.id)}
+                            className="h-8 rounded-md bg-destructive text-destructive-foreground hover:opacity-90"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

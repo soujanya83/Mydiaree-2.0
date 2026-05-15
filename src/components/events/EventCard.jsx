@@ -7,14 +7,8 @@ const CARD_PRIMARY_ACTION_CLASSES =
 const CARD_PRIMARY_ACTION_STYLE = {
   color: "var(--primary)",
 };
-+
-+const CARD_PRIMARY_ACTION_CLASSES =
-+  "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
-+const CARD_PRIMARY_ACTION_STYLE = {
-+  color: "var(--primary)",
-+};
 
-export function EventCard({ event, onView, onEdit, onDelete }) {
+export function EventCard({ event, onView, onEdit, onDelete, canEdit = true, canDelete = true }) {
   const isPdf = event.media?.type === "pdf";
   const isImage = event.media?.type === "image";
   const passed = daysSince(event.date);
@@ -25,7 +19,11 @@ export function EventCard({ event, onView, onEdit, onDelete }) {
       <div className="relative h-44 w-full shrink-0 overflow-hidden bg-muted/40">
         <button type="button" onClick={() => onView(event)} className="block h-full w-full">
           {isImage && event.media?.url ? (
-            <img src={event.media.url} alt={event.title} className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in" />
+            <img
+              src={event.media.url}
+              alt={event.title}
+              className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
+            />
           ) : isPdf ? (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-primary/60">
               <FileText className="h-10 w-10" />
@@ -39,7 +37,9 @@ export function EventCard({ event, onView, onEdit, onDelete }) {
         </button>
 
         <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/90 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-800 shadow-sm backdrop-blur-sm">
-          <div className={`h-1.5 w-1.5 rounded-full ${event.type?.toLowerCase() === 'announcement' ? 'bg-indigo-500' : 'bg-rose-500'}`} />
+          <div
+            className={`h-1.5 w-1.5 rounded-full ${event.type?.toLowerCase() === "announcement" ? "bg-indigo-500" : "bg-rose-500"}`}
+          />
           {event.type}
         </div>
       </div>
@@ -66,7 +66,7 @@ export function EventCard({ event, onView, onEdit, onDelete }) {
         <div className="mb-4 space-y-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold dark:bg-slate-800 dark:text-slate-400">
-               {(event.createdBy || "?").charAt(0)}
+              {(event.createdBy || "?").charAt(0)}
             </div>
             <p className="font-medium text-foreground line-clamp-1">
               <span className="text-muted-foreground font-normal">Created by: </span>
@@ -96,23 +96,27 @@ export function EventCard({ event, onView, onEdit, onDelete }) {
           >
             <Eye className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={() => onEdit(event)}
-            title="Edit"
-            className={CARD_PRIMARY_ACTION_CLASSES}
-            style={CARD_PRIMARY_ACTION_STYLE}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onDelete(event)}
-            title="Delete"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(event)}
+              title="Edit"
+              className={CARD_PRIMARY_ACTION_CLASSES}
+              style={CARD_PRIMARY_ACTION_STYLE}
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(event)}
+              title="Delete"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

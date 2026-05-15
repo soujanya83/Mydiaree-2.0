@@ -47,6 +47,8 @@ import { useChildrenStore } from "@/stores/childrenStore";
 import { SelectRoomModal } from "@/components/children/SelectRoomModal";
 import { AddChildModal } from "@/components/children/AddChildModal";
 import { childrenService } from "@/services/centre/childrenService";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 
 function ageFrom(dob) {
@@ -85,6 +87,8 @@ export default function ChildrenPage() {
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
   const { children, isLoading, fetchChildren, deleteChildren, addChild, updateChild } =
     useChildrenStore();
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.children;
 
   const [search, setSearch] = useState("");
   const [genderFilter, setGenderFilter] = useState("all");
@@ -214,9 +218,11 @@ export default function ChildrenPage() {
         description="Manage enrolled children profiles"
         breadcrumbs={[{ label: "Children" }]}
         actions={
-          <Button onClick={handleNewChild} className="gap-2">
-            <Plus className="h-4 w-4" /> Add New Child
-          </Button>
+          can(perms.add) ? (
+            <Button onClick={handleNewChild} className="gap-2">
+              <Plus className="h-4 w-4" /> Add New Child
+            </Button>
+          ) : null
         }
       />
 
@@ -299,6 +305,8 @@ export default function ChildrenPage() {
               onView={() => handleView(child)}
               onEdit={() => handleEdit(child)}
               onDelete={() => setDeleteId(child.id)}
+              canEdit={can(perms.edit)}
+              canDelete={false}
             />
           ))}
         </div>
@@ -361,7 +369,7 @@ export default function ChildrenPage() {
   );
 }
 
-function ChildCard({ child, rooms, onView, onEdit, onDelete }) {
+function ChildCard({ child, rooms, onView, onEdit, onDelete, canEdit = true, canDelete = true }) {
   const isActive = child.status?.toLowerCase() === "active";
   const genderLabel = child.gender ? child.gender.toUpperCase() : "—";
   const roomName = rooms.find((r) => r.id == child.room)?.name || child.room || "—";
@@ -449,29 +457,33 @@ function ChildCard({ child, rooms, onView, onEdit, onDelete }) {
           >
             <Eye className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onEdit();
-            }}
-            className={CARD_PRIMARY_ACTION_CLASSES}
-            style={CARD_PRIMARY_ACTION_STYLE}
-            title="Edit"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete();
-            }}
-            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
-            title="Delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit();
+              }}
+              className={CARD_PRIMARY_ACTION_CLASSES}
+              style={CARD_PRIMARY_ACTION_STYLE}
+              title="Edit"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete();
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
+              title="Delete"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

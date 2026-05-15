@@ -1,0 +1,44 @@
+import { Navigate } from "react-router-dom";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ROUTE_PERMISSIONS, SUPERADMIN_ONLY_ROUTES } from "@/constants/permissionMap";
+import { useAuthStore } from "@/stores/authStore";
+import AccessDeniedPage from "@/pages/AccessDeniedPage";
+
+/**
+ * ProtectedRoute — wraps a page component and checks permissions
+ * before rendering.
+ *
+ * Usage in App.jsx:
+ *   <Route path="/snapshots" element={<ProtectedRoute path="/snapshots"><SnapshotsPage /></ProtectedRoute>} />
+ *
+ * @param {string} path — The route path to check permissions against
+ * @param {React.ReactNode} children — The page component to render
+ */
+export default function ProtectedRoute({ path, children }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { canAny, isSuperadmin } = usePermissions();
+
+  // If not authenticated, redirect to login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // If route is superadmin-only, check userType
+  if (SUPERADMIN_ONLY_ROUTES.includes(path)) {
+    if (!isSuperadmin) {
+      return <AccessDeniedPage />;
+    }
+    return children;
+  }
+
+  // If route has defined permissions, check them
+  const requiredPermissions = ROUTE_PERMISSIONS[path];
+  if (requiredPermissions && requiredPermissions.length > 0) {
+    if (!canAny(requiredPermissions)) {
+      return <AccessDeniedPage />;
+    }
+  }
+
+  // No restrictions or user has permission — render the page
+  return children;
+}

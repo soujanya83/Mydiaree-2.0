@@ -27,11 +27,15 @@ import { eventTypes } from "@/components/events/eventsData";
 import { EventCard } from "@/components/events/EventCard";
 import { announcementService } from "@/services/centre/announcementService";
 import { useCentreStore } from "@/stores/centreStore";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { mapAnnouncementRecord } from "@/components/events/eventMappers";
 
 export default function EventsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.events;
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [type, setType] = useState("all");
@@ -106,10 +110,12 @@ export default function EventsPage() {
               <CalendarDays className="h-4 w-4" />
               Public Holiday
             </Button>
-            <Button onClick={() => navigate("/events/create")}>
-              <Plus className="h-4 w-4" />
-              Add New
-            </Button>
+            {can(perms.add) && (
+              <Button onClick={() => navigate("/events/create")}>
+                <Plus className="h-4 w-4" />
+                Add New
+              </Button>
+            )}
           </>
         }
       />
@@ -214,6 +220,8 @@ export default function EventsPage() {
               onView={(e) => navigate(`/events/${e.id}`)}
               onEdit={(e) => navigate(`/events/${e.id}/edit`)}
               onDelete={(e) => setDeleteId(e.id)}
+              canEdit={can(perms.edit)}
+              canDelete={can(perms.delete)}
             />
           ))}
         </div>

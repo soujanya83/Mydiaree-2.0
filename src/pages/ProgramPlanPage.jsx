@@ -47,6 +47,8 @@ import { ProgramPlanForm } from "@/components/programplan/ProgramPlanForm";
 import { ProgramPlanView } from "@/components/programplan/ProgramPlanView";
 import { MONTHS, YEARS } from "@/components/programplan/data";
 import { programPlanService } from "@/services/learning/programPlanService";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -147,6 +149,8 @@ export default function ProgramPlanPage() {
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
 
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.programPlan;
 
   const [records, setRecords] = useState([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
@@ -415,14 +419,18 @@ export default function ProgramPlanPage() {
               <Activity className="mr-1.5 h-4 w-4" />
               Activities
             </Button>
-            <Button variant="outline" onClick={() => navigate("/program-plan/recycle-bin")}>
-              <Recycle className="mr-1.5 h-4 w-4" />
-              Recycle Bin
-            </Button>
-            <Button onClick={() => setPlanModalOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add Program Plan
-            </Button>
+            {can(perms.delete) && (
+              <Button variant="outline" onClick={() => navigate("/program-plan/recycle-bin")}>
+                <Recycle className="mr-1.5 h-4 w-4" />
+                Recycle Bin
+              </Button>
+            )}
+            {can(perms.add) && (
+              <Button onClick={() => setPlanModalOpen(true)}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add Program Plan
+              </Button>
+            )}
           </div>
         }
       />
@@ -528,10 +536,12 @@ export default function ProgramPlanPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Click "Add Program Plan" to create your first plan.
           </p>
-          <Button className="mt-5" onClick={() => setPlanModalOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add Program Plan
-          </Button>
+          {can(perms.add) && (
+            <Button className="mt-5" onClick={() => setPlanModalOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Program Plan
+            </Button>
+          )}
         </div>
       ) : (
         <>
@@ -593,28 +603,32 @@ export default function ProgramPlanPage() {
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => goEdit(r.id)}
-                      title="Edit"
-                      className={CARD_PRIMARY_ACTION_CLASSES}
-                      style={CARD_PRIMARY_ACTION_STYLE}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmId(r.id)}
-                      title="Delete"
-                      disabled={isDeletingPlan}
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30 disabled:opacity-50"
-                    >
-                      {isDeletingPlan ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </button>
+                    {can(perms.edit) && (
+                      <button
+                        type="button"
+                        onClick={() => goEdit(r.id)}
+                        title="Edit"
+                        className={CARD_PRIMARY_ACTION_CLASSES}
+                        style={CARD_PRIMARY_ACTION_STYLE}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                    )}
+                    {can(perms.delete) && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmId(r.id)}
+                        title="Delete"
+                        disabled={isDeletingPlan}
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30 disabled:opacity-50"
+                      >
+                        {isDeletingPlan ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

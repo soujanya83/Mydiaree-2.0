@@ -13,6 +13,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { initialPtms, ptmCenters } from "@/components/ptm/ptmData";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import PtmDetailsModal from "@/components/ptm/PtmDetailsModal";
 
 function fmtDate(iso) {
@@ -20,7 +22,7 @@ function fmtDate(iso) {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function PtmCard({ ptm, onClick, onDelete }) {
+function PtmCard({ ptm, onClick, onDelete, canDelete = true }) {
   return (
     <div
       onClick={onClick}
@@ -47,7 +49,7 @@ function PtmCard({ ptm, onClick, onDelete }) {
           e.stopPropagation();
           onDelete();
         }}
-        className="absolute bottom-3 right-3 rounded-md p-1.5 text-muted-foreground opacity-70 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+        className={`absolute bottom-3 right-3 rounded-md p-1.5 text-muted-foreground opacity-70 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 ${!canDelete ? 'hidden' : ''}`}
         aria-label="Delete"
       >
         <Trash2 className="h-4 w-4" />
@@ -63,6 +65,8 @@ export default function PtmPage() {
   const [selected, setSelected] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.ptm;
 
   const filtered = useMemo(() => ptms.filter((p) => p.center === center), [ptms, center]);
   const upcoming = filtered.filter((p) => !p.attended);
@@ -93,9 +97,11 @@ export default function PtmPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={() => navigate("/ptm/create")}>
-              <Plus className="h-4 w-4" /> Add New PTM
-            </Button>
+            {can(perms.add) && (
+              <Button onClick={() => navigate("/ptm/create")}>
+                <Plus className="h-4 w-4" /> Add New PTM
+              </Button>
+            )}
           </>
         }
       />
@@ -115,6 +121,7 @@ export default function PtmPage() {
                 ptm={p}
                 onClick={() => { setSelected(p); setDetailsOpen(true); }}
                 onDelete={() => setDeleteId(p.id)}
+                canDelete={can(perms.delete)}
               />
             ))}
           </div>
@@ -136,6 +143,7 @@ export default function PtmPage() {
                 ptm={p}
                 onClick={() => { setSelected(p); setDetailsOpen(true); }}
                 onDelete={() => setDeleteId(p.id)}
+                canDelete={can(perms.delete)}
               />
             ))}
           </div>

@@ -27,6 +27,8 @@ import { AddMenuItemsModal } from "@/components/menu/AddMenuItemsModal";
 import { toast } from "sonner";
 import { useMenuStore } from "@/stores/menuStore";
 import { useRecipeStore } from "@/stores/recipeStore";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { recipeService } from "@/services/nutrition/recipeService";
 
 
@@ -127,6 +129,8 @@ export default function MenuPage() {
 
   const { menuData, isLoading: isMenuLoading, fetchMenu, addRecipes, deleteMenuItem } = useMenuStore();
   const { fetchRecipes, recipesGrouped } = useRecipeStore();
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.menu;
   const [allRecipes, setAllRecipes] = useState([]);
 
   const [date, setDate] = useState(todayISO());
@@ -344,14 +348,16 @@ export default function MenuPage() {
                           <span className="text-xs text-muted-foreground">
                             No menu available
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => openModal(meal.id, day.id)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
-                            aria-label="Add items"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
+                          {can(perms.add) && (
+                            <button
+                              type="button"
+                              onClick={() => openModal(meal.id, day.id)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                              aria-label="Add items"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -364,16 +370,18 @@ export default function MenuPage() {
                                 <div className="text-sm font-semibold text-foreground">
                                   {it.name}
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmDelete(it)}
-                                  className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  aria-label="Remove"
-                                >
+                                {can(perms.delete) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDelete(it)}
+                                    className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="Remove"
+                                  >
 
 
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                               </div>
                               {it.note && (
                                 <div className="mt-1 text-xs text-muted-foreground">
@@ -382,14 +390,16 @@ export default function MenuPage() {
                               )}
                             </div>
                           ))}
-                          <button
-                            type="button"
-                            onClick={() => openModal(meal.id, day.id)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
-                            aria-label="Add items"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
+                          {can(perms.add) && (
+                            <button
+                              type="button"
+                              onClick={() => openModal(meal.id, day.id)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                              aria-label="Add items"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>

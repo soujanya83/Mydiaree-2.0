@@ -1,8 +1,11 @@
+import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronDown, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navConfig } from "@/constants/nav";
 import { useUiStore } from "@/stores/uiStore";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ROUTE_PERMISSIONS, SUPERADMIN_ONLY_ROUTES } from "@/constants/permissionMap";
 
 export function Sidebar() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -13,6 +16,41 @@ export function Sidebar() {
 
   const pathname = useLocation().pathname;
   const isActive = (to) => pathname === to || pathname.startsWith(to + "/");
+
+  const { canAny, isSuperadmin } = usePermissions();
+
+  // ----- Filter nav items by permission -----
+  const filteredNav = useMemo(() => {
+    return navConfig
+      .map((group) => {
+        // Single-link group (e.g. Dashboard) — always visible
+        if (group.to && !group.items) {
+          return group;
+        }
+
+        // Group with sub-items — filter children
+        const visibleItems = (group.items || []).filter((item) => {
+          // Superadmin-only routes
+          if (SUPERADMIN_ONLY_ROUTES.includes(item.to)) {
+            return isSuperadmin;
+          }
+
+          // Check route permissions
+          const perms = ROUTE_PERMISSIONS[item.to];
+          if (!perms || perms.length === 0) {
+            // No permissions defined → always visible
+            return true;
+          }
+          return canAny(perms);
+        });
+
+        // If no visible children → hide the entire group
+        if (visibleItems.length === 0) return null;
+
+        return { ...group, items: visibleItems };
+      })
+      .filter(Boolean);
+  }, [canAny, isSuperadmin]);
 
   return (
     <>
@@ -59,7 +97,7 @@ export function Sidebar() {
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-3">
           <ul className="space-y-0.5">
-            {navConfig.map((group) => {
+            {filteredNav.map((group) => {
               const Icon = group.icon;
 
               // Single-link group (Dashboard)

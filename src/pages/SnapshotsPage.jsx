@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import {
   Building2,
   Plus,
@@ -179,6 +181,9 @@ export default function SnapshotsPage() {
     setSearch("");
   };
 
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.snapshots;
+
   return (
     <div>
       <PageHeader
@@ -191,14 +196,18 @@ export default function SnapshotsPage() {
               <Filter className="mr-1.5 h-4 w-4" />
               Filters
             </Button>
-            <Button variant="outline" onClick={() => navigate("/snapshots/recycle-bin")}>
-              <Recycle className="mr-1.5 h-4 w-4" />
-              Recycle Bin
-            </Button>
-            <Button onClick={() => setTitleModalOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add New
-            </Button>
+            {can(perms.delete) && (
+              <Button variant="outline" onClick={() => navigate("/snapshots/recycle-bin")}>
+                <Recycle className="mr-1.5 h-4 w-4" />
+                Recycle Bin
+              </Button>
+            )}
+            {can(perms.add) && (
+              <Button onClick={() => setTitleModalOpen(true)}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add New
+              </Button>
+            )}
             <Select value={activeCentreId} onValueChange={setActiveCentre}>
               <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
                 <Building2 className="mr-1.5 h-4 w-4" />
@@ -337,9 +346,11 @@ export default function SnapshotsPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Try adjusting your filters or capture a new snapshot.
           </p>
-          <Button className="mt-4" onClick={() => setTitleModalOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" /> Add New
-          </Button>
+          {can(perms.add) && (
+            <Button className="mt-4" onClick={() => setTitleModalOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add New
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -353,6 +364,8 @@ export default function SnapshotsPage() {
               onViewGallery={() => setGallerySnap(s)}
               onPrint={() => handlePrint(s.id)}
               isPrinting={isPrinting === s.id}
+              canEdit={can(perms.edit)}
+              canDelete={can(perms.delete)}
             />
           ))}
         </div>
@@ -556,7 +569,7 @@ function SnapshotGalleryModal({ snap, onClose }) {
   );
 }
 
-function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, isPrinting }) {
+function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, isPrinting, canEdit = true, canDelete = true }) {
   const images = snap.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
 
@@ -734,23 +747,27 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
           >
             <Eye className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            onClick={onEdit}
-            title="Edit"
-            className={CARD_PRIMARY_ACTION_CLASSES}
-            style={CARD_PRIMARY_ACTION_STYLE}
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            title="Delete"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              title="Edit"
+              className={CARD_PRIMARY_ACTION_CLASSES}
+              style={CARD_PRIMARY_ACTION_STYLE}
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              title="Delete"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>
