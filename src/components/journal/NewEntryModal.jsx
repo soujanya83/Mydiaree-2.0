@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Coffee,
   CupSoda,
@@ -27,6 +27,11 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useChildrenStore } from "@/stores/childrenStore";
+
+function nowHHMM() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 const ACTIVITIES = [
   { key: "breakfast", label: "Breakfast", icon: Coffee },
@@ -68,7 +73,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState([]);
   const [notes, setNotes] = useState("");
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState(() => nowHHMM());
   const [wakeTime, setWakeTime] = useState("");
   const [item, setItem] = useState("");
   const [amount, setAmount] = useState("");
@@ -104,7 +109,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
     setSearch("");
     setSelected([]);
     setNotes("");
-    setTime("");
+    setTime(nowHHMM());
     setWakeTime("");
     setItem("");
     setAmount("");
@@ -112,6 +117,12 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
     setSignature("");
     setStatus("clean");
   };
+
+  useEffect(() => {
+    if (open) {
+      setTime(nowHHMM());
+    }
+  }, [open]);
 
   const handleSave = () => {
     const payload = {

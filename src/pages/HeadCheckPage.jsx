@@ -1,17 +1,9 @@
-import { useMemo, useState } from "react";
-import {
-  Plus,
-  Printer,
-  Clock,
-  Users,
-  PenLine,
-  Trash2,
-  Save,
-  ClipboardCheck,
-} from "lucide-react";
+import { useCallback, useState } from "react";
+import { ClipboardCheck, Clock, PenLine, Plus, Printer, Save, Trash2, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -51,11 +43,10 @@ export default function HeadCheckPage() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [rows, setRows] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [printOpen, setPrintOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null); // { id, isNew }
 
-  const fetchHeadChecks = async () => {
+  const fetchHeadChecks = useCallback(async () => {
     if (!activeCentreId || !activeRoomId) return;
     setIsLoading(true);
     try {
@@ -91,15 +82,13 @@ export default function HeadCheckPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeCentreId, activeRoomId, date]);
 
   useEffect(() => {
     fetchHeadChecks();
-  }, [activeCentreId, activeRoomId, date]);
+  }, [fetchHeadChecks]);
 
   const addRow = () => setRows((p) => [...p, newRow(nowHHMM())]);
-  const removeRow = (id) =>
-    setRows((p) => (p.length === 1 ? p : p.filter((r) => r.id !== id)));
   const update = (id, patch) =>
     setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
 
@@ -114,12 +103,12 @@ export default function HeadCheckPage() {
     try {
       const fd = new FormData();
       rows.forEach((r) => {
-        // Convert "12:53" back to "12h:53m" if needed, 
-        // but user's example had 1h:54m. 
+        // Convert "12:53" back to "12h:53m" if needed,
+        // but user's example had 1h:54m.
         // Let's format it as per their example: "Hh:mm"
         const [h, m] = r.time.split(":");
         const formattedTime = `${parseInt(h, 10)}h:${m}m`;
-        
+
         fd.append("timePicker[]", formattedTime);
         fd.append("headCount[]", r.count);
         fd.append("signature[]", r.signature);
@@ -128,7 +117,7 @@ export default function HeadCheckPage() {
       fd.append("centerid", activeCentreId);
       fd.append("diarydate", date);
       // headcheck flag is optional, but common practice to set if replacing
-      // fd.append("headcheck", "1"); 
+      // fd.append("headcheck", "1");
 
       const res = await headChecksService.storeHeadChecks(fd);
       if (res.data.status) {
@@ -211,15 +200,15 @@ export default function HeadCheckPage() {
   const hasEntries = rows.length > 0;
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Head Check"
-        description="Roll-call snapshots per room"
+        description="Room safety roll-call snapshots with time, count, and staff sign-off."
         breadcrumbs={[{ label: "Head Check" }]}
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-card/80 p-2 shadow-sm">
             <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[200px]">
+              <SelectTrigger className="h-9 w-[210px] bg-background">
                 <SelectValue placeholder="Centre" />
               </SelectTrigger>
               <SelectContent>
@@ -231,7 +220,7 @@ export default function HeadCheckPage() {
               </SelectContent>
             </Select>
             <Select value={activeRoomId} onValueChange={setActiveRoom}>
-              <SelectTrigger className="h-9 w-[160px]">
+              <SelectTrigger className="h-9 w-[170px] bg-background">
                 <SelectValue placeholder="Room" />
               </SelectTrigger>
               <SelectContent>
@@ -246,104 +235,128 @@ export default function HeadCheckPage() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="h-9 w-[160px]"
+              className="h-9 w-[160px] bg-background"
             />
           </div>
         }
       />
 
-      {/* Top action bar */}
-      <div className="mb-4 flex justify-end">
-        <Button variant="outline" size="sm" onClick={handlePrint}>
-          <Printer className="mr-1.5 h-4 w-4" />
-          View / Print
-        </Button>
-      </div>
-
-      {/* Entries list */}
-      {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">Loading head checks...</div>
-      ) : !hasEntries ? (
-        <div className="rounded-2xl border-2 border-dashed border-border bg-card p-12 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <ClipboardCheck className="h-7 w-7" />
+      <section className="rounded-lg border border-border bg-card shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">Check entries</h3>
+            <p className="text-sm text-muted-foreground">Add a row for each room roll-call.</p>
           </div>
-          <h3 className="text-lg font-semibold text-foreground">No Head Checks Found</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Click the "Add New" button below to create your first head check entry.
-          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={handlePrint} disabled={isLoading}>
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+            <Button onClick={addRow} variant="outline" size="sm" disabled={isLoading}>
+              <Plus className="h-4 w-4" />
+              Add entry
+            </Button>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {rows.map((row, idx) => (
-            <div
-              key={row.id}
-              className="relative overflow-hidden rounded-2xl border-2 border-primary/30 bg-card p-5 shadow-sm transition-shadow hover:shadow-md"
-            >
-              {/* Index badge */}
-              <div className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                {idx + 1}
+
+        {isLoading ? (
+          <div className="space-y-3 p-4 sm:p-5">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="rounded-lg border border-border p-4">
+                <div className="grid gap-4 md:grid-cols-[72px_1fr_1fr_1fr_42px]">
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-12" />
+                  <Skeleton className="h-10" />
+                </div>
               </div>
-
-              <div className="grid grid-cols-1 gap-4 pr-10 md:grid-cols-3">
-                <FieldGroup icon={Clock} label="Time">
-                  <Input
-                    type="time"
-                    value={row.time}
-                    onChange={(e) => update(row.id, { time: e.target.value })}
-                    className="h-11 text-base font-semibold text-primary"
-                  />
-                </FieldGroup>
-
-                <FieldGroup icon={Users} label="Head Count">
-                  <Input
-                    type="number"
-                    min="0"
-                    value={row.count}
-                    onChange={(e) => update(row.id, { count: e.target.value })}
-                    placeholder="Enter count"
-                    className="h-11 text-base"
-                  />
-                </FieldGroup>
-
-                <FieldGroup icon={PenLine} label="Signature">
-                  <Input
-                    value={row.signature}
-                    onChange={(e) => update(row.id, { signature: e.target.value })}
-                    placeholder="Signature"
-                    className="h-11 text-base"
-                  />
-                </FieldGroup>
+            ))}
+          </div>
+        ) : !hasEntries ? (
+          <div className="p-6 sm:p-10">
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-10 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <ClipboardCheck className="h-7 w-7" />
               </div>
-
-              {/* Delete */}
-              <div className="mt-4 flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(row.id, row.isNew !== false)}
-                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <Trash2 className="mr-1.5 h-4 w-4" />
-                  Remove
-                </Button>
-              </div>
+              <h3 className="text-lg font-semibold text-foreground">No head checks yet</h3>
+              <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+                Start a room roll-call with the current time, then save once staff have signed.
+              </p>
+              <Button onClick={addRow} className="mt-5">
+                <Plus className="h-4 w-4" />
+                Add first entry
+              </Button>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {rows.map((row, idx) => (
+              <div key={row.id} className="p-4 transition-colors hover:bg-muted/25 sm:p-5">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[72px_1fr_1fr_1.1fr_42px] lg:items-end">
+                  <div className="flex items-center gap-3 lg:block">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-sm font-bold text-foreground shadow-sm">
+                      {String(idx + 1).padStart(2, "0")}
+                    </div>
+                  </div>
 
-      {/* Footer actions */}
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-border pt-6">
-        <Button onClick={addRow} className="min-w-[140px]">
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add New
-        </Button>
-        <Button onClick={handleSave} variant="secondary" className="min-w-[140px]">
-          <Save className="mr-1.5 h-4 w-4" />
-          Save
-        </Button>
-      </div>
+                  <FieldGroup icon={Clock} label="Time">
+                    <Input
+                      type="time"
+                      value={row.time}
+                      onChange={(e) => update(row.id, { time: e.target.value })}
+                      className="h-11 bg-background text-base font-semibold text-sky-700"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup icon={Users} label="Head count">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={row.count}
+                      onChange={(e) => update(row.id, { count: e.target.value })}
+                      placeholder="Enter count"
+                      className="h-11 bg-background text-base"
+                    />
+                  </FieldGroup>
+
+                  <FieldGroup icon={PenLine} label="Staff signature">
+                    <Input
+                      value={row.signature}
+                      onChange={(e) => update(row.id, { signature: e.target.value })}
+                      placeholder="Name or initials"
+                      className="h-11 bg-background text-base"
+                    />
+                  </FieldGroup>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(row.id, row.isNew !== false)}
+                    className="justify-self-start text-muted-foreground hover:bg-destructive/10 hover:text-destructive lg:justify-self-end"
+                    aria-label="Remove head check entry"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-border bg-muted/25 px-4 py-3 sm:px-5">
+          <div className="flex gap-2">
+            <Button onClick={addRow} variant="outline" size="sm" disabled={isLoading}>
+              <Plus className="h-4 w-4" />
+              Add entry
+            </Button>
+            <Button onClick={handleSave} size="sm" disabled={isLoading}>
+              <Save className="h-4 w-4" />
+              Save log
+            </Button>
+          </div>
+        </div>
+      </section>
 
       <DeleteConfirmationModal
         open={deleteModalOpen}
@@ -360,7 +373,7 @@ export default function HeadCheckPage() {
 function FieldGroup({ icon: Icon, label, children }) {
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>

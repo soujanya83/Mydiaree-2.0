@@ -19,6 +19,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+function nowHHMM() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 const activityMeta = {
   breakfast: { icon: CoffeeIcon, hint: "Meal details and family notes" },
   morning_tea: { icon: CupSodaIcon, hint: "Morning snack update" },
@@ -48,11 +53,12 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
 
   useEffect(() => {
     if (open) {
-      setTime(initial?.time || "");
+      const currentTime = nowHHMM();
+      setTime(initial?.time || currentTime);
       setItem(initial?.item || "");
       setComments(initial?.comments || "");
       setServe(String(initial?.serve ?? initial?.server ?? initial?.noOfServe ?? "1"));
-      setSleepTime(initial?.sleepTime || "");
+      setSleepTime(initial?.sleepTime || currentTime);
       setWakeTime(initial?.wakeTime || "");
       setSignature(initial?.signature || "");
       setStatus(initial?.status || "clean");
