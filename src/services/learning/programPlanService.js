@@ -116,4 +116,21 @@ export const programPlanService = {
     });
     return res.data;
   },
+
+  async getRecycleBin(centerId) {
+    const res = await api.get("/recycle/program-plans", {
+      params: { centerid: centerId },
+    });
+    return res.data;
+  },
+
+  async restoreProgramPlan(id) {
+    const res = await api.post(`/recycle/program-plans/${id}/restore`);
+    return res.data;
+  },
+
+  async permanentlyDeleteProgramPlan(id) {
+    const res = await api.delete(`/recycle/program-plans/${id}`);
+    return res.data;
+  },
 };

@@ -6,34 +6,37 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { qipCenters } from "./qipData";
+import { useCentreStore } from "@/stores/centreStore";
 
 export default function AddQipModal({ open, onOpenChange, onSubmit, initial }) {
+  const { centres, activeCentreId } = useCentreStore();
   const [name, setName] = useState("");
-  const [educators, setEducators] = useState("");
-  const [center, setCenter] = useState(qipCenters[0]);
+  const [centerId, setCenterId] = useState("");
 
   useEffect(() => {
     if (open) {
       setName(initial?.name || "");
-      setEducators(initial?.educators || "");
-      setCenter(initial?.center || qipCenters[0]);
+      setCenterId(initial?.centerId || activeCentreId || "");
     }
-  }, [open, initial]);
+  }, [open, initial, activeCentreId]);
 
   const handleSave = () => {
     if (!name.trim()) {
       toast.error("Please enter a QIP name");
       return;
     }
-    onSubmit?.({ name: name.trim(), educators: educators.trim(), center });
-    onOpenChange(false);
-    toast.success(initial ? "QIP updated" : "QIP created");
+    if (!centerId) {
+      toast.error("Please select a centre");
+      return;
+    }
+    onSubmit?.({ 
+      name: name.trim(), 
+      center_id: centerId 
+    });
   };
 
   return (
@@ -57,31 +60,30 @@ export default function AddQipModal({ open, onOpenChange, onSubmit, initial }) {
               placeholder="e.g. Create By April 2026"
             />
           </div>
+          
           <div className="space-y-1.5">
-            <Label htmlFor="qip-educators">Educators</Label>
-            <Textarea
-              id="qip-educators"
-              value={educators}
-              onChange={(e) => setEducators(e.target.value)}
-              placeholder="Educators / contributors"
-              rows={3}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Center</Label>
-            <Select value={center} onValueChange={setCenter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Label>Centre</Label>
+            <Select value={String(centerId)} onValueChange={setCenterId}>
+              <SelectTrigger><SelectValue placeholder="Select a centre" /></SelectTrigger>
               <SelectContent>
-                {qipCenters.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                {centres.map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          <div className="rounded-xl bg-muted/30 p-4 border border-dashed">
+            <p className="text-xs text-muted-foreground text-center">
+              Additional QIP sections and details can be configured after creation.
+            </p>
+          </div>
         </div>
         <DialogFooter className="bg-muted/30 px-6 py-3">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave}>{initial ? "Save Changes" : "Create QIP"}</Button>
+          <Button onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            {initial ? "Save Changes" : "Create QIP"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

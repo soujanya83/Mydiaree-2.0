@@ -1,8 +1,9 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText, Mail, Table as TableIcon, LayoutGrid,
   Users, CheckCircle2, Clock, Calendar, Search, Eye, MoreHorizontal,
+  Loader2, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +20,13 @@ import { getFormOptions } from "@/services/admin/formOptionsService";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  initialSubmissions, sessionOptions, kinderOptions, dayShort,
+  sessionOptions as mockSessionOptions, kinderOptions as mockKinderOptions, dayShort,
   formatSubmittedAt, formatDob,
 } from "@/components/forms/reEnrollmentData";
 import ReEnrollmentDetailsModal from "@/components/forms/ReEnrollmentDetailsModal";
 import SendReEnrollmentEmailModal from "@/components/forms/SendReEnrollmentEmailModal";
+import { reEnrollmentService } from "@/services/admin/reEnrollmentService";
+import { toast } from "sonner";
 
 const VIEW = { FORM: "form", TABLE: "table", CARDS: "cards" };
 
@@ -101,19 +104,19 @@ function CurrentDayChips({ days }) {
   );
 }
 
-function KinderBadge({ value }) {
-  const label = kinderOptions.find((k) => k.value === value)?.label?.replace(" at Nextgen", "") || value;
-  if (value === "Not Attending" || !value) {
+function KinderBadge({ value, meta }) {
+  const label = meta?.kinder_programs[value] || mockKinderOptions.find((k) => k.value === value)?.label?.replace(" at Nextgen", "") || value;
+  if (value === "not_attending" || value === "Not Attending" || !value) {
     return <span className="text-sm text-muted-foreground">None</span>;
   }
-  if (value === "Unfunded") {
+  if (value === "unfunded" || value === "Unfunded") {
     return (
       <Badge className="bg-warning text-warning-foreground hover:bg-warning">UNFUNDED</Badge>
     );
   }
   return (
     <Badge className="bg-success text-success-foreground hover:bg-success uppercase">
-      {value}
+      {label}
     </Badge>
   );
 }
@@ -129,17 +132,88 @@ function Avatar({ name }) {
 
 export default function FormsPage() {
   const navigate = useNavigate();
-  const [submissions] = useState(initialSubmissions);
+  const [submissions, setSubmissions] = useState([]);
   const [view, setView] = useState(VIEW.TABLE);
   const [search, setSearch] = useState("");
   const [sessionFilter, setSessionFilter] = useState("all");
   const [kinderFilter, setKinderFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [stats, setStats] = useState({ total: 0, processed: 0, pending: 0, thisWeek: 0 });
+  const [meta, setMeta] = useState(null);
+
   const [openId, setOpenId] = useState(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [formOptions, setFormOptions] = useState([]);
   const [isLoadingFormOptions, setIsLoadingFormOptions] = useState(false);
+
+  const fetchMeta = useCallback(async () => {
+    try {
+      const res = await reEnrollmentService.getMetadata();
+      if (res.status) {
+        setMeta(res.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch metadata", error);
+    }
+  }, []);
+
+  const fetchSubmissions = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await reEnrollmentService.getFilteredSubmissions({
+        search,
+        session_option: sessionFilter,
+        kinder_program: kinderFilter,
+        date_from: dateFrom,
+        date_to: dateTo,
+        page,
+      });
+      if (res.status) {
+        // Map API data to UI structure
+        const mapped = res.data.map(item => ({
+          id: item.id,
+          childName: item.child_name,
+          dob: item.child_dob,
+          parentEmail: item.parent_email,
+          currentDays: item.current_days ? item.current_days.split(",").map(d => d.trim()) : [],
+          requestedDays: item.requested_days ? item.requested_days.split(",").map(d => d.trim()) : [],
+          session: item.session_option,
+          kinder: item.kinder_program,
+          submittedAt: item.submitted_at,
+          holidayPlans: item.holiday_dates,
+          status: item.status,
+          finishingChildName: item.finishing_child_name,
+          lastDay: item.last_day,
+        }));
+        setSubmissions(mapped);
+        setStats({
+          total: res.stats.total,
+          processed: res.stats.completed,
+          pending: res.stats.pending,
+          thisWeek: res.stats.this_week
+        });
+        setPagination(res.pagination);
+      }
+    } catch (error) {
+      toast.error("Failed to fetch submissions");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [search, sessionFilter, kinderFilter, dateFrom, dateTo, page]);
+
+  useEffect(() => {
+    fetchMeta();
+  }, [fetchMeta]);
+
+  useEffect(() => {
+    fetchSubmissions();
+  }, [fetchSubmissions]);
 
   useEffect(() => {
     if (formModalOpen) {
@@ -158,31 +232,15 @@ export default function FormsPage() {
     }
   }, [formModalOpen]);
 
-  const stats = useMemo(() => {
-    const total = submissions.length;
-    const processed = submissions.filter((s) => s.status === "processed").length;
-    const pending = submissions.filter((s) => s.status !== "processed").length;
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const thisWeek = submissions.filter((s) => new Date(s.submittedAt).getTime() >= weekAgo).length;
-    return { total, processed, pending, thisWeek };
-  }, [submissions]);
-
-  const filtered = useMemo(() => {
-    return submissions.filter((s) => {
-      if (search) {
-        const q = search.toLowerCase();
-        if (!s.childName.toLowerCase().includes(q) &&
-            !s.parentEmail.toLowerCase().includes(q)) return false;
-      }
-      if (sessionFilter !== "all" && s.session !== sessionFilter) return false;
-      if (kinderFilter !== "all" && s.kinder !== kinderFilter) return false;
-      if (dateFilter) {
-        const d = new Date(s.submittedAt).toISOString().slice(0, 10);
-        if (d !== dateFilter) return false;
-      }
-      return true;
-    });
-  }, [submissions, search, sessionFilter, kinderFilter, dateFilter]);
+  const handlePrint = async (id) => {
+    try {
+      const blob = await reEnrollmentService.printSubmission(id);
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch (error) {
+      toast.error("Failed to generate PDF");
+    }
+  };
 
   const openSubmission = submissions.find((s) => s.id === openId) || null;
 
@@ -278,48 +336,112 @@ export default function FormsPage() {
               className="rounded-full border-border/50 bg-background/50 pl-9 transition-colors focus:bg-background"
             />
           </div>
-          <Select value={sessionFilter} onValueChange={setSessionFilter}>
+          <Select value={sessionFilter} onValueChange={(v) => { setSessionFilter(v); setPage(1); }}>
             <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background">
               <SelectValue placeholder="All Sessions" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sessions</SelectItem>
-              {sessionOptions.map((s) => (
+              {meta ? Object.entries(meta.session_options).map(([val, label]) => (
+                <SelectItem key={val} value={val}>{label}</SelectItem>
+              )) : mockSessionOptions.map((s) => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={kinderFilter} onValueChange={setKinderFilter}>
+          <Select value={kinderFilter} onValueChange={(v) => { setKinderFilter(v); setPage(1); }}>
             <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background">
               <SelectValue placeholder="All Kinder" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Kinder</SelectItem>
-              {kinderOptions.map((k) => (
+              {meta ? Object.entries(meta.kinder_programs).map(([val, label]) => (
+                <SelectItem key={val} value={val}>{label}</SelectItem>
+              )) : mockKinderOptions.map((k) => (
                 <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Input
-            type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background"
-          />
+          <div className="flex gap-2">
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+              className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background"
+            />
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+              className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background"
+            />
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      {view === VIEW.TABLE ? (
-        <TableView rows={filtered} onView={setOpenId} />
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Loader2 className="mb-3 h-10 w-10 animate-spin text-primary opacity-40" />
+          <h2 className="text-lg font-bold text-foreground">Loading submissions...</h2>
+        </div>
       ) : (
-        <CardsView rows={filtered} onView={setOpenId} />
+        <>
+          {view === VIEW.TABLE ? (
+            <TableView rows={submissions} onView={setOpenId} meta={meta} />
+          ) : (
+            <CardsView rows={submissions} onView={setOpenId} meta={meta} />
+          )}
+
+          {pagination && pagination.last_page > 1 && (
+            <div className="flex items-center justify-between px-2 pt-4">
+              <p className="text-sm text-muted-foreground">
+                Showing <span className="font-medium">{pagination.count}</span> of <span className="font-medium">{pagination.total}</span> results
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => setPage(p => p - 1)}
+                  className="rounded-full"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: pagination.last_page }, (_, i) => i + 1).map((p) => (
+                    <Button
+                      key={p}
+                      variant={page === p ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setPage(p)}
+                      className="h-8 w-8 rounded-full p-0"
+                    >
+                      {p}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === pagination.last_page}
+                  onClick={() => setPage(p => p + 1)}
+                  className="rounded-full"
+                >
+                  Next <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <ReEnrollmentDetailsModal
         open={!!openId}
         onOpenChange={(o) => !o && setOpenId(null)}
         submission={openSubmission}
+        onPrint={handlePrint}
+        meta={meta}
       />
 
       <SendReEnrollmentEmailModal open={emailOpen} onOpenChange={setEmailOpen} />
@@ -377,7 +499,7 @@ export default function FormsPage() {
   );
 }
 
-function TableView({ rows, onView }) {
+function TableView({ rows, onView, meta }) {
   return (
     <div className="overflow-hidden rounded-3xl border border-border/50 bg-card shadow-lg">
       <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-primary/90 to-primary/70 px-6 py-4 text-primary-foreground backdrop-blur-md">
@@ -425,10 +547,10 @@ function TableView({ rows, onView }) {
                   <TableCell><DayChips days={r.requestedDays} /></TableCell>
                   <TableCell className="text-center">
                     <span className="inline-flex items-center rounded-md bg-info/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-info">
-                      {r.session}
+                      {meta?.session_options[r.session] || r.session}
                     </span>
                   </TableCell>
-                  <TableCell className="text-center"><KinderBadge value={r.kinder} /></TableCell>
+                  <TableCell className="text-center"><KinderBadge value={r.kinder} meta={meta} /></TableCell>
                   <TableCell className="text-sm">
                     <div className="font-medium text-foreground">{submitted.date}</div>
                     <div className="text-xs text-muted-foreground">{submitted.time}</div>
@@ -463,7 +585,7 @@ function TableView({ rows, onView }) {
   );
 }
 
-function CardsView({ rows, onView }) {
+function CardsView({ rows, onView, meta }) {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {rows.map((r) => {
@@ -517,10 +639,10 @@ function CardsView({ rows, onView }) {
               </div>
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center rounded-md bg-info/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-info">
-                  {r.session}
+                  {meta?.session_options[r.session] || r.session}
                 </span>
-                {r.kinder && r.kinder !== "Not Attending" && (
-                  <span className="inline-flex items-center"><KinderBadge value={r.kinder} /></span>
+                {r.kinder && r.kinder !== "not_attending" && r.kinder !== "Not Attending" && (
+                  <span className="inline-flex items-center"><KinderBadge value={r.kinder} meta={meta} /></span>
                 )}
               </div>
               {r.holidayPlans && (

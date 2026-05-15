@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, RotateCcw, Sparkles, Trash2, UserCircle2 } from "lucide-react";
+import { ArrowLeft, Loader2, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -15,53 +15,92 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { useCentreStore } from "@/stores/centreStore";
+import { programPlanService } from "@/services/learning/programPlanService";
+import { MONTHS } from "@/components/programplan/data";
 
-const DELETED_PROGRAM_PLANS = [
-  {
-    id: "pp-101",
-    month: "May",
-    year: 2026,
-    roomName: "Kangaroo Room",
-    status: "published",
-    statusLabel: "Published",
-    createdBy: "Jacob Marsh",
-    deletedBy: "Amelia Stone",
-    deletedOn: "2026-05-09",
-  },
-  {
-    id: "pp-102",
-    month: "April",
-    year: 2026,
-    roomName: "Koala Room",
-    status: "draft",
-    statusLabel: "Draft",
-    createdBy: "Liam Carter",
-    deletedBy: "Jacob Marsh",
-    deletedOn: "2026-05-06",
-  },
-];
-
-const formatDate = (value) =>
-  new Date(value).toLocaleDateString("en-AU", {
+const formatDate = (value) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-AU", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
+};
+
+const formatTitle = (title) => {
+  if (!title) return "—";
+  const [m, y] = title.split(" ");
+  const monthName = MONTHS[parseInt(m, 10) - 1];
+  return monthName && y ? `${monthName} ${y}` : title;
+};
 
 export default function ProgramPlanRecycleBinPage() {
   const navigate = useNavigate();
-  const [items, setItems] = useState(DELETED_PROGRAM_PLANS);
+  const { activeCentreId } = useCentreStore();
+  const [items, setItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(null); // ID of item being restored
+  const [isDeleting, setIsDeleting] = useState(false);
   const [confirm, setConfirm] = useState(null);
 
-  const restoreItem = (item) => {
-    setItems((prev) => prev.filter((row) => row.id !== item.id));
-    toast.success("Program plan restored");
+  const fetchRecycleBin = useCallback(async () => {
+    if (!activeCentreId) return;
+    setIsLoading(true);
+    try {
+      const res = await programPlanService.getRecycleBin(activeCentreId);
+      if (res.success) {
+        setItems(res.data || []);
+      } else {
+        toast.error(res.message || "Failed to fetch recycle bin");
+      }
+    } catch (error) {
+      toast.error("Error loading recycle bin");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeCentreId]);
+
+  useEffect(() => {
+    fetchRecycleBin();
+  }, [fetchRecycleBin]);
+
+  const handleRestore = async (id) => {
+    setIsRestoring(id);
+    try {
+      const res = await programPlanService.restoreProgramPlan(id);
+      if (res.success) {
+        toast.success(res.message || "Program plan restored");
+        setItems((prev) => prev.filter((item) => item.id !== id));
+      } else {
+        toast.error(res.message || "Failed to restore");
+      }
+    } catch (error) {
+      toast.error("Error restoring program plan");
+    } finally {
+      setIsRestoring(null);
+    }
   };
 
-  const deleteItem = () => {
-    setItems((prev) => prev.filter((row) => row.id !== confirm.id));
-    toast.success("Program plan permanently deleted");
-    setConfirm(null);
+  const handlePermanentDelete = async () => {
+    if (!confirm) return;
+    setIsDeleting(true);
+    try {
+      const res = await programPlanService.permanentlyDeleteProgramPlan(confirm.id);
+      if (res.success) {
+        toast.success(res.message || "Program plan permanently deleted");
+        setItems((prev) => prev.filter((item) => item.id !== confirm.id));
+      } else {
+        toast.error(res.message || "Failed to delete");
+      }
+    } catch (error) {
+      toast.error("Error deleting program plan");
+    } finally {
+      setIsDeleting(false);
+      setConfirm(null);
+    }
   };
 
   return (
@@ -78,7 +117,11 @@ export default function ProgramPlanRecycleBinPage() {
         }
       />
 
-      {items.length === 0 ? (
+      {isLoading ? (
+        <div className="flex h-64 items-center justify-center rounded-2xl border border-border bg-card">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : items.length === 0 ? (
         <EmptyState label="No deleted program plans" />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -93,25 +136,25 @@ export default function ProgramPlanRecycleBinPage() {
               />
               <div className="flex items-start justify-between">
                 <h3 className="text-lg font-bold text-foreground">
-                  {item.month} {item.year}
+                  {formatTitle(item.title)}
                 </h3>
                 <span
                   className={cn(
                     "rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                    item.status === "published"
+                    item.status?.toLowerCase() === "published"
                       ? "bg-rose-500 text-white"
                       : "bg-indigo-500 text-white",
                   )}
                 >
-                  {item.statusLabel}
+                  {item.status}
                 </span>
               </div>
 
               <dl className="mt-3 space-y-1.5 text-sm">
-                <Row label="Room(s)" value={item.roomName} />
-                <Row label="Created By" value={item.createdBy} />
-                <Row label="Deleted By" value={item.deletedBy} />
-                <Row label="Deleted On" value={formatDate(item.deletedOn)} />
+                <Row label="Room(s)" value={item.rooms?.join(", ") || "—"} />
+                <Row label="Created By" value={item.creator || "—"} />
+                <Row label="Deleted By" value={item.deleted_by || "—"} />
+                <Row label="Deleted On" value={formatDate(item.deleted_at)} />
               </dl>
 
               <div className="mt-4 flex items-center gap-2">
@@ -119,12 +162,22 @@ export default function ProgramPlanRecycleBinPage() {
                   size="sm"
                   variant="outline"
                   className="text-primary hover:bg-primary/10"
-                  onClick={() => restoreItem(item)}
+                  onClick={() => handleRestore(item.id)}
+                  disabled={isRestoring === item.id}
                 >
-                  <RotateCcw className="mr-1.5 h-4 w-4" />
+                  {isRestoring === item.id ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="mr-1.5 h-4 w-4" />
+                  )}
                   Restore
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => setConfirm(item)}>
+                <Button 
+                  size="sm" 
+                  variant="destructive" 
+                  onClick={() => setConfirm(item)}
+                  disabled={isDeleting && confirm?.id === item.id}
+                >
                   <Trash2 className="mr-1.5 h-4 w-4" />
                   Delete
                 </Button>
@@ -134,12 +187,33 @@ export default function ProgramPlanRecycleBinPage() {
         </div>
       )}
 
-      <PermanentDeleteDialog
-        open={Boolean(confirm)}
-        title="Delete this program plan permanently?"
-        onClose={() => setConfirm(null)}
-        onConfirm={deleteItem}
-      />
+      <AlertDialog open={Boolean(confirm)} onOpenChange={(o) => !o && setConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this program plan permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The program plan will be permanently removed from the system.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handlePermanentDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Permanently"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -162,25 +236,5 @@ function EmptyState({ label }) {
       <h3 className="text-lg font-semibold text-foreground">{label}</h3>
       <p className="mt-1 text-sm text-muted-foreground">Deleted items will appear here.</p>
     </div>
-  );
-}
-
-function PermanentDeleteDialog({ open, title, onClose, onConfirm }) {
-  return (
-    <AlertDialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>
-            This mock action removes the item from the recycle bin. Later it can call the permanent
-            delete API.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Delete Permanently</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   );
 }

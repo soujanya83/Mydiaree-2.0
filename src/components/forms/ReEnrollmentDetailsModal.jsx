@@ -1,5 +1,6 @@
-import { Printer, X, User, Info } from "lucide-react";
+import { Printer, X, User, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -14,11 +15,12 @@ function Field({ label, value }) {
   );
 }
 
-export default function ReEnrollmentDetailsModal({ open, onOpenChange, submission }) {
+export default function ReEnrollmentDetailsModal({ open, onOpenChange, submission, onPrint, meta }) {
+  const [isPrinting, setIsPrinting] = useState(false);
   if (!submission) return null;
   const submitted = formatSubmittedAt(submission.submittedAt);
-  const sessionLabel = sessionOptions.find((s) => s.value === submission.session);
-  const kinderLabel = kinderOptions.find((k) => k.value === submission.kinder);
+  const sessionLabel = meta?.session_options[submission.session] || sessionOptions.find((s) => s.value === submission.session)?.label || submission.session;
+  const kinderLabel = meta?.kinder_programs[submission.kinder] || kinderOptions.find((k) => k.value === submission.kinder)?.label || submission.kinder;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -53,11 +55,11 @@ export default function ReEnrollmentDetailsModal({ open, onOpenChange, submissio
             <div className="grid gap-3">
               <Field
                 label="Session"
-                value={sessionLabel ? `${sessionLabel.label} (${sessionLabel.time})` : submission.session}
+                value={sessionLabel}
               />
               <Field
                 label="Kinder"
-                value={kinderLabel?.label || submission.kinder}
+                value={kinderLabel}
               />
               <Field
                 label="Submitted"
@@ -108,8 +110,25 @@ export default function ReEnrollmentDetailsModal({ open, onOpenChange, submissio
           <Button variant="outline" className="rounded-full px-6" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          <Button className="rounded-full bg-primary px-6 hover:bg-primary/90" onClick={() => window.print()}>
-            <Printer className="mr-2 h-4 w-4" /> Print Details
+          <Button 
+            className="rounded-full bg-primary px-6 hover:bg-primary/90" 
+            disabled={isPrinting}
+            onClick={async () => {
+              if (onPrint) {
+                setIsPrinting(true);
+                await onPrint(submission.id);
+                setIsPrinting(false);
+              } else {
+                window.print();
+              }
+            }}
+          >
+            {isPrinting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="mr-2 h-4 w-4" />
+            )}
+            Print Details
           </Button>
         </DialogFooter>
       </DialogContent>

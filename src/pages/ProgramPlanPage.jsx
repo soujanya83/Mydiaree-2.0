@@ -41,6 +41,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useAuthStore } from "@/stores/authStore";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { ProgramPlanForm } from "@/components/programplan/ProgramPlanForm";
@@ -144,11 +145,9 @@ export default function ProgramPlanPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const centres = useCentreStore((s) => s.centres);
-  const activeCentreId = useCentreStore((s) => s.activeCentreId);
-  const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
-
+  const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const user = useAuthStore((s) => s.user);
   const { can } = usePermissions();
   const perms = ACTION_PERMISSIONS.programPlan;
 
@@ -419,7 +418,7 @@ export default function ProgramPlanPage() {
               <Activity className="mr-1.5 h-4 w-4" />
               Activities
             </Button>
-            {can(perms.delete) && (
+            {user?.userType === "Superadmin" && (
               <Button variant="outline" onClick={() => navigate("/program-plan/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
                 Recycle Bin

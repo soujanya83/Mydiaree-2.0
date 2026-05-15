@@ -205,11 +205,14 @@ export default function ObservationDetailsPage() {
               <DetailSection title="Media Files">
                 <div className="flex flex-wrap gap-3 p-4">
                   {obs.media?.length ? (
-                    obs.media.map((m) => (
-                      <div key={m.id} className="h-28 w-40 overflow-hidden rounded-md border border-border bg-muted/20">
-                        <img src={m.mediaUrl} className="h-full w-full object-cover transition-transform hover:scale-110" alt="media" />
-                      </div>
-                    ))
+                    obs.media.map((m) => {
+                      if (!m) return null;
+                      return (
+                        <div key={m.id} className="h-28 w-40 overflow-hidden rounded-md border border-border bg-muted/20">
+                          <img src={m.mediaUrl} className="h-full w-full object-cover transition-transform hover:scale-110" alt="media" />
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="flex h-28 w-40 items-center justify-center rounded-md border border-border bg-muted/40">
                       <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
@@ -227,6 +230,7 @@ export default function ObservationDetailsPage() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {obs.child.map((item) => {
                       const c = item.child;
+                      if (!c) return null;
                       return (
                         <div key={item.id} className="flex items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-muted/30">
                           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted">
@@ -361,11 +365,14 @@ function AssessmentList({ items, empty }) {
   if (!items?.length) return <p className="p-4 text-sm text-muted-foreground">{empty}</p>;
   return (
     <div className="p-4 space-y-2">
-      {items.map((it, idx) => (
-        <div key={idx} className="rounded-md border border-border p-2 text-xs text-foreground bg-muted/10">
-          {JSON.stringify(it)}
-        </div>
-      ))}
+      {items.map((it, idx) => {
+        if (!it) return null;
+        return (
+          <div key={idx} className="rounded-md border border-border p-2 text-xs text-foreground bg-muted/10">
+            {JSON.stringify(it)}
+          </div>
+        );
+      })}
     </div>
   );
 }

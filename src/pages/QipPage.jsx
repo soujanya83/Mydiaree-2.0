@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import {
   Plus, Sparkles, Pencil, Trash2, Copy, FileText, Printer,
-  Search, ArrowUpDown, ChevronLeft, ChevronRight, Building2,
+  Search, ArrowUpDown, ChevronLeft, ChevronRight, Building2, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -18,18 +18,20 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { initialQips, qipCenters } from "@/components/qip/qipData";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useCentreStore } from "@/stores/centreStore";
+import { qipService } from "@/services/admin/qipService";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import AddQipModal from "@/components/qip/AddQipModal";
 
 const PAGE_SIZE = 10;
 
 export default function QipPage() {
-  const [qips, setQips] = useState(initialQips);
-  const [center, setCenter] = useState(qipCenters[0]);
+  const { centres, activeCentreId, setActiveCentre } = useCentreStore();
+  const [qips, setQips] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState({ key: "id", dir: "asc" });
+  const [sortBy, setSortBy] = useState({ key: "id", dir: "desc" });
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -37,22 +39,41 @@ export default function QipPage() {
   const { can } = usePermissions();
   const perms = ACTION_PERMISSIONS.qip;
 
+  const fetchQips = useCallback(async () => {
+    if (!activeCentreId) return;
+    setIsLoading(true);
+    try {
+      const res = await qipService.getQips(activeCentreId);
+      if (res.status) {
+        setQips(res.data.qips || []);
+      } else {
+        toast.error(res.message || "Failed to fetch QIPs");
+      }
+    } catch (error) {
+      toast.error("Error fetching QIPs");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeCentreId]);
+
+  useEffect(() => {
+    fetchQips();
+  }, [fetchQips]);
+
   const filtered = useMemo(() => {
-    let rows = qips.filter((q) => q.center === center);
+    let rows = [...qips];
     if (search.trim()) {
       const q = search.toLowerCase();
-      rows = rows.filter(
-        (r) => r.name.toLowerCase().includes(q) || r.educators.toLowerCase().includes(q)
-      );
+      rows = rows.filter((r) => r.name.toLowerCase().includes(q));
     }
-    rows = [...rows].sort((a, b) => {
+    rows.sort((a, b) => {
       const k = sortBy.key;
       const av = a[k], bv = b[k];
       const cmp = typeof av === "string" ? av.localeCompare(bv) : av - bv;
       return sortBy.dir === "asc" ? cmp : -cmp;
     });
     return rows;
-  }, [qips, center, search, sortBy]);
+  }, [qips, search, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -67,23 +88,55 @@ export default function QipPage() {
   const openAdd = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (row) => { setEditing(row); setModalOpen(true); };
 
-  const handleSubmit = (data) => {
-    if (editing) {
-      setQips((arr) => arr.map((q) => (q.id === editing.id ? { ...q, ...data } : q)));
-    } else {
-      setQips((arr) => [{ id: Math.max(0, ...arr.map((x) => x.id)) + 1, ...data }, ...arr]);
+  const handleSubmit = async (data) => {
+    try {
+      const payload = {
+        ...data,
+        center_id: activeCentreId,
+      };
+      let res;
+      if (editing) {
+        res = await qipService.updateQip(editing.id, payload);
+      } else {
+        res = await qipService.createQip(payload);
+      }
+
+      if (res.status) {
+        toast.success(res.message || (editing ? "QIP updated" : "QIP created"));
+        fetchQips();
+        setModalOpen(false);
+      } else {
+        toast.error(res.message || "Operation failed");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
     }
   };
 
-  const handleDelete = () => {
-    setQips((arr) => arr.filter((q) => q.id !== deleteId));
-    setDeleteId(null);
-    toast.success("QIP deleted");
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    try {
+      const res = await qipService.deleteQip(deleteId);
+      if (res.status) {
+        toast.success(res.message || "QIP deleted");
+        fetchQips();
+      } else {
+        toast.error(res.message || "Failed to delete QIP");
+      }
+    } catch (error) {
+      toast.error("Error deleting QIP");
+    } finally {
+      setDeleteId(null);
+    }
   };
 
   const exportCsv = () => {
-    const header = ["Sr. No.", "Name", "Educators", "Center"];
-    const lines = filtered.map((r, i) => [i + 1, r.name, r.educators, r.center]);
+    const header = ["Sr. No.", "Name", "Created At"];
+    const lines = filtered.map((r, i) => [
+      i + 1,
+      r.name,
+      new Date(r.created_at).toLocaleDateString(),
+    ]);
     const csv = [header, ...lines]
       .map((row) => row.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
       .join("\n");
@@ -97,7 +150,7 @@ export default function QipPage() {
 
   const copyTable = async () => {
     const text = filtered
-      .map((r, i) => `${i + 1}\t${r.name}\t${r.educators}`)
+      .map((r, i) => `${i + 1}\t${r.name}\t${new Date(r.created_at).toLocaleDateString()}`)
       .join("\n");
     try {
       await navigator.clipboard.writeText(text);
@@ -125,14 +178,14 @@ export default function QipPage() {
                 <Plus className="h-4 w-4" /> Add New
               </Button>
             )}
-            <Select value={center} onValueChange={setCenter}>
+            <Select value={activeCentreId} onValueChange={setActiveCentre}>
               <SelectTrigger className="h-9 min-w-[180px] rounded-full border-emerald-300 bg-card text-emerald-700">
                 <Building2 className="h-4 w-4" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {qipCenters.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                {centres.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -168,13 +221,22 @@ export default function QipPage() {
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <SortHead label="Sr. No." k="id" sort={sortBy} onSort={toggleSort} className="w-24" />
                 <SortHead label="Name" k="name" sort={sortBy} onSort={toggleSort} />
-                <SortHead label="Educators" k="educators" sort={sortBy} onSort={toggleSort} />
+                <SortHead label="Created At" k="created_at" sort={sortBy} onSort={toggleSort} />
                 <TableHead className="font-semibold text-foreground">Edit</TableHead>
                 <TableHead className="font-semibold text-foreground">Delete</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pageRows.length === 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
+                      <p className="text-sm">Loading QIPs...</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : pageRows.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -193,7 +255,7 @@ export default function QipPage() {
                     <TableRow key={row.id} className={cn(i % 2 === 1 && "bg-muted/20")}>
                       <TableCell className="font-medium text-muted-foreground">{sr}</TableCell>
                       <TableCell className="font-semibold">{row.name}</TableCell>
-                      <TableCell>{row.educators}</TableCell>
+                      <TableCell>{new Date(row.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         {can(perms.edit) && (
                           <Button
@@ -238,20 +300,21 @@ export default function QipPage() {
             >
               <ChevronLeft className="h-3.5 w-3.5" /> Previous
             </Button>
-            {Array.from({ length: totalPages }).map((_, i) => {
-              const n = i + 1;
-              return (
+            {totalPages <= 5 ? (
+              Array.from({ length: totalPages }).map((_, i) => (
                 <Button
-                  key={n}
+                  key={i + 1}
                   size="sm"
-                  variant={n === safePage ? "default" : "outline"}
-                  className={cn("min-w-[34px]", n === safePage && "bg-sky-500 hover:bg-sky-600")}
-                  onClick={() => setPage(n)}
+                  variant={i + 1 === safePage ? "default" : "outline"}
+                  className={cn("min-w-[34px]", i + 1 === safePage && "bg-sky-500 hover:bg-sky-600")}
+                  onClick={() => setPage(i + 1)}
                 >
-                  {n}
+                  {i + 1}
                 </Button>
-              );
-            })}
+              ))
+            ) : (
+              <span className="px-2 text-muted-foreground">Page {safePage} of {totalPages}</span>
+            )}
             <Button
               variant="outline" size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
@@ -278,7 +341,9 @@ export default function QipPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
