@@ -1,8 +1,6 @@
 import {
   Users2,
   ShieldCheck,
-  Plus,
-  CalendarDays,
   ChefHat,
   Baby,
   Building2,
@@ -17,7 +15,6 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { StatCard } from "@/components/common/StatCard";
 import { PageHeader } from "@/components/common/PageHeader";
-import { Button } from "@/components/ui/button";
 import { useCentreStore } from "@/stores/centreStore";
 import { dashboardService } from "@/services/admin/dashboardService";
 import { DashboardCalendar } from "@/components/dashboard/DashboardCalendar";
@@ -118,18 +115,6 @@ function DashboardPage() {
       <PageHeader
         title={`Welcome back${centre ? `, ${centre.name || centre.code}` : ""}`}
         description={centre ? `${centre.name} • ${centre.address}` : "Daily overview at a glance"}
-        actions={
-          <>
-            <Button variant="outline" size="sm">
-              <CalendarDays className="mr-2 h-4 w-4" />
-              Today
-            </Button>
-            <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Quick add
-            </Button>
-          </>
-        }
       />
 
       {/* Stats Grid */}

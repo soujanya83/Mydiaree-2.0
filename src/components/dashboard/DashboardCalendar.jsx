@@ -3,7 +3,13 @@ import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Clock } from "lucide-r
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { announcementService } from "@/services/centre/announcementService";
 import {
@@ -55,7 +61,7 @@ export function DashboardCalendar({ className }) {
     fetchEvents();
   }, []);
 
-  const events = eventsResponse?.events || [];
+  const events = useMemo(() => eventsResponse?.events || [], [eventsResponse]);
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentDate);
@@ -67,13 +73,15 @@ export function DashboardCalendar({ className }) {
     const days = eachDayOfInterval({ start: startDate, end: endDate });
 
     return days.map((day) => {
-      const dayEvents = events.filter((e) => {
-        if (!e.eventDate) return false;
-        return isSameDay(parseISO(e.eventDate), day);
-      }).map(e => ({
-        ...e,
-        tone: getToneForId(e.id)
-      }));
+      const dayEvents = events
+        .filter((e) => {
+          if (!e.eventDate) return false;
+          return isSameDay(parseISO(e.eventDate), day);
+        })
+        .map((e) => ({
+          ...e,
+          tone: getToneForId(e.id),
+        }));
 
       return {
         date: day,
@@ -91,9 +99,9 @@ export function DashboardCalendar({ className }) {
       .filter((e) => e.eventDate && new Date(e.eventDate) >= today)
       .sort((a, b) => new Date(a.eventDate) - new Date(b.eventDate))
       .slice(0, 5)
-      .map(e => ({
+      .map((e) => ({
         ...e,
-        tone: getToneForId(e.id)
+        tone: getToneForId(e.id),
       }));
   }, [events]);
 
@@ -109,15 +117,18 @@ export function DashboardCalendar({ className }) {
           accentTop="primary"
           className="lg:col-span-2"
           action={
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="h-7 w-7" onClick={handlePrevMonth}>
-                <ChevronLeft className="h-4 w-4" />
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="icon" className="h-11 w-11" onClick={handlePrevMonth}>
+                <ChevronLeft className="h-6 w-6" />
               </Button>
-              <Badge variant="secondary" className="text-[11px] px-3">
+              <Badge
+                variant="secondary"
+                className="min-w-[160px] justify-center px-5 py-2.5 text-xl font-bold tracking-tight"
+              >
                 {format(currentDate, "MMMM yyyy")}
               </Badge>
-              <Button variant="outline" size="icon" className="h-7 w-7" onClick={handleNextMonth}>
-                <ChevronRight className="h-4 w-4" />
+              <Button variant="outline" size="icon" className="h-11 w-11" onClick={handleNextMonth}>
+                <ChevronRight className="h-6 w-6" />
               </Button>
             </div>
           }
@@ -132,7 +143,9 @@ export function DashboardCalendar({ className }) {
             </div>
             <div className="mt-1 grid grid-cols-7 gap-1">
               {isLoading ? (
-                <div className="col-span-7 py-10 text-center text-sm text-muted-foreground">Loading calendar...</div>
+                <div className="col-span-7 py-10 text-center text-sm text-muted-foreground">
+                  Loading calendar...
+                </div>
               ) : (
                 calendarDays.map((item) => (
                   <div
@@ -161,13 +174,17 @@ export function DashboardCalendar({ className }) {
                             event.tone === "success" && "bg-success/15 text-success-foreground",
                             event.tone === "warning" && "bg-warning/15 text-warning-foreground",
                             event.tone === "info" && "bg-info/15 text-info-foreground",
-                            event.tone === "destructive" && "bg-destructive/15 text-destructive-foreground",
+                            event.tone === "destructive" &&
+                              "bg-destructive/15 text-destructive-foreground",
                             event.tone === "primary" && "bg-primary/15 text-primary",
                           )}
                           title={event.title}
                         >
                           <span
-                            className={cn("h-1.5 w-1.5 shrink-0 rounded-full", eventTone[event.tone])}
+                            className={cn(
+                              "h-1.5 w-1.5 shrink-0 rounded-full",
+                              eventTone[event.tone],
+                            )}
                           />
                           <span className="truncate font-medium">{event.title}</span>
                         </div>
@@ -180,30 +197,33 @@ export function DashboardCalendar({ className }) {
           </div>
         </SectionCard>
 
-        <SectionCard
-          title="Upcoming Events"
-          icon={Clock}
-          accentTop="info"
-        >
+        <SectionCard title="Upcoming Events" icon={Clock} accentTop="info">
           <div className="h-full flex flex-col">
             {isLoading ? (
               <p className="text-sm text-muted-foreground py-4">Loading...</p>
             ) : upcomingEvents.length > 0 ? (
               <ul className="space-y-4">
                 {upcomingEvents.map((item) => (
-                  <li 
-                    key={item.id} 
+                  <li
+                    key={item.id}
                     className="flex gap-3 cursor-pointer group"
                     onClick={() => setSelectedEvent(item)}
                   >
-                    <div className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background shadow-sm border", eventTone[item.tone].replace('bg-', 'border-') + '/30')}>
+                    <div
+                      className={cn(
+                        "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background shadow-sm border",
+                        eventTone[item.tone].replace("bg-", "border-") + "/30",
+                      )}
+                    >
                       <span className={cn("h-2.5 w-2.5 rounded-full", eventTone[item.tone])} />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">{item.title}</p>
+                      <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                        {item.title}
+                      </p>
                       <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1">
-                         <CalendarDays className="h-3 w-3" />
-                         {format(parseISO(item.eventDate), "MMM dd, yyyy")}
+                        <CalendarDays className="h-3 w-3" />
+                        {format(parseISO(item.eventDate), "MMM dd, yyyy")}
                       </p>
                     </div>
                   </li>
@@ -221,43 +241,59 @@ export function DashboardCalendar({ className }) {
           <DialogHeader className="shrink-0">
             <DialogTitle className="text-xl font-bold">{selectedEvent?.title}</DialogTitle>
             <DialogDescription className="flex items-center gap-2 pt-2 text-sm">
-               <Badge variant="outline" className="font-medium">
-                  {selectedEvent?.eventDate && format(parseISO(selectedEvent.eventDate), "MMMM do, yyyy")}
-               </Badge>
-               {selectedEvent?.status && (
-                 <Badge variant="secondary" className={cn(selectedEvent.status === 'Sent' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning')}>
-                   {selectedEvent.status}
-                 </Badge>
-               )}
+              <Badge variant="outline" className="font-medium">
+                {selectedEvent?.eventDate &&
+                  format(parseISO(selectedEvent.eventDate), "MMMM do, yyyy")}
+              </Badge>
+              {selectedEvent?.status && (
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    selectedEvent.status === "Sent"
+                      ? "bg-success/15 text-success"
+                      : "bg-warning/15 text-warning",
+                  )}
+                >
+                  {selectedEvent.status}
+                </Badge>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-2 mt-2 -mr-2">
             <div className="prose prose-sm max-w-none text-foreground/80 dark:prose-invert">
-              <div dangerouslySetInnerHTML={{ __html: selectedEvent?.text || "No description provided." }} />
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: selectedEvent?.text || "No description provided.",
+                }}
+              />
             </div>
-            {selectedEvent?.announcementMedia && selectedEvent.announcementMedia !== "[]" && selectedEvent.announcementMedia !== "" && (
-               <div className="mt-4 pb-4">
+            {selectedEvent?.announcementMedia &&
+              selectedEvent.announcementMedia !== "[]" &&
+              selectedEvent.announcementMedia !== "" && (
+                <div className="mt-4 pb-4">
                   <p className="text-sm font-semibold mb-2">Attachments</p>
                   <div className="flex flex-wrap gap-2">
-                     {(() => {
-                        try {
-                           const media = JSON.parse(selectedEvent.announcementMedia);
-                           return media.map((url, i) => (
-                              <a 
-                                 key={i} 
-                                 href={url} 
-                                 target="_blank" 
-                                 rel="noreferrer"
-                                 className="inline-flex items-center gap-1 rounded-md bg-muted px-3 py-1.5 text-xs font-medium hover:bg-muted/80 transition"
-                              >
-                                 View Attachment {i + 1}
-                              </a>
-                           ));
-                        } catch(e) { return null; }
-                     })()}
+                    {(() => {
+                      try {
+                        const media = JSON.parse(selectedEvent.announcementMedia);
+                        return media.map((url, i) => (
+                          <a
+                            key={i}
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md bg-muted px-3 py-1.5 text-xs font-medium hover:bg-muted/80 transition"
+                          >
+                            View Attachment {i + 1}
+                          </a>
+                        ));
+                      } catch (e) {
+                        return null;
+                      }
+                    })()}
                   </div>
-               </div>
-            )}
+                </div>
+              )}
           </div>
         </DialogContent>
       </Dialog>
