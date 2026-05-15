@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Baby, Plus, Search } from "lucide-react";
+import { Baby, CheckCircle2, Clock3, Plus, Search, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import dailyDiaryService from "@/services/daily-operations/dailyDiaryService";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -19,6 +19,8 @@ import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
 import { useEffect } from "react";
 
+const DAILY_DIARY_ACTIVITY_COUNT = 9;
+
 export default function DailyDiaryPage() {
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
@@ -28,8 +30,6 @@ export default function DailyDiaryPage() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
 
-  const childrenFromStore = useChildrenStore((s) => s.children);
-  const isLoadingStore = useChildrenStore((s) => s.isLoading);
   const fetchChildren = useChildrenStore((s) => s.fetchChildren);
 
   const [diaryChildren, setDiaryChildren] = useState([]);
@@ -48,6 +48,25 @@ export default function DailyDiaryPage() {
       return true;
     });
   }, [diaryChildren, search]);
+
+  const diaryStats = useMemo(() => {
+    const totalChildren = diaryChildren.length;
+    const totalExpected = totalChildren * DAILY_DIARY_ACTIVITY_COUNT;
+    const completedEntries = Object.values(entriesByChild).reduce(
+      (sum, entries) => sum + Object.keys(entries || {}).length,
+      0,
+    );
+    const completedChildren = diaryChildren.filter(
+      (child) => Object.keys(entriesByChild[child.id] || {}).length === DAILY_DIARY_ACTIVITY_COUNT,
+    ).length;
+
+    return {
+      totalChildren,
+      completedEntries,
+      pendingEntries: Math.max(totalExpected - completedEntries, 0),
+      completedChildren,
+    };
+  }, [diaryChildren, entriesByChild]);
 
   const [isFetching, setIsFetching] = useState(false);
 
@@ -252,35 +271,83 @@ export default function DailyDiaryPage() {
         }
       />
 
-      {/* Hero / quick add */}
-      <div className="mb-5 flex flex-col items-start justify-between gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-center">
-        <div className="flex items-start gap-3">
-          <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-            <Baby className="h-6 w-6" />
+      <section className="mb-6 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="flex flex-col gap-5 p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+              <Baby className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">Daily Childcare Tracking</h2>
+              <p className="text-sm text-muted-foreground">
+                A polished overview of every child's meals, sleep, care and notes.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-bold">Daily Childcare Tracking</h2>
-            <p className="text-sm text-muted-foreground">
-              Monitor and track daily activities for all children
-            </p>
+
+          <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-2xl">
+            {[
+              {
+                label: "Children",
+                value: diaryStats.totalChildren,
+                icon: UsersRound,
+                tone: "bg-info/10 text-info",
+              },
+              {
+                label: "Completed",
+                value: diaryStats.completedEntries,
+                icon: CheckCircle2,
+                tone: "bg-success/10 text-success",
+              },
+              {
+                label: "Pending",
+                value: diaryStats.pendingEntries,
+                icon: Clock3,
+                tone: "bg-warning/10 text-warning",
+              },
+              {
+                label: "Full Diaries",
+                value: diaryStats.completedChildren,
+                icon: Baby,
+                tone: "bg-primary/10 text-primary",
+              },
+            ].map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div key={stat.label} className="rounded-xl border border-border bg-background p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                      {stat.label}
+                    </span>
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${stat.tone}`}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
+                  </div>
+                  <p className="text-2xl font-bold leading-none text-foreground">{stat.value}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add Entry
-        </Button>
-      </div>
 
-      {/* Search */}
-      <div className="relative mb-5 max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search children…"
-          className="h-10 pl-9"
-        />
-      </div>
+        <div className="flex flex-col gap-3 border-t border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search children..."
+              className="h-10 bg-background pl-9"
+            />
+          </div>
+          <Button className="h-10 shrink-0" onClick={() => setModalOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add Entry
+          </Button>
+        </div>
+      </section>
 
       {isFetching ? (
         <div className="py-20 text-center text-muted-foreground">Loading data...</div>
@@ -289,7 +356,7 @@ export default function DailyDiaryPage() {
           No children found in this room.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">
           {visibleChildren.map((c) => (
             <ChildDiaryCard
               key={c.id}
