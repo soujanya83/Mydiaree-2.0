@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ChevronRight, Plus, PlusCircle, Building2, DoorOpen, ArrowLeft, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { ChevronRight, Plus, PlusCircle, Building2, DoorOpen, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/select";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
-import { OBSERVATION_TREE, slugify } from "@/components/observation/data";
+import { observationService } from "@/services/learning/observationService";
 import { AddActivityModal } from "@/components/observation/AddActivityModal";
 import { AddSubActivityModal } from "@/components/observation/AddSubActivityModal";
+import { toast } from "sonner";
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
@@ -22,58 +23,133 @@ export default function ObservationActivityPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
 
-  const [tree, setTree] = useState(OBSERVATION_TREE);
+  // Data state
+  const [subjects, setSubjects] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [subActivities, setSubActivities] = useState([]);
+  
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
+  const [loadingActivities, setLoadingActivities] = useState(false);
+  const [loadingSubActivities, setLoadingSubActivities] = useState(false);
 
   // Drill-down state
-  const [subjectKey, setSubjectKey] = useState(null);
-  const [activityKey, setActivityKey] = useState(null);
+  const [selectedSubjectId, setSelectedSubjectId] = useState(null);
+  const [selectedActivityId, setSelectedActivityId] = useState(null);
 
   // Modals
   const [addActivityOpen, setAddActivityOpen] = useState(false);
   const [addSubActivityOpen, setAddSubActivityOpen] = useState(false);
 
+  // Fetch subjects on mount
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      setLoadingSubjects(true);
+      try {
+        const response = await observationService.getSubjects();
+        if (response.status) {
+          setSubjects(response.data);
+        } else {
+          toast.error(response.message || "Failed to fetch subjects");
+        }
+      } catch (error) {
+        toast.error("Error fetching subjects");
+      } finally {
+        setLoadingSubjects(false);
+      }
+    };
+    fetchSubjects();
+  }, []);
+
+  // Fetch activities when subject changes
+  useEffect(() => {
+    if (!selectedSubjectId) {
+      setActivities([]);
+      return;
+    }
+
+    const fetchActivities = async () => {
+      setLoadingActivities(true);
+      try {
+        const response = await observationService.getActivitiesBySubject(selectedSubjectId);
+        if (response.status) {
+          setActivities(response.data);
+        } else {
+          toast.error(response.message || "Failed to fetch activities");
+        }
+      } catch (error) {
+        toast.error("Error fetching activities");
+      } finally {
+        setLoadingActivities(false);
+      }
+    };
+    fetchActivities();
+  }, [selectedSubjectId]);
+
+  // Fetch sub-activities when activity changes
+  useEffect(() => {
+    if (!selectedActivityId) {
+      setSubActivities([]);
+      return;
+    }
+
+    const fetchSubActivities = async () => {
+      setLoadingSubActivities(true);
+      try {
+        const response = await observationService.getSubactivities(selectedActivityId);
+        if (response.status) {
+          setSubActivities(response.data);
+        } else {
+          toast.error(response.message || "Failed to fetch sub-activities");
+        }
+      } catch (error) {
+        toast.error("Error fetching sub-activities");
+      } finally {
+        setLoadingSubActivities(false);
+      }
+    };
+    fetchSubActivities();
+  }, [selectedActivityId]);
+
   const breadcrumbs = useMemo(() => {
     const crumbs = [
       { label: "Observation", to: "/observation" },
-      { label: "Activities", to: subjectKey ? "/observation/activity" : null },
+      { label: "Activities", to: selectedSubjectId ? "/observation/activity" : null },
     ];
-    if (subjectKey) {
+    
+    if (selectedSubjectId) {
+      const subject = subjects.find(s => s.idSubject === selectedSubjectId);
       crumbs.push({
-        label: tree[subjectKey].label,
+        label: subject ? subject.name : "Subject",
         to: null,
+        onClick: () => {
+          setSelectedSubjectId(selectedSubjectId);
+          setSelectedActivityId(null);
+        }
       });
     }
-    if (activityKey && subjectKey) {
+    
+    if (selectedActivityId) {
+      const activity = activities.find(a => a.idActivity === selectedActivityId);
       crumbs.push({
-        label: tree[subjectKey].activities[activityKey].label,
+        label: activity ? activity.title : "Activity",
+        to: null
       });
     }
     return crumbs;
-  }, [subjectKey, activityKey, tree]);
+  }, [selectedSubjectId, selectedActivityId, subjects, activities]);
 
   const handleAddActivity = ({ subject, title }) => {
-    setTree((prev) => {
-      const next = { ...prev };
-      const subj = { ...next[subject] };
-      const key = slugify(title) || `act-${Date.now()}`;
-      subj.activities = { ...subj.activities, [key]: { label: title, subActivities: [] } };
-      next[subject] = subj;
-      return next;
-    });
+    // For now, just a placeholder as we don't have the save API integrated yet
+    toast.success(`Activity "${title}" added to subject ID ${subject}`);
     setAddActivityOpen(false);
+    // Ideally refetch activities if selectedSubjectId === subject
   };
 
   const handleAddSubActivity = ({ subject, activity, title }) => {
-    setTree((prev) => {
-      const next = { ...prev };
-      const subj = { ...next[subject] };
-      const act = { ...subj.activities[activity] };
-      act.subActivities = [...act.subActivities, title];
-      subj.activities = { ...subj.activities, [activity]: act };
-      next[subject] = subj;
-      return next;
-    });
+    // For now, just a placeholder
+    toast.success(`Sub-activity "${title}" added to activity ID ${activity}`);
     setAddSubActivityOpen(false);
+    // Ideally refetch sub-activities if selectedActivityId === activity
   };
 
   // ===== Render helpers =====
@@ -96,60 +172,67 @@ export default function ObservationActivityPage() {
 
   const SubjectGrid = () => (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      {Object.entries(tree).map(([key, subject]) => (
-        <Tile key={key} label={subject.label} onClick={() => { setSubjectKey(key); setActivityKey(null); }} />
-      ))}
+      {loadingSubjects ? (
+        <div className="col-span-full flex h-32 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        subjects.map((subject) => (
+          <Tile key={subject.idSubject} label={subject.name} onClick={() => { setSelectedSubjectId(subject.idSubject); setSelectedActivityId(null); }} />
+        ))
+      )}
     </div>
   );
 
-  const ActivityGrid = () => {
-    const subject = tree[subjectKey];
-    const entries = Object.entries(subject.activities);
-    return (
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => setSubjectKey(null)}>
-            <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to subjects
-          </Button>
-          <span className="text-sm text-muted-foreground">{entries.length} activities</span>
-        </div>
-        {entries.length === 0 ? (
-          <EmptyBlock label="No activities yet — add one to get started." />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {entries.map(([key, a]) => (
-              <Tile key={key} label={a.label} onClick={() => setActivityKey(key)} />
-            ))}
-          </div>
-        )}
+  const ActivityGrid = () => (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <Button variant="ghost" size="sm" onClick={() => setSelectedSubjectId(null)}>
+          <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to subjects
+        </Button>
+        <span className="text-sm text-muted-foreground">{activities.length} activities</span>
       </div>
-    );
-  };
+      {loadingActivities ? (
+        <div className="flex h-32 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : activities.length === 0 ? (
+        <EmptyBlock label="No activities yet — add one to get started." />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {activities.map((a) => (
+            <Tile key={a.idActivity} label={a.title} onClick={() => setSelectedActivityId(a.idActivity)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
-  const SubActivityGrid = () => {
-    const activity = tree[subjectKey].activities[activityKey];
-    return (
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => setActivityKey(null)}>
-            <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to activities
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {activity.subActivities.length} sub-activities
-          </span>
-        </div>
-        {activity.subActivities.length === 0 ? (
-          <EmptyBlock label="No sub-activities yet — add one using the button above." />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {activity.subActivities.map((label) => (
-              <Tile key={label} label={label} accent="success" onClick={() => {}} />
-            ))}
-          </div>
-        )}
+  const SubActivityGrid = () => (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <Button variant="ghost" size="sm" onClick={() => setSelectedActivityId(null)}>
+          <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to activities
+        </Button>
+        <span className="text-sm text-muted-foreground">
+          {subActivities.length} sub-activities
+        </span>
       </div>
-    );
-  };
+      {loadingSubActivities ? (
+        <div className="flex h-32 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : subActivities.length === 0 ? (
+        <EmptyBlock label="No sub-activities yet — add one using the button above." />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {subActivities.map((sub) => (
+            <Tile key={sub.idSubActivity} label={sub.title} accent="success" onClick={() => {}} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   const EmptyBlock = ({ label }) => (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
@@ -203,21 +286,23 @@ export default function ObservationActivityPage() {
       </div>
 
       {/* Body */}
-      {!subjectKey && <SubjectGrid />}
-      {subjectKey && !activityKey && <ActivityGrid />}
-      {subjectKey && activityKey && <SubActivityGrid />}
+      {!selectedSubjectId && <SubjectGrid />}
+      {selectedSubjectId && !selectedActivityId && <ActivityGrid />}
+      {selectedSubjectId && selectedActivityId && <SubActivityGrid />}
 
       <AddActivityModal
         open={addActivityOpen}
-        defaultSubject={subjectKey || ""}
+        subjects={subjects}
+        defaultSubjectId={selectedSubjectId}
         onClose={() => setAddActivityOpen(false)}
         onSave={handleAddActivity}
       />
       <AddSubActivityModal
         open={addSubActivityOpen}
-        tree={tree}
-        defaultSubject={subjectKey || ""}
-        defaultActivity={activityKey || ""}
+        subjects={subjects}
+        activities={activities}
+        defaultSubjectId={selectedSubjectId}
+        defaultActivityId={selectedActivityId}
         onClose={() => setAddSubActivityOpen(false)}
         onSave={handleAddSubActivity}
       />

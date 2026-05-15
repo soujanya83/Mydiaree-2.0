@@ -157,7 +157,7 @@ export function ProgramPlanForm({
         return;
       }
       try {
-        const response = await childrenService.filterChildren({ room: data.roomId });
+        const response = await childrenService.filterChildren({ room: data.roomId, center_id: data.centreId });
         setAvailableChildren(response.children || response.data || []);
       } catch (error) {
         console.error("Failed to load program plan children:", error);

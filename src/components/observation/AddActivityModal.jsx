@@ -9,22 +9,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { OBSERVATION_TREE } from "./data";
 
-export function AddActivityModal({ open, onClose, onSave, defaultSubject }) {
-  const [subject, setSubject] = useState(defaultSubject || "");
+export function AddActivityModal({ open, onClose, onSave, subjects = [], defaultSubjectId }) {
+  const [subjectId, setSubjectId] = useState(defaultSubjectId || "");
   const [title, setTitle] = useState("");
 
   useEffect(() => {
     if (open) {
-      setSubject(defaultSubject || "");
+      setSubjectId(defaultSubjectId || "");
       setTitle("");
     }
-  }, [open, defaultSubject]);
+  }, [open, defaultSubjectId]);
 
   if (!open) return null;
 
-  const canSave = subject && title.trim();
+  const canSave = subjectId && title.trim();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
@@ -41,11 +40,11 @@ export function AddActivityModal({ open, onClose, onSave, defaultSubject }) {
             <label className="mb-1.5 block text-sm font-semibold text-foreground">
               Montessori Subject
             </label>
-            <Select value={subject} onValueChange={setSubject}>
+            <Select value={String(subjectId)} onValueChange={(v) => setSubjectId(Number(v))}>
               <SelectTrigger><SelectValue placeholder="Select a subject" /></SelectTrigger>
               <SelectContent>
-                {Object.entries(OBSERVATION_TREE).map(([key, s]) => (
-                  <SelectItem key={key} value={key}>{s.label}</SelectItem>
+                {subjects.map((s) => (
+                  <SelectItem key={s.idSubject} value={String(s.idSubject)}>{s.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -59,7 +58,7 @@ export function AddActivityModal({ open, onClose, onSave, defaultSubject }) {
 
         <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button disabled={!canSave} onClick={() => onSave({ subject, title: title.trim() })}>
+          <Button disabled={!canSave} onClick={() => onSave({ subject: subjectId, title: title.trim() })}>
             Save Activity
           </Button>
         </div>

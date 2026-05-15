@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,27 +10,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export function AddSubActivityModal({ open, onClose, onSave, tree, defaultSubject, defaultActivity }) {
-  const [subject, setSubject] = useState(defaultSubject || "");
-  const [activity, setActivity] = useState(defaultActivity || "");
+export function AddSubActivityModal({
+  open,
+  onClose,
+  onSave,
+  subjects = [],
+  activities = [],
+  defaultSubjectId,
+  defaultActivityId,
+}) {
+  const [subjectId, setSubjectId] = useState(defaultSubjectId || "");
+  const [activityId, setActivityId] = useState(defaultActivityId || "");
   const [title, setTitle] = useState("");
 
   useEffect(() => {
     if (open) {
-      setSubject(defaultSubject || "");
-      setActivity(defaultActivity || "");
+      setSubjectId(defaultSubjectId || "");
+      setActivityId(defaultActivityId || "");
       setTitle("");
     }
-  }, [open, defaultSubject, defaultActivity]);
-
-  const activities = useMemo(() => {
-    if (!subject || !tree[subject]) return [];
-    return Object.entries(tree[subject].activities);
-  }, [subject, tree]);
+  }, [open, defaultSubjectId, defaultActivityId]);
 
   if (!open) return null;
 
-  const canSave = subject && activity && title.trim();
+  const canSave = subjectId && activityId && title.trim();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
@@ -46,13 +49,16 @@ export function AddSubActivityModal({ open, onClose, onSave, tree, defaultSubjec
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-foreground">Montessori Subject</label>
             <Select
-              value={subject}
-              onValueChange={(v) => { setSubject(v); setActivity(""); }}
+              value={String(subjectId)}
+              onValueChange={(v) => {
+                setSubjectId(Number(v));
+                setActivityId("");
+              }}
             >
               <SelectTrigger><SelectValue placeholder="Select a subject" /></SelectTrigger>
               <SelectContent>
-                {Object.entries(tree).map(([key, s]) => (
-                  <SelectItem key={key} value={key}>{s.label}</SelectItem>
+                {subjects.map((s) => (
+                  <SelectItem key={s.idSubject} value={String(s.idSubject)}>{s.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -60,13 +66,17 @@ export function AddSubActivityModal({ open, onClose, onSave, tree, defaultSubjec
 
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-foreground">Activity</label>
-            <Select value={activity} onValueChange={setActivity} disabled={!subject}>
+            <Select
+              value={String(activityId)}
+              onValueChange={(v) => setActivityId(Number(v))}
+              disabled={!subjectId}
+            >
               <SelectTrigger>
-                <SelectValue placeholder={subject ? "Select an activity" : "Select a subject first"} />
+                <SelectValue placeholder={subjectId ? "Select an activity" : "Select a subject first"} />
               </SelectTrigger>
               <SelectContent>
-                {activities.map(([key, a]) => (
-                  <SelectItem key={key} value={key}>{a.label}</SelectItem>
+                {activities.map((a) => (
+                  <SelectItem key={a.idActivity} value={String(a.idActivity)}>{a.title}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -80,7 +90,7 @@ export function AddSubActivityModal({ open, onClose, onSave, tree, defaultSubjec
 
         <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">
           <Button variant="outline" onClick={onClose}>Close</Button>
-          <Button disabled={!canSave} onClick={() => onSave({ subject, activity, title: title.trim() })}>
+          <Button disabled={!canSave} onClick={() => onSave({ subject: subjectId, activity: activityId, title: title.trim() })}>
             Save Sub-Activity
           </Button>
         </div>

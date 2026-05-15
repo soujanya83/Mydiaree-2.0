@@ -137,7 +137,7 @@ export default function DailyReflectionCreatePage() {
       setIsChildrenLoading(true);
       try {
         const results = await Promise.all(
-          rooms.map((roomId) => childrenService.filterChildren({ room: roomId })),
+          rooms.map((roomId) => childrenService.filterChildren({ room: roomId, center_id: activeCentreId })),
         );
         const merged = results.flatMap((res) => res.children || res.data || []);
         const unique = Array.from(new Map(merged.map((c) => [c.id, c])).values());
