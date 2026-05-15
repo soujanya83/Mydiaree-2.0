@@ -22,7 +22,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
   const [time, setTime] = useState("");
   const [item, setItem] = useState("");
   const [comments, setComments] = useState("");
-  const [server, setServer] = useState("1");
+  const [serve, setServe] = useState("1");
   const [sleepTime, setSleepTime] = useState("");
   const [wakeTime, setWakeTime] = useState("");
   const [signature, setSignature] = useState("");
@@ -35,7 +35,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
       setTime(initial?.time || "");
       setItem(initial?.item || "");
       setComments(initial?.comments || "");
-      setServer(initial?.server || initial?.noOfServe || "1");
+      setServe(String(initial?.serve ?? initial?.server ?? initial?.noOfServe ?? "1"));
       setSleepTime(initial?.sleepTime || "");
       setWakeTime(initial?.wakeTime || "");
       setSignature(initial?.signature || "");
@@ -61,7 +61,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
     }
 
     if (key === "lunch") {
-      payload.server = server;
+      payload.serve = serve;
     }
 
     if (["sunscreen", "toileting"].includes(key)) {
@@ -118,8 +118,8 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
 
           {key === "lunch" && (
             <div className="space-y-1.5">
-              <Label>No of Serve (Server)</Label>
-              <Select value={server} onValueChange={setServer}>
+              <Label>No of Serve</Label>
+              <Select value={serve} onValueChange={setServe}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select serving size" />
                 </SelectTrigger>

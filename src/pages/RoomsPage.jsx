@@ -1,14 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
-import {
-  Plus,
-  Search,
-  Trash2,
-  Pencil,
-  Users2,
-  Baby,
-  GraduationCap,
-  DoorOpen,
-} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Search, Trash2, Pencil, Users2, Baby, GraduationCap, DoorOpen } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,8 +20,10 @@ import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 
 export default function RoomsPage() {
+  const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const { rooms, isLoading, isSubmitting, fetchRooms, createRoom, bulkDeleteRooms } = useRoomStore();
+  const { rooms, isLoading, isSubmitting, fetchRooms, createRoom, bulkDeleteRooms } =
+    useRoomStore();
   const { can } = usePermissions();
   const perms = ACTION_PERMISSIONS.rooms;
 
@@ -38,7 +32,7 @@ export default function RoomsPage() {
   const [selected, setSelected] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  
+
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState({ open: false, ids: [] });
 
@@ -52,9 +46,9 @@ export default function RoomsPage() {
   const filtered = useMemo(() => {
     return rooms.filter((r) => {
       if (String(r.centerid) !== String(activeCentreId)) return false;
-      if (statusFilter !== "all" && r.status.toLowerCase() !== statusFilter.toLowerCase()) return false;
-      if (search && !r.name.toLowerCase().includes(search.toLowerCase()))
+      if (statusFilter !== "all" && r.status.toLowerCase() !== statusFilter.toLowerCase())
         return false;
+      if (search && !r.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
   }, [rooms, activeCentreId, statusFilter, search]);
@@ -74,8 +68,10 @@ export default function RoomsPage() {
   const confirmDelete = async () => {
     try {
       await bulkDeleteRooms(deleteModal.ids, activeCentreId);
-      setSelected((prev) => prev.filter(id => !deleteModal.ids.includes(id)));
-      toast.success(deleteModal.ids.length > 1 ? "Rooms deleted successfully" : "Room deleted successfully");
+      setSelected((prev) => prev.filter((id) => !deleteModal.ids.includes(id)));
+      toast.success(
+        deleteModal.ids.length > 1 ? "Rooms deleted successfully" : "Room deleted successfully",
+      );
       setDeleteModal({ open: false, ids: [] });
     } catch (error) {
       toast.error(error.message || "Failed to delete room(s)");
@@ -99,7 +95,7 @@ export default function RoomsPage() {
       } else {
         await createRoom({
           ...data,
-          centerId: activeCentreId
+          centerId: activeCentreId,
         });
         toast.success("Room created successfully");
       }
@@ -165,11 +161,7 @@ export default function RoomsPage() {
           </Select>
         </div>
         {selected.length > 0 && can(perms.delete) && (
-          <Button
-            variant="destructive"
-            onClick={handleDeleteSelected}
-            className="gap-2"
-          >
+          <Button variant="destructive" onClick={handleDeleteSelected} className="gap-2">
             <Trash2 className="h-4 w-4" />
             Delete Selected ({selected.length})
           </Button>
@@ -193,6 +185,7 @@ export default function RoomsPage() {
               room={room}
               checked={selected.includes(room.id)}
               onToggle={() => toggleSelect(room.id)}
+              onOpen={() => navigate(`/rooms/${room.id}`)}
               onEdit={() => handleEdit(room)}
               onDelete={() => handleDeleteOne(room.id)}
               canEdit={can(perms.edit)}
@@ -217,31 +210,50 @@ export default function RoomsPage() {
         onClose={() => setDeleteModal({ open: false, ids: [] })}
         onConfirm={confirmDelete}
         isLoading={isSubmitting}
-        title={deleteModal.ids.length > 1 ? `Delete ${deleteModal.ids.length} rooms?` : "Delete this room?"}
+        title={
+          deleteModal.ids.length > 1
+            ? `Delete ${deleteModal.ids.length} rooms?`
+            : "Delete this room?"
+        }
         description="This action will remove the selected room(s) and cannot be undone."
       />
     </div>
   );
 }
 
-function RoomCard({ room, checked, onToggle, onEdit, onDelete, canEdit = true, canDelete = true }) {
+function RoomCard({
+  room,
+  checked,
+  onToggle,
+  onOpen,
+  onEdit,
+  onDelete,
+  canEdit = true,
+  canDelete = true,
+}) {
   const isActive = room.status === "active" || room.status === "Active";
   const educators = room.educators || [];
-  
+
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen();
+      }}
+      className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+    >
       {room.color && (
-        <div 
-          className="absolute left-0 top-0 h-1 w-full" 
-          style={{ backgroundColor: room.color }}
-        />
+        <div className="absolute left-0 top-0 h-1 w-full" style={{ backgroundColor: room.color }} />
       )}
-      
+
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <input
             type="checkbox"
             checked={checked}
+            onClick={(e) => e.stopPropagation()}
             onChange={onToggle}
             className="mt-1 h-4 w-4 accent-primary"
           />
@@ -263,7 +275,10 @@ function RoomCard({ room, checked, onToggle, onEdit, onDelete, canEdit = true, c
         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           {canEdit && (
             <button
-              onClick={onEdit}
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               title="Edit"
             >
@@ -272,7 +287,10 @@ function RoomCard({ room, checked, onToggle, onEdit, onDelete, canEdit = true, c
           )}
           {canDelete && (
             <button
-              onClick={onDelete}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
               className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950"
               title="Delete"
             >
@@ -306,15 +324,21 @@ function RoomCard({ room, checked, onToggle, onEdit, onDelete, canEdit = true, c
             {educators.length === 0 ? (
               <span className="text-xs text-muted-foreground">—</span>
             ) : (
-              educators.slice(0, 5).map((ed) => (
-                <img
-                  key={ed.userid || Math.random()}
-                  src={ed.imageUrl ? `https://mydiaree.com.au/${ed.imageUrl}` : `https://ui-avatars.com/api/?name=${ed.name}`}
-                  alt={ed.name}
-                  title={ed.name}
-                  className="h-7 w-7 rounded-full border-2 border-card object-cover bg-muted"
-                />
-              ))
+              educators
+                .slice(0, 5)
+                .map((ed) => (
+                  <img
+                    key={ed.userid || Math.random()}
+                    src={
+                      ed.imageUrl
+                        ? `https://mydiaree.com.au/${ed.imageUrl}`
+                        : `https://ui-avatars.com/api/?name=${ed.name}`
+                    }
+                    alt={ed.name}
+                    title={ed.name}
+                    className="h-7 w-7 rounded-full border-2 border-card object-cover bg-muted"
+                  />
+                ))
             )}
             {educators.length > 5 && (
               <span className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-muted text-xs font-medium">

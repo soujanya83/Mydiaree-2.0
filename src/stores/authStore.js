@@ -50,6 +50,11 @@ export const useAuthStore = create((set, get) => ({
     set({ user, token, isAuthenticated: true });
   },
 
+  updateUser: (user) => {
+    localStorage.setItem("user", JSON.stringify(user));
+    set({ user });
+  },
+
   /**
    * Re-fetch the current user's permissions (e.g. after centre switch).
    */

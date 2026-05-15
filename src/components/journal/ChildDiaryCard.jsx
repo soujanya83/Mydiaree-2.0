@@ -171,7 +171,9 @@ function ActivitySection({ def, entry, onSave }) {
                 {def.key === "lunch" && (
                   <p>
                     <span className="font-semibold text-foreground">No of Serve: </span>
-                    <span className="text-muted-foreground">{entry?.noOfServe || "No Update"}</span>
+                    <span className="text-muted-foreground">
+                      {entry?.serve ?? entry?.server ?? entry?.noOfServe ?? "No Update"}
+                    </span>
                   </p>
                 )}
 

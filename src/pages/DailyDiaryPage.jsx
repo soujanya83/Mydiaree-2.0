@@ -98,7 +98,10 @@ export default function DailyDiaryPage() {
             }
 
             if (key === "lunch") {
-              res.server = a.serve || "1";
+              const serve = a.serve ?? a.server ?? a.noOfServe;
+              if (serve !== undefined && serve !== null && serve !== "") {
+                res.serve = String(serve);
+              }
             }
 
             if (a.signature) res.signature = a.signature;
@@ -167,6 +170,12 @@ export default function DailyDiaryPage() {
         apiPayload.wake_time = payload.wakeTime;
         delete apiPayload.sleepTime;
         delete apiPayload.wakeTime;
+      }
+
+      if (activityKey === "lunch") {
+        apiPayload.serve = payload.serve ?? payload.server ?? payload.noOfServe;
+        delete apiPayload.server;
+        delete apiPayload.noOfServe;
       }
 
       // Omit optional fields if empty
@@ -313,6 +322,12 @@ export default function DailyDiaryPage() {
               data.wake_time = payload.wakeTime;
               delete data.time;
               delete data.wakeTime;
+            }
+
+            if (activity === "lunch") {
+              data.serve = payload.serve ?? payload.server ?? payload.noOfServe;
+              delete data.server;
+              delete data.noOfServe;
             }
 
             // Omit optional fields if empty

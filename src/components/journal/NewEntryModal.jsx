@@ -52,7 +52,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
   const [wakeTime, setWakeTime] = useState("");
   const [item, setItem] = useState("");
   const [amount, setAmount] = useState("");
-  const [server, setServer] = useState("1");
+  const [serve, setServe] = useState("1");
   const [signature, setSignature] = useState("");
   const [status, setStatus] = useState("clean");
 
@@ -88,7 +88,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
     setWakeTime("");
     setItem("");
     setAmount("");
-    setServer("1");
+    setServe("1");
     setSignature("");
     setStatus("clean");
   };
@@ -101,7 +101,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
       time,
       wakeTime,
       amount,
-      server,
+      serve,
       signature,
       notes,
     };
@@ -315,16 +315,16 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
 
                 {activity === "lunch" && (
                   <div className="space-y-1.5">
-                    <Label>No of Serve (Server)</Label>
+                    <Label>No of Serve</Label>
                     <div className="flex flex-wrap gap-2">
                       {[1, 2, 3, 4, 5].map((val) => (
                         <button
                           key={val}
                           type="button"
-                          onClick={() => setServer(String(val))}
+                          onClick={() => setServe(String(val))}
                           className={cn(
                             "rounded-full border px-4 py-1.5 text-xs font-medium transition",
-                            server === String(val)
+                            serve === String(val)
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
                           )}

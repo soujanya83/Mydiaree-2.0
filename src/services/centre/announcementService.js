@@ -8,6 +8,11 @@ export const announcementService = {
     return res.data;
   },
 
+  async getEvents() {
+    const res = await api.get("/announcements/events");
+    return res.data;
+  },
+
   async saveAnnouncement(formData) {
     const res = await api.post("/announcements/store", formData, {
       headers: {

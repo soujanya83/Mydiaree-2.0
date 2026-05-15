@@ -54,4 +54,37 @@ export const roomService = {
     });
     return res.data;
   },
+
+  /**
+   * Move selected children into another room.
+   * POST /move-children  body (formData):
+   *   room_id, child_ids[]
+   */
+  async moveChildren({ roomId, childIds }) {
+    const formData = new FormData();
+    formData.append("room_id", String(roomId));
+    childIds.forEach((id) => formData.append("child_ids[]", String(id)));
+
+    const res = await api.post("/move-children", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
+
+  /**
+   * Replace educators assigned to a room.
+   * POST /rooms/manage-educators  body (formData):
+   *   center_id, room_id, educators[]
+   */
+  async manageEducators({ centerId, roomId, educatorIds }) {
+    const formData = new FormData();
+    formData.append("center_id", String(centerId));
+    formData.append("room_id", String(roomId));
+    educatorIds.forEach((id) => formData.append("educators[]", String(id)));
+
+    const res = await api.post("/rooms/manage-educators", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
 };

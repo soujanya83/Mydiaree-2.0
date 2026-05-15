@@ -12,5 +12,5 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <App />
       </BrowserRouter>
     </ErrorBoundary>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

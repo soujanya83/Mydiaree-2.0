@@ -95,6 +95,7 @@ export function Header() {
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate("/my-profile")}>My Profile</DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/settings")}>Settings</DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/style-guide")}>
               Style Guide

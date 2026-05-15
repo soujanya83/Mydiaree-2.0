@@ -6,6 +6,7 @@ import ProtectedRoute from "@/components/common/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import DashboardPage from "@/pages/DashboardPage";
+import MyProfilePage from "@/pages/MyProfilePage";
 import AccidentFormPage from "@/pages/AccidentFormPage";
 import ChildrenPage from "@/pages/ChildrenPage";
 import DailyDiaryPage from "@/pages/DailyDiaryPage";
@@ -40,6 +41,7 @@ import PtmPage from "@/pages/PtmPage";
 import PtmDetailsPage from "@/pages/PtmDetailsPage";
 import PtmCreatePage from "@/pages/PtmCreatePage";
 import RecipePage from "@/pages/RecipePage";
+import RoomDetailsPage from "@/pages/RoomDetailsPage";
 import RoomsPage from "@/pages/RoomsPage";
 import ServiceDetailsPage from "@/pages/ServiceDetailsPage";
 import SettingsPage from "@/pages/SettingsPage";
@@ -65,6 +67,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           {/* Dashboard — always accessible */}
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/my-profile" element={<ProtectedRoute path="/my-profile"><MyProfilePage /></ProtectedRoute>} />
 
           {/* Daily Operations */}
           <Route path="/daily-diary" element={<ProtectedRoute path="/daily-diary"><DailyDiaryPage /></ProtectedRoute>} />
@@ -95,6 +98,7 @@ export default function App() {
 
           {/* Centre Management */}
           <Route path="/rooms" element={<ProtectedRoute path="/rooms"><RoomsPage /></ProtectedRoute>} />
+          <Route path="/rooms/:roomId" element={<ProtectedRoute path="/rooms"><RoomDetailsPage /></ProtectedRoute>} />
           <Route path="/children" element={<ProtectedRoute path="/children"><ChildrenPage /></ProtectedRoute>} />
           <Route path="/events" element={<ProtectedRoute path="/events"><EventsPage /></ProtectedRoute>} />
           <Route path="/events/create" element={<ProtectedRoute path="/events"><EventCreatePage /></ProtectedRoute>} />
