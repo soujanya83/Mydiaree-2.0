@@ -319,171 +319,179 @@ export default function PermissionsPage() {
 
       {/* Toolbar */}
       <div className="mb-6 rounded-2xl border bg-card p-4 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Select value={activeCentreId} onValueChange={setActiveCentre}>
-            <SelectTrigger className="w-full sm:w-72 bg-background border-muted-foreground/20">
-              <SelectValue placeholder="Select Center" />
-            </SelectTrigger>
-            <SelectContent>
-              {centres.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,680px)_1fr] xl:items-start">
+          <div>
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <Select value={activeCentreId} onValueChange={setActiveCentre}>
+                <SelectTrigger className="w-full border-muted-foreground/20 bg-background sm:w-72">
+                  <SelectValue placeholder="Select Center" />
+                </SelectTrigger>
+                <SelectContent>
+                  {centres.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="border-muted-foreground/20">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-                {isFetchingRoles || isFetchingRoleDetails
-                  ? "Loading Roles"
-                  : selectedRole?.name || "Select Role"}
-                <ChevronDown className="ml-auto h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[200px]">
-              {roles.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                  No roles found
-                </div>
-              ) : (
-                roles.map((r) => (
-                  <DropdownMenuItem key={r.id} onSelect={() => applyRole(r)}>
-                    {r.name}
-                  </DropdownMenuItem>
-                ))
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {selectedRole && (
-            <div className="flex h-10 items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 text-sm animate-in fade-in slide-in-from-left-2">
-              <Shield className="h-3.5 w-3.5 text-primary" />
-              <span className="font-medium text-primary">{selectedRole.name}</span>
-              <button
-                type="button"
-                onClick={clearSelectedRole}
-                className="ml-1 rounded-full p-1 text-muted-foreground hover:bg-primary/10 hover:text-destructive"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-10 min-w-[200px] justify-between border-muted-foreground/20 px-3 font-medium"
-              >
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary" />
-                  {selectedUsers.length === 0 ? (
-                    <span className="text-muted-foreground">Select users...</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="border-muted-foreground/20">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    {isFetchingRoles || isFetchingRoleDetails
+                      ? "Loading Roles"
+                      : selectedRole?.name || "Select Role"}
+                    <ChevronDown className="ml-auto h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[200px]">
+                  {roles.length === 0 ? (
+                    <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                      No roles found
+                    </div>
                   ) : (
-                    <span>{selectedUsers.length} users selected</span>
+                    roles.map((r) => (
+                      <DropdownMenuItem key={r.id} onSelect={() => applyRole(r)}>
+                        {r.name}
+                      </DropdownMenuItem>
+                    ))
                   )}
-                </div>
-                <ChevronDown className="h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[300px]">
-              {isStaffLoading ? (
-                <div className="px-3 py-6 text-center text-xs text-muted-foreground italic">
-                  <div className="mb-2 h-4 w-4 animate-spin mx-auto rounded-full border-2 border-primary border-t-transparent" />
-                  Loading staff members...
-                </div>
-              ) : (
-                <>
-                  {/* Selected Users Section */}
-                  {selectedUsers.length > 0 && (
-                    <div className="p-2 border-b">
-                      <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary/70">
-                        Selected ({selectedUsers.length})
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-1.5 px-1">
-                        {selectedUsers.map((u) => (
-                          <div
-                            key={u.id}
-                            className="flex items-center gap-1.5 rounded-full bg-primary/10 pl-2.5 pr-1.5 py-1 text-xs font-semibold text-primary"
-                          >
-                            {u.name}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                removeUser(u.id);
-                              }}
-                              className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-                  {/* Available Users Section */}
-                  <div className="max-h-[250px] overflow-y-auto p-1">
-                    <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
-                      Available Staff
-                    </div>
-                    {availableUsers.length === 0 ? (
-                      <div className="px-3 py-4 text-center text-xs text-muted-foreground italic">
-                        No more users available
-                      </div>
-                    ) : (
-                      availableUsers.map((u) => (
-                        <DropdownMenuItem
-                          key={u.id}
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            addUser(u);
-                          }}
-                          className="flex items-center justify-between gap-3 rounded-lg py-2 cursor-pointer"
-                        >
-                          <div className="flex flex-col">
-                            <span className="font-medium">{u.name}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase">
-                              {u.userType || u.role}
-                            </span>
-                          </div>
-                          <Plus className="h-4 w-4 text-muted-foreground/40" />
-                        </DropdownMenuItem>
-                      ))
-                    )}
-                  </div>
-                </>
+              {selectedRole && (
+                <div className="flex h-10 animate-in items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 text-sm fade-in slide-in-from-left-2">
+                  <Shield className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-medium text-primary">{selectedRole.name}</span>
+                  <button
+                    type="button"
+                    onClick={clearSelectedRole}
+                    className="ml-1 rounded-full p-1 text-muted-foreground hover:bg-primary/10 hover:text-destructive"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={selectAll}
-              className="h-9 px-3 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/5"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Select All
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/permissions/assigned")}
-              className="h-9 px-3 text-xs font-bold uppercase tracking-wider hover:bg-muted/50"
-            >
-              <Users className="h-3.5 w-3.5" />
-              Assigned List
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-10 min-w-[200px] justify-between border-muted-foreground/20 px-3 font-medium"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-primary" />
+                      {selectedUsers.length === 0 ? (
+                        <span className="text-muted-foreground">Select users...</span>
+                      ) : (
+                        <span>{selectedUsers.length} users selected</span>
+                      )}
+                    </div>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-[300px]">
+                  {isStaffLoading ? (
+                    <div className="px-3 py-6 text-center text-xs italic text-muted-foreground">
+                      <div className="mx-auto mb-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      Loading staff members...
+                    </div>
+                  ) : (
+                    <>
+                      {selectedUsers.length > 0 && (
+                        <div className="border-b p-2">
+                          <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-primary/70">
+                            Selected ({selectedUsers.length})
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-1.5 px-1">
+                            {selectedUsers.map((u) => (
+                              <div
+                                key={u.id}
+                                className="flex items-center gap-1.5 rounded-full bg-primary/10 py-1 pl-2.5 pr-1.5 text-xs font-semibold text-primary"
+                              >
+                                {u.name}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    removeUser(u.id);
+                                  }}
+                                  className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="max-h-[250px] overflow-y-auto p-1">
+                        <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+                          Available Staff
+                        </div>
+                        {availableUsers.length === 0 ? (
+                          <div className="px-3 py-4 text-center text-xs italic text-muted-foreground">
+                            No more users available
+                          </div>
+                        ) : (
+                          availableUsers.map((u) => (
+                            <DropdownMenuItem
+                              key={u.id}
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                addUser(u);
+                              }}
+                              className="flex cursor-pointer items-center justify-between gap-3 rounded-lg py-2"
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{u.name}</span>
+                                <span className="text-[10px] uppercase text-muted-foreground">
+                                  {u.userType || u.role}
+                                </span>
+                              </div>
+                              <Plus className="h-4 w-4 text-muted-foreground/40" />
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAll}
+                  className="h-9 px-3 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/5"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Select All
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate("/permissions/assigned")}
+                  className="h-9 px-3 text-xs font-bold uppercase tracking-wider hover:bg-muted/50"
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  Assigned List
+                </Button>
+              </div>
+            </div>
           </div>
+
+          <SelectedUsersInline
+            selectedUsers={selectedUsers}
+            selectedKeys={selectedKeys}
+            onRemoveUser={removeUser}
+          />
         </div>
       </div>
 
@@ -526,6 +534,73 @@ export default function PermissionsPage() {
           {selectedRole ? "Save Changes" : "Assign Now"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function userInitials(user) {
+  return (user?.name || "User")
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+function SelectedUsersInline({ selectedUsers, selectedKeys, onRemoveUser }) {
+  const visibleUsers = selectedUsers.slice(0, 5);
+  const hiddenCount = Math.max(selectedUsers.length - visibleUsers.length, 0);
+
+  return (
+    <div className="min-h-24 rounded-xl border border-dashed border-border bg-muted/15 p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Users className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              Selected staff
+            </p>
+            <p className="text-sm font-semibold text-foreground">
+              {selectedUsers.length} users, {selectedKeys.length} permissions
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {selectedUsers.length === 0 ? (
+        <div className="flex h-11 items-center rounded-lg bg-background px-3 text-sm text-muted-foreground">
+          Selected users will appear here.
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {visibleUsers.map((user) => (
+            <div
+              key={user.id}
+              className="flex max-w-[190px] items-center gap-2 rounded-full border bg-background py-1.5 pl-1.5 pr-2 text-sm shadow-sm"
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                {userInitials(user)}
+              </span>
+              <span className="truncate font-medium text-foreground">{user.name}</span>
+              <button
+                type="button"
+                onClick={() => onRemoveUser(user.id)}
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label={`Remove ${user.name}`}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+          {hiddenCount > 0 && (
+            <div className="flex h-10 items-center rounded-full border bg-background px-3 text-sm font-semibold text-muted-foreground">
+              +{hiddenCount} more
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
