@@ -89,9 +89,15 @@ export default function DailyDiaryPage() {
 
         rawChildren.forEach((item) => {
           const c = item.child;
+          const baseName = (c.first_name || c.name || "").trim();
+          const familyName = (c.last_name || c.lastname || "").trim();
+          const fullName =
+            familyName && !baseName.toLowerCase().endsWith(familyName.toLowerCase())
+              ? `${baseName} ${familyName}`.trim()
+              : baseName || familyName || "Child";
           extracted.push({
             ...c,
-            name: `${c.first_name || ""} ${c.last_name || ""}`.trim() || c.name || "Child",
+            name: fullName,
           });
           const cid = c.id;
           const entries = {};

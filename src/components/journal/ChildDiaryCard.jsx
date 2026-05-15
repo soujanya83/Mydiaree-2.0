@@ -170,6 +170,18 @@ function ActivityTile({ def, entry, onSave }) {
   );
 }
 
+function formatDob(dob) {
+  if (!dob) return "Not added";
+  const parsed = new Date(dob);
+  if (Number.isNaN(parsed.getTime())) return dob;
+
+  return parsed.toLocaleDateString("en-AU", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
   const initials = (child.name || "Child")
     .split(" ")
@@ -196,7 +208,7 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
             </Avatar>
             <div className="min-w-0">
               <h3 className="truncate text-base font-bold text-foreground">{child.name}</h3>
-              <p className="text-xs text-muted-foreground">Age: {child.age || "Not added"}</p>
+              <p className="text-xs text-muted-foreground">DOB: {formatDob(child.dob)}</p>
               <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                 <CalendarDays className="h-3.5 w-3.5" />
                 {new Date(date).toLocaleDateString("en-AU", {

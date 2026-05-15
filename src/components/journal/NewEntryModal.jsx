@@ -40,6 +40,26 @@ const ACTIVITIES = [
   { key: "bottle", label: "Bottle", icon: Milk },
 ];
 
+function childDisplayName(child) {
+  const baseName = (child.first_name || child.name || "").trim();
+  const familyName = (child.last_name || child.lastname || "").trim();
+
+  if (familyName && !baseName.toLowerCase().endsWith(familyName.toLowerCase())) {
+    return `${baseName} ${familyName}`.trim();
+  }
+
+  return baseName || familyName || "Child";
+}
+
+function childInitials(child) {
+  return (childDisplayName(child) || "Child")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 export function NewEntryModal({ open, onOpenChange, onSubmit, children: childrenProp }) {
   const storeChildren = useChildrenStore((s) => s.children);
   const children = childrenProp || storeChildren;
@@ -62,7 +82,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
   const filteredChildren = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return children;
-    return children.filter((c) => c.name.toLowerCase().includes(q));
+    return children.filter((c) => childDisplayName(c).toLowerCase().includes(q));
   }, [search, children]);
 
   const allSelected =
@@ -130,30 +150,31 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl gap-0 overflow-hidden p-0">
+      <DialogContent className="max-w-6xl gap-0 overflow-hidden p-0">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 bg-gradient-to-r from-primary to-primary/80 px-6 py-4 pr-12 text-primary-foreground">
+        <div className="flex items-start justify-between gap-4 border-b border-border bg-card px-6 py-5 pr-12">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-white/15 p-2">
+            <div className="rounded-xl bg-primary/10 p-3 text-primary">
               <ClipboardEdit className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Add New Activity Entry</h2>
-              <p className="text-xs text-primary-foreground/80">
-                Log a moment from today's routine
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Daily Diary</p>
+              <h2 className="text-xl font-bold text-foreground">Add Activity Entry</h2>
+              <p className="text-sm text-muted-foreground">
+                Log one activity for one or more children.
               </p>
             </div>
           </div>
         </div>
 
-        <div className="grid max-h-[75vh] grid-cols-1 md:grid-cols-[220px_1fr]">
+        <div className="grid max-h-[75vh] grid-cols-1 bg-muted/20 md:grid-cols-[260px_1fr]">
           {/* Sidebar */}
-          <aside className="border-b border-border bg-muted/30 p-4 md:border-b-0 md:border-r">
+          <aside className="border-b border-border bg-card p-4 md:border-b-0 md:border-r">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Select Activity
+              Activity Type
             </p>
             <ScrollArea className="md:h-[60vh]">
-              <div className="flex flex-row gap-1 md:flex-col">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
                 {ACTIVITIES.map((a) => {
                   const ItemIcon = a.icon;
                   const active = a.key === activity;
@@ -162,14 +183,14 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                       key={a.key}
                       onClick={() => setActivity(a.key)}
                       className={cn(
-                        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                        "flex min-h-12 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all",
                         active
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-foreground/70 hover:bg-card hover:text-foreground",
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-background text-foreground/75 hover:border-primary/40 hover:text-primary",
                       )}
                     >
                       <ItemIcon className="h-4 w-4" />
-                      {a.label}
+                      <span className="truncate">{a.label}</span>
                     </button>
                   );
                 })}
@@ -180,20 +201,25 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
           {/* Main content */}
           <ScrollArea className="md:h-[75vh]">
             <div className="space-y-6 p-6">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-primary/10 p-2.5 text-primary">
-                  <Icon className="h-5 w-5" />
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-xl bg-primary/10 p-3 text-primary">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">
+                      Add {current.label} Entry
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Details adapt to the selected activity.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-semibold">Add {current.label} Entry</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Fill in details below — fields adapt to activity type.
-                  </p>
-                </div>
+                <Badge variant="secondary">{selected.length} selected</Badge>
               </div>
 
               {/* General Info */}
-              <section className="space-y-3">
+              <section className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <CalendarDays className="h-4 w-4 text-primary" />
                   <h4>General Information</h4>
@@ -210,7 +236,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                       <Input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search children…"
+                        placeholder="Search children..."
                         className="pl-9"
                       />
                     </div>
@@ -228,56 +254,53 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {filteredChildren.map((c) => {
-                    const isSel = selected.includes(c.id);
-                    const initials = (c.name || "CH")
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                      .slice(0, 2);
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => toggleChild(c.id)}
-                        className={cn(
-                          "flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all",
-                          isSel
-                            ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                            : "border-border bg-card hover:border-primary/50",
-                        )}
-                      >
-                        <Avatar className="h-9 w-9">
-                          <AvatarFallback className="bg-primary/10 text-xs text-primary">
-                            {initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{c.name}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {c.room || "Room"}
-                          </p>
-                        </div>
-                        {isSel && (
-                          <div className="rounded-full bg-primary p-1 text-primary-foreground">
-                            <Check className="h-3 w-3" />
+                <ScrollArea className="h-[250px] rounded-xl border border-border bg-muted/20 p-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {filteredChildren.map((c) => {
+                      const isSel = selected.includes(c.id);
+                      const displayName = childDisplayName(c) || "Child";
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => toggleChild(c.id)}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all",
+                            isSel
+                              ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                              : "border-border bg-card hover:border-primary/50",
+                          )}
+                        >
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback className="bg-primary/10 text-xs text-primary">
+                              {childInitials(c)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{displayName}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {c.room || "Room"}
+                            </p>
                           </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                  {filteredChildren.length === 0 && (
-                    <div className="col-span-full rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                      No children match "{search}".
-                    </div>
-                  )}
-                </div>
+                          {isSel && (
+                            <div className="rounded-full bg-primary p-1 text-primary-foreground">
+                              <Check className="h-3 w-3" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                    {filteredChildren.length === 0 && (
+                      <div className="col-span-full rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                        No children match "{search}".
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
               </section>
 
               {/* Activity Details */}
-              <section className="space-y-3">
+              <section className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   <ClipboardEdit className="h-4 w-4 text-primary" />
                   <h4>Activity Details</h4>
@@ -403,7 +426,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                     rows={3}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Anything to share with families…"
+                    placeholder="Anything to share with families..."
                   />
                 </div>
               </section>
@@ -415,7 +438,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                     if (!c) return null;
                     return (
                       <Badge key={id} variant="secondary">
-                        {c.name}
+                        {childDisplayName(c)}
                       </Badge>
                     );
                   })}
@@ -429,7 +452,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border bg-muted/30 px-6 py-3">
+        <div className="flex items-center justify-between border-t border-border bg-card px-6 py-4">
           <p className="text-xs text-muted-foreground">
             {selected.length === 0
               ? "Select at least one child to continue."
