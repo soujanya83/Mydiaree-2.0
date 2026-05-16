@@ -1,21 +1,47 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import {
-  Plus, Sparkles, Pencil, Trash2, Copy, FileText, Printer,
-  Search, ArrowUpDown, ChevronLeft, ChevronRight, Building2, Loader2,
+  Plus,
+  Sparkles,
+  Pencil,
+  Trash2,
+  Copy,
+  FileText,
+  Printer,
+  Search,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
 } from "@/components/ui/table";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -23,6 +49,7 @@ import { useCentreStore } from "@/stores/centreStore";
 import { qipService } from "@/services/admin/qipService";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import AddQipModal from "@/components/qip/AddQipModal";
+import { Pagination } from "@/components/common/Pagination";
 
 const PAGE_SIZE = 10;
 
@@ -68,7 +95,8 @@ export default function QipPage() {
     }
     rows.sort((a, b) => {
       const k = sortBy.key;
-      const av = a[k], bv = b[k];
+      const av = a[k],
+        bv = b[k];
       const cmp = typeof av === "string" ? av.localeCompare(bv) : av - bv;
       return sortBy.dir === "asc" ? cmp : -cmp;
     });
@@ -81,12 +109,18 @@ export default function QipPage() {
 
   const toggleSort = (key) => {
     setSortBy((s) =>
-      s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }
+      s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" },
     );
   };
 
-  const openAdd = () => { setEditing(null); setModalOpen(true); };
-  const openEdit = (row) => { setEditing(row); setModalOpen(true); };
+  const openAdd = () => {
+    setEditing(null);
+    setModalOpen(true);
+  };
+  const openEdit = (row) => {
+    setEditing(row);
+    setModalOpen(true);
+  };
 
   const handleSubmit = async (data) => {
     try {
@@ -143,7 +177,9 @@ export default function QipPage() {
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "qip-list.csv"; a.click();
+    a.href = url;
+    a.download = "qip-list.csv";
+    a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV downloaded");
   };
@@ -186,7 +222,9 @@ export default function QipPage() {
               </SelectTrigger>
               <SelectContent className="rounded-xl border-border/60 backdrop-blur">
                 {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -201,31 +239,60 @@ export default function QipPage() {
         {/* Toolbar */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/50 bg-muted/20 px-6 py-4">
           <div className="flex items-center gap-2">
-            <ToolbarButton icon={Copy} onClick={copyTable}>Copy</ToolbarButton>
-            <ToolbarButton icon={FileText} onClick={exportCsv}>CSV Export</ToolbarButton>
-            <ToolbarButton icon={Printer} onClick={printTable}>Print</ToolbarButton>
+            <ToolbarButton icon={Copy} onClick={copyTable}>
+              Copy
+            </ToolbarButton>
+            <ToolbarButton icon={FileText} onClick={exportCsv}>
+              CSV Export
+            </ToolbarButton>
+            <ToolbarButton icon={Printer} onClick={printTable}>
+              Print
+            </ToolbarButton>
           </div>
           <div className="flex items-center gap-4">
             <div className="relative group/search">
               <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground group-focus-within/search:text-primary transition-colors" />
               <Input
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 className="h-10 w-64 pl-10 rounded-xl bg-background/50 border-border/60 focus-visible:ring-primary/20 transition-all font-medium"
                 placeholder="Search QIP by name..."
               />
             </div>
           </div>
-        </div>v>
+        </div>
 
         <div className="overflow-x-auto custom-scrollbar">
           <Table>
             <TableHeader>
               <TableRow className="border-b border-border/50 bg-muted/30 hover:bg-muted/30 transition-none">
-                <SortHead label="Sr. No." k="id" sort={sortBy} onSort={toggleSort} className="w-24 px-6 h-12 text-[11px] font-bold uppercase tracking-wider opacity-70" />
-                <SortHead label="QIP Name" k="name" sort={sortBy} onSort={toggleSort} className="px-6 h-12 text-[11px] font-bold uppercase tracking-wider opacity-70" />
-                <SortHead label="Date Created" k="created_at" sort={sortBy} onSort={toggleSort} className="px-6 h-12 text-[11px] font-bold uppercase tracking-wider opacity-70" />
-                <TableHead className="px-6 h-12 text-[11px] font-bold uppercase tracking-wider opacity-70 text-right">Actions</TableHead>
+                <SortHead
+                  label="Sr. No."
+                  k="id"
+                  sort={sortBy}
+                  onSort={toggleSort}
+                  className="w-24 px-6 h-12 text-[11px] font-bold uppercase tracking-wider opacity-70"
+                />
+                <SortHead
+                  label="QIP Name"
+                  k="name"
+                  sort={sortBy}
+                  onSort={toggleSort}
+                  className="px-6 h-12 text-[11px] font-bold uppercase tracking-wider opacity-70"
+                />
+                <SortHead
+                  label="Date Created"
+                  k="created_at"
+                  sort={sortBy}
+                  onSort={toggleSort}
+                  className="px-6 h-12 text-[11px] font-bold uppercase tracking-wider opacity-70"
+                />
+                <TableHead className="px-6 h-12 text-[11px] font-bold uppercase tracking-wider opacity-70 text-right">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -237,7 +304,9 @@ export default function QipPage() {
                         <div className="absolute -inset-2 rounded-full bg-primary/20 blur-lg animate-pulse" />
                         <Loader2 className="relative h-10 w-10 animate-spin text-primary" />
                       </div>
-                      <p className="text-sm font-bold tracking-wide uppercase opacity-70">Fetching QIP data...</p>
+                      <p className="text-sm font-bold tracking-wide uppercase opacity-70">
+                        Fetching QIP data...
+                      </p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -249,10 +318,17 @@ export default function QipPage() {
                         <Sparkles className="h-8 w-8" />
                       </div>
                       <div>
-                        <p className="text-lg font-bold tracking-tight text-foreground">No QIPs Found</p>
-                        <p className="text-sm font-medium mt-1">Start by creating your first quality improvement plan.</p>
+                        <p className="text-lg font-bold tracking-tight text-foreground">
+                          No QIPs Found
+                        </p>
+                        <p className="text-sm font-medium mt-1">
+                          Start by creating your first quality improvement plan.
+                        </p>
                       </div>
-                      <Button onClick={openAdd} className="h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 font-bold px-6 hover:bg-primary/20 transition-all active:scale-95">
+                      <Button
+                        onClick={openAdd}
+                        className="h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 font-bold px-6 hover:bg-primary/20 transition-all active:scale-95"
+                      >
                         <Plus className="h-4 w-4 mr-2" /> Create First QIP
                       </Button>
                     </div>
@@ -262,15 +338,17 @@ export default function QipPage() {
                 pageRows.map((row, i) => {
                   const sr = (safePage - 1) * PAGE_SIZE + i + 1;
                   return (
-                    <TableRow 
-                      key={row.id} 
+                    <TableRow
+                      key={row.id}
                       className={cn(
                         "group/row border-b border-border/40 transition-colors hover:bg-primary/5",
-                        i % 2 === 1 && "bg-muted/5"
+                        i % 2 === 1 && "bg-muted/5",
                       )}
                     >
                       <TableCell className="px-6 py-4">
-                        <span className="font-mono text-sm font-bold opacity-50 tracking-tighter">#{String(sr).padStart(2, '0')}</span>
+                        <span className="font-mono text-sm font-bold opacity-50 tracking-tighter">
+                          #{String(sr).padStart(2, "0")}
+                        </span>
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -288,7 +366,7 @@ export default function QipPage() {
                           {new Date(row.created_at).toLocaleDateString("en-GB", {
                             day: "2-digit",
                             month: "short",
-                            year: "numeric"
+                            year: "numeric",
                           })}
                         </div>
                       </TableCell>
@@ -322,57 +400,19 @@ export default function QipPage() {
           </Table>
         </div>
 
-        {/* Footer / pagination */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border/50 bg-muted/20 px-6 py-4 text-sm font-semibold">
           <p className="text-muted-foreground uppercase tracking-widest text-[10px]">
-            Displaying <span className="text-foreground">{filtered.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}</span> - <span className="text-foreground">{Math.min(safePage * PAGE_SIZE, filtered.length)}</span> of <span className="text-foreground">{filtered.length}</span> QIP Records
+            Displaying{" "}
+            <span className="text-foreground">
+              {filtered.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1}
+            </span>{" "}
+            -{" "}
+            <span className="text-foreground">
+              {Math.min(safePage * PAGE_SIZE, filtered.length)}
+            </span>{" "}
+            of <span className="text-foreground">{filtered.length}</span> QIP Records
           </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={safePage === 1}
-              className="h-9 rounded-xl border-border/60 bg-background/50 font-bold transition-all hover:bg-background hover:text-primary disabled:opacity-40"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" /> Prev
-            </Button>
-            
-            <div className="hidden sm:flex items-center gap-1.5 px-2">
-              {totalPages <= 5 ? (
-                Array.from({ length: totalPages }).map((_, i) => (
-                  <Button
-                    key={i + 1}
-                    size="sm"
-                    variant={i + 1 === safePage ? "default" : "ghost"}
-                    className={cn(
-                      "h-9 w-9 rounded-xl font-bold transition-all active:scale-90",
-                      i + 1 === safePage 
-                        ? "bg-gradient-to-tr from-primary to-indigo-600 text-white shadow-md shadow-primary/20" 
-                        : "hover:bg-primary/10 hover:text-primary"
-                    )}
-                    onClick={() => setPage(i + 1)}
-                  >
-                    {i + 1}
-                  </Button>
-                ))
-              ) : (
-                <span className="px-3 text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                  Page {safePage} <span className="opacity-40 mx-1">/</span> {totalPages}
-                </span>
-              )}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={safePage === totalPages}
-              className="h-9 rounded-xl border-border/60 bg-background/50 font-bold transition-all hover:bg-background hover:text-primary disabled:opacity-40"
-            >
-              Next <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
+          <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={setPage} />
         </div>
       </div>
 
@@ -389,17 +429,20 @@ export default function QipPage() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/20">
               <Trash2 className="h-7 w-7" />
             </div>
-            <AlertDialogTitle className="text-center text-xl font-bold tracking-tight">Delete QIP Report?</AlertDialogTitle>
+            <AlertDialogTitle className="text-center text-xl font-bold tracking-tight">
+              Delete QIP Report?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-center font-medium">
-              Are you sure you want to delete this Quality Improvement Plan? This action is permanent and cannot be undone.
+              Are you sure you want to delete this Quality Improvement Plan? This action is
+              permanent and cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4 gap-3 sm:justify-center">
             <AlertDialogCancel className="rounded-xl font-bold h-11 border-border/60 hover:bg-muted transition-all">
               Cancel, Keep it
             </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete} 
+            <AlertDialogAction
+              onClick={handleDelete}
               className="rounded-xl h-11 px-8 bg-rose-500 text-white font-bold shadow-md shadow-rose-500/20 hover:bg-rose-600 hover:shadow-lg transition-all active:scale-95"
             >
               Yes, Delete Plan
@@ -434,7 +477,9 @@ function SortHead({ label, k, sort, onSort, className }) {
         className="inline-flex items-center gap-1 hover:text-primary"
       >
         {label}
-        <ArrowUpDown className={cn("h-3.5 w-3.5", active ? "text-primary" : "text-muted-foreground/60")} />
+        <ArrowUpDown
+          className={cn("h-3.5 w-3.5", active ? "text-primary" : "text-muted-foreground/60")}
+        />
       </button>
     </TableHead>
   );

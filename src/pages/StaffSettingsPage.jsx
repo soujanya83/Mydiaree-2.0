@@ -39,15 +39,7 @@ import { staffService } from "@/services/admin/staffService";
 import { AddStaffModal } from "@/components/staff/AddStaffModal";
 import { Loader2 } from "lucide-react";
 import { useCentreStore } from "@/stores/centreStore";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-  PaginationEllipsis,
-} from "@/components/ui/pagination";
+import { Pagination } from "@/components/common/Pagination";
 
 function getInitials(name = "") {
   return name
@@ -439,63 +431,12 @@ export default function StaffSettingsPage() {
             })}
           </div>
 
-          {totalPages > 1 && (
-            <Pagination className="mt-6">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setPage((p) => Math.max(1, p - 1));
-                    }}
-                    className={page === 1 ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
-                  // Show current, first, last, and immediate siblings
-                  if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationLink
-                          href="#"
-                          isActive={page === p}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setPage(p);
-                          }}
-                        >
-                          {p}
-                        </PaginationLink>
-                      </PaginationItem>
-                    );
-                  }
-
-                  if (p === page - 2 || p === page + 2) {
-                    return (
-                      <PaginationItem key={p}>
-                        <PaginationEllipsis />
-                      </PaginationItem>
-                    );
-                  }
-
-                  return null;
-                })}
-
-                <PaginationItem>
-                  <PaginationNext
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setPage((p) => Math.min(totalPages, p + 1));
-                    }}
-                    className={page === totalPages ? "pointer-events-none opacity-50" : ""}
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            className="mt-6"
+          />
         </>
       )}
 

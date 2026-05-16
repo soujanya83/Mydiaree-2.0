@@ -62,6 +62,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Pagination } from "@/components/common/Pagination";
 
 const PAGE_SIZE_OPTIONS = [8, 12, 24, 48];
 const CARD_PRIMARY_ACTION_CLASSES =
@@ -518,19 +519,6 @@ export default function ProgramPlanPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={activeRoomId} onValueChange={setActiveRoom}>
-                <SelectTrigger className="h-10 w-[160px] rounded-xl border-border/70 bg-background/70 backdrop-blur">
-                  <SelectValue placeholder="Room" />
-                </SelectTrigger>
-                <SelectContent>
-                  {rooms.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      {r.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
               <Button
                 variant="outline"
                 onClick={() => navigate("/observation/activity")}
@@ -797,45 +785,13 @@ export default function ProgramPlanPage() {
                 </motion.div>
               ))}
             </AnimatePresence>
+            <Pagination
+              currentPage={safePage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              className="mt-8"
+            />
           </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-1.5 pt-4">
-              <button
-                onClick={() => setPage((c) => Math.max(1, c - 1))}
-                disabled={safePage === 1}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-card/60 text-muted-foreground transition-all hover:bg-muted disabled:opacity-40"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  className={cn(
-                    "h-9 min-w-9 rounded-xl px-3 text-sm font-medium transition-all",
-                    n === safePage
-                      ? "bg-gradient-to-r from-primary to-indigo-500 text-primary-foreground shadow-md shadow-primary/20"
-                      : "border border-border/60 bg-card/60 text-muted-foreground hover:bg-muted",
-                  )}
-                >
-                  {n}
-                </button>
-              ))}
-
-              <button
-                onClick={() => setPage((c) => Math.min(totalPages, c + 1))}
-                disabled={safePage === totalPages}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-card/60 text-muted-foreground transition-all hover:bg-muted disabled:opacity-40"
-                aria-label="Next page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          )}
         </>
       )}
 

@@ -21,11 +21,10 @@ export const observationService = {
   },
 
   // 1. List of the Observation
-  getObservations: async (center_id, per_page = 13, page = 1) => {
+  getObservations: async (center_id, per_page = 13, page = 1, filters = {}) => {
     try {
-      const response = await api.get("/observation/index", {
-        params: { center_id, per_page, page },
-      });
+      const params = { center_id, per_page, page, ...filters };
+      const response = await api.get("/observation/index", { params });
       return response.data;
     } catch (error) {
       console.error("Error fetching observations:", error);

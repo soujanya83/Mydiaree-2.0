@@ -44,6 +44,7 @@ import {
 } from "@/components/snapshots/snapshotsData";
 import { NewSnapshotTitleModal } from "@/components/snapshots/NewSnapshotTitleModal";
 import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
+import { Pagination } from "@/components/common/Pagination";
 
 const PAGE_SIZE = 12;
 const CARD_PRIMARY_ACTION_CLASSES =
@@ -371,37 +372,12 @@ export default function SnapshotsPage() {
         </div>
       )}
 
-      {filtered.length > PAGE_SIZE && (
-        <div className="mt-6 flex items-center justify-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={safePage === 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-            <Button
-              key={n}
-              variant={n === safePage ? "default" : "outline"}
-              size="sm"
-              className="h-9 w-9"
-              onClick={() => setPage(n)}
-            >
-              {n}
-            </Button>
-          ))}
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={safePage === totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      <Pagination
+        currentPage={safePage}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        className="mt-8"
+      />
 
       <NewSnapshotTitleModal
         open={titleModalOpen}

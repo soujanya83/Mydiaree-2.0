@@ -45,6 +45,8 @@ import { observationService } from "@/services/learning/observationService";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
+import { Pagination } from "@/components/common/Pagination";
+import { cn } from "@/lib/utils";
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
@@ -81,7 +83,16 @@ export default function ObservationPage() {
     if (!activeCentreId) return;
     setIsLoading(true);
     try {
-      const res = await observationService.getObservations(activeCentreId, PAGE_SIZE, page);
+      const filters = {
+        room_id: activeRoomId || undefined,
+        status: status !== "all" ? status : undefined,
+        search: search || undefined,
+        author: author !== "all" ? author : undefined,
+        // For date range, we might need specific logic if server supports it,
+        // but for now let's pass it as is or handle it client-side if needed.
+        date_range: dateRange !== "all" ? dateRange : undefined,
+      };
+      const res = await observationService.getObservations(activeCentreId, PAGE_SIZE, page, filters);
       if (res.success) {
         setItems(res.observations.data || []);
         setTotal(res.observations.total || 0);
@@ -93,11 +104,16 @@ export default function ObservationPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeCentreId, page]);
+  }, [activeCentreId, page, activeRoomId, status, search, author, dateRange]);
 
   useEffect(() => {
     fetchObservations();
   }, [fetchObservations]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [activeRoomId, status, search, author, dateRange, activeCentreId]);
 
   const childrenInRoom = useMemo(() => {
     if (!activeRoomId) return children;
@@ -106,30 +122,7 @@ export default function ObservationPage() {
     return children.filter((c) => String(c.room) === String(room.name));
   }, [children, activeRoomId, rooms]);
 
-  const filtered = useMemo(() => {
-    return items.filter((o) => {
-      // Room filter: Only apply if a specific room is selected (not "all")
-      if (activeRoomId) {
-        const obsRoomStr = String(o.room || "");
-        const targetIdStr = String(activeRoomId);
-        // Check if targetId is in the comma-separated string or exactly matches
-        const isMatch =
-          obsRoomStr.split(",").some((r) => r.trim() === targetIdStr) ||
-          obsRoomStr.includes(`"${targetIdStr}"`);
-        if (!isMatch) return false;
-      }
-
-      if (status !== "all" && o.status.toLowerCase() !== status.toLowerCase()) return false;
-      if (author !== "all" && o.user?.name !== author) return false;
-
-      const rawTitle = o.obestitle || "";
-      const cleanTitle = rawTitle.replace(/<[^>]*>/g, "");
-      if (search && !cleanTitle.toLowerCase().includes(search.toLowerCase())) return false;
-
-      if (!inDateRange(o.created_at, dateRange)) return false;
-      return true;
-    });
-  }, [items, activeRoomId, status, author, dateRange, search]);
+  const filtered = items; // Now using server-side filtering
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -373,38 +366,12 @@ export default function ObservationPage() {
         </div>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={page === 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-            <Button
-              key={n}
-              variant={n === page ? "default" : "outline"}
-              size="sm"
-              className="h-9 w-9"
-              onClick={() => setPage(n)}
-            >
-              {n}
-            </Button>
-          ))}
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={page === totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        className="mt-8"
+      />
 
       <NewObservationTitleModal
         open={titleModalOpen}
