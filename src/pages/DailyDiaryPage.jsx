@@ -20,6 +20,7 @@ import { useChildrenStore } from "@/stores/childrenStore";
 import { useEffect } from "react";
 
 const DAILY_DIARY_ACTIVITY_COUNT = 9;
+const MULTI_ENTRY_ACTIVITIES = new Set(["sleep", "sunscreen", "toileting", "bottle"]);
 
 export default function DailyDiaryPage() {
   const centres = useCentreStore((s) => s.centres);
@@ -53,7 +54,12 @@ export default function DailyDiaryPage() {
     const totalChildren = diaryChildren.length;
     const totalExpected = totalChildren * DAILY_DIARY_ACTIVITY_COUNT;
     const completedEntries = Object.values(entriesByChild).reduce(
-      (sum, entries) => sum + Object.keys(entries || {}).length,
+      (sum, entries) =>
+        sum +
+        Object.values(entries || {}).reduce(
+          (entrySum, entry) => entrySum + (Array.isArray(entry) ? entry.length : 1),
+          0,
+        ),
       0,
     );
     const completedChildren = diaryChildren.filter(
@@ -102,11 +108,7 @@ export default function DailyDiaryPage() {
           const cid = c.id;
           const entries = {};
 
-          // Helper to normalize a single activity object
-          const norm = (act, key) => {
-            if (!act) return;
-            // Handle arrays (bottle, sleep, sunscreen, toileting)
-            const a = Array.isArray(act) ? act[0] : act;
+          const normalizeActivity = (a, key) => {
             if (!a) return;
 
             const res = {
@@ -132,7 +134,24 @@ export default function DailyDiaryPage() {
             if (a.signature) res.signature = a.signature;
             if (a.status) res.status = a.status;
 
-            entries[key] = res;
+            return res;
+          };
+
+          // Helper to normalize single-entry and multi-entry activity responses.
+          const norm = (act, key) => {
+            if (!act) return;
+
+            if (MULTI_ENTRY_ACTIVITIES.has(key)) {
+              const items = Array.isArray(act) ? act : [act];
+              const normalizedItems = items
+                .map((item) => normalizeActivity(item, key))
+                .filter(Boolean);
+              if (normalizedItems.length > 0) entries[key] = normalizedItems;
+              return;
+            }
+
+            const normalized = normalizeActivity(Array.isArray(act) ? act[0] : act, key);
+            if (normalized) entries[key] = normalized;
           };
 
           norm(item.breakfast, "breakfast");
@@ -224,14 +243,34 @@ export default function DailyDiaryPage() {
 
       await apiMethod(toFormData(apiPayload));
 
-      setEntriesByChild((prev) => ({
-        ...prev,
-        [childId]: { ...(prev[childId] || {}), [activityKey]: payload },
-      }));
+      setEntriesByChild((prev) => {
+        const childEntries = prev[childId] || {};
+        if (!MULTI_ENTRY_ACTIVITIES.has(activityKey)) {
+          return {
+            ...prev,
+            [childId]: { ...childEntries, [activityKey]: payload },
+          };
+        }
+
+        const existingEntries = Array.isArray(childEntries[activityKey])
+          ? childEntries[activityKey]
+          : childEntries[activityKey]
+            ? [childEntries[activityKey]]
+            : [];
+        const nextEntries = payload.id
+          ? existingEntries.map((entry) => (entry.id === payload.id ? payload : entry))
+          : [...existingEntries, payload];
+
+        return {
+          ...prev,
+          [childId]: { ...childEntries, [activityKey]: nextEntries },
+        };
+      });
       toast.success(`${activityKey.replace("_", " ")} saved successfully`);
     } catch (error) {
       console.error("Failed to save entry", error);
       toast.error(`Failed to save ${activityKey.replace("_", " ")}`);
+      throw error;
     }
   };
 
@@ -378,7 +417,7 @@ export default function DailyDiaryPage() {
       <NewEntryModal
         open={modalOpen}
         onOpenChange={setModalOpen}
-        children={diaryChildren}
+        childList={diaryChildren}
         onSubmit={async (payload) => {
           try {
             const { children: selectedIds, notes, activity, ...rest } = payload;
@@ -424,20 +463,45 @@ export default function DailyDiaryPage() {
 
             await apiMethod(toFormData(data));
 
+            const displayEntry =
+              activity === "sleep"
+                ? {
+                    id: data.id,
+                    comments: data.comments,
+                    sleepTime: payload.time,
+                    wakeTime: payload.wakeTime,
+                  }
+                : {
+                    ...rest,
+                    comments: notes,
+                    ...(activity === "toileting" ? { status: payload.status } : {}),
+                    ...(payload.signature ? { signature: payload.signature } : {}),
+                  };
+
             setEntriesByChild((prev) => {
               const next = { ...prev };
               (selectedIds || []).forEach((cid) => {
-                next[cid] = { ...(next[cid] || {}), [activity]: data };
+                const childEntries = next[cid] || {};
+                if (MULTI_ENTRY_ACTIVITIES.has(activity)) {
+                  const existingEntries = Array.isArray(childEntries[activity])
+                    ? childEntries[activity]
+                    : childEntries[activity]
+                      ? [childEntries[activity]]
+                      : [];
+                  next[cid] = { ...childEntries, [activity]: [...existingEntries, displayEntry] };
+                } else {
+                  next[cid] = { ...childEntries, [activity]: displayEntry };
+                }
               });
               return next;
             });
-            setModalOpen(false);
             toast.success(
               `Bulk ${activity.replace("_", " ")} saved for ${selectedIds.length} children`,
             );
           } catch (error) {
             console.error("Bulk save failed", error);
             toast.error("Failed to save bulk entry");
+            throw error;
           }
         }}
       />

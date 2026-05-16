@@ -11,6 +11,7 @@ import {
   Utensils as UtensilsIcon,
   CupSoda as CupSodaIcon,
   Apple as AppleIcon,
+  Loader2,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
   const [wakeTime, setWakeTime] = useState("");
   const [signature, setSignature] = useState("");
   const [status, setStatus] = useState("clean");
+  const [isSaving, setIsSaving] = useState(false);
 
   const key = activityLabel?.toLowerCase().replace(/\s+/g, "_");
   const meta = activityMeta[key] || { icon: ClipboardEditIcon, hint: "Activity details" };
@@ -65,7 +67,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
     }
   }, [open, initial]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const payload = {
       comments,
       ...(initial?.id ? { id: initial.id } : {}),
@@ -94,8 +96,19 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
       payload.status = status;
     }
 
-    onSave?.(payload);
-    onOpenChange(false);
+    if (onSave) {
+      setIsSaving(true);
+      try {
+        await onSave(payload);
+        onOpenChange(false);
+      } catch (error) {
+        // Keep modal open on error
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      onOpenChange(false);
+    }
   };
 
   return (
@@ -189,7 +202,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
               <div className="mt-4 space-y-2">
                 <Label>Nappy Status</Label>
                 <div className="flex flex-wrap gap-2">
-                  {["clean", "wet", "solid", "successfully"].map((s) => (
+                  {["clean", "wet", "solid", "soiled", "successfully"].map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -239,11 +252,15 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
         </div>
 
         <div className="flex flex-col-reverse gap-2 border-t border-border bg-card px-6 py-4 sm:flex-row sm:items-center sm:justify-end">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>
-            <CheckIcon className="mr-1.5 h-4 w-4" />
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <CheckIcon className="mr-1.5 h-4 w-4" />
+            )}
             Save {activityLabel}
           </Button>
         </div>

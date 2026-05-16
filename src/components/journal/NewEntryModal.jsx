@@ -15,6 +15,7 @@ import {
   CalendarDays,
   Users,
   ClipboardEdit,
+  Loader2,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -65,9 +66,9 @@ function childInitials(child) {
     .slice(0, 2);
 }
 
-export function NewEntryModal({ open, onOpenChange, onSubmit, children: childrenProp }) {
+export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
   const storeChildren = useChildrenStore((s) => s.children);
-  const children = childrenProp || storeChildren;
+  const children = childList?.length > 0 ? childList : storeChildren;
   const [activity, setActivity] = useState("breakfast");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState("");
@@ -80,6 +81,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
   const [serve, setServe] = useState("1");
   const [signature, setSignature] = useState("");
   const [status, setStatus] = useState("clean");
+  const [isSaving, setIsSaving] = useState(false);
 
   const current = ACTIVITIES.find((a) => a.key === activity);
   const Icon = current.icon;
@@ -124,7 +126,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
     }
   }, [open]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const payload = {
       activity,
       date,
@@ -145,9 +147,21 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
       payload.status = status;
     }
 
-    onSubmit?.(payload);
-    reset();
-    onOpenChange(false);
+    if (onSubmit) {
+      setIsSaving(true);
+      try {
+        await onSubmit(payload);
+        reset();
+        onOpenChange(false);
+      } catch (error) {
+        // Keep open on error
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      reset();
+      onOpenChange(false);
+    }
   };
 
   const valueLabel = activity === "bottle" ? "Volume (ml)" : `${current.label} Item`;
@@ -472,11 +486,15 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, children: children
                 }.`}
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={selected.length === 0}>
-              <Check className="mr-1.5 h-4 w-4" />
+            <Button size="sm" onClick={handleSave} disabled={selected.length === 0 || isSaving}>
+              {isSaving ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Check className="mr-1.5 h-4 w-4" />
+              )}
               Save Entry
             </Button>
           </div>
