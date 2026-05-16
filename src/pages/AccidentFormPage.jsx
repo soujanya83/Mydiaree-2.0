@@ -63,6 +63,12 @@ const seedRecords = [
   },
 ];
 
+const CARD_PRIMARY_ACTION_CLASSES =
+  "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
+const CARD_PRIMARY_ACTION_STYLE = {
+  color: "var(--primary)",
+};
+
 function fmtDDMMYYYY(iso) {
   if (!iso) return "—";
   const [y, m, d] = iso.split("-");
@@ -74,7 +80,7 @@ export default function AccidentFormPage() {
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
-  
+
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
   const { children, isLoading } = useChildrenStore();
 
@@ -99,21 +105,26 @@ export default function AccidentFormPage() {
     if (!activeCentreId || !activeRoomId) return;
     setIsLoadingList(true);
     try {
-      const res = await accidentService.getAccidentList(toFormData({
-        centerid: activeCentreId,
-        roomid: activeRoomId,
-        date: date,
-      }));
-      
+      const res = await accidentService.getAccidentList(
+        toFormData({
+          centerid: activeCentreId,
+          roomid: activeRoomId,
+          date: date,
+        }),
+      );
+
       if (res.data.success && res.data.data.accidents) {
-        setRecords(res.data.data.accidents.map(a => ({
-          id: a.id,
-          childName: a.child_name,
-          recorderName: a.username,
-          incidentDate: a.incident_date,
-          roomId: a.roomid,
-          // created_at is not in list, we'll get it from details
-        })));
+        setRecords(
+          res.data.data.accidents.map((a) => ({
+            id: a.id,
+            childName: a.child_name,
+            childGender: a.child_gender,
+            ackParentName: a.ack_parent_name,
+            recorderName: a.username,
+            incidentDate: a.incident_date,
+            roomId: a.roomid,
+          })),
+        );
       }
     } catch (error) {
       console.error("Failed to fetch accidents", error);
@@ -133,18 +144,41 @@ export default function AccidentFormPage() {
       const res = await accidentService.getAccidentDetails(toFormData({ id }));
       if (res.data.status && res.data.data) {
         const d = res.data.data;
-        
+
         // Map nature fields (abrasion: 1, rash: 1, etc.) to an array of labels
         const natureKeys = [
-          "abrasion", "allergic_reaction", "amputation", "anaphylaxis", "asthma",
-          "bite_wound", "broken_bone", "burn", "choking", "concussion", "crush",
-          "cut", "drowning", "eye_injury", "electric_shock", "infectious_disease",
-          "high_temperature", "ingestion", "internal_injury", "poisoning", "rash",
-          "respiratory", "seizure", "sprain", "stabbing", "tooth", "venomous_bite", "other"
+          "abrasion",
+          "allergic_reaction",
+          "amputation",
+          "anaphylaxis",
+          "asthma",
+          "bite_wound",
+          "broken_bone",
+          "burn",
+          "choking",
+          "concussion",
+          "crush",
+          "cut",
+          "drowning",
+          "eye_injury",
+          "electric_shock",
+          "infectious_disease",
+          "high_temperature",
+          "ingestion",
+          "internal_injury",
+          "poisoning",
+          "rash",
+          "respiratory",
+          "seizure",
+          "sprain",
+          "stabbing",
+          "tooth",
+          "venomous_bite",
+          "other",
         ];
         const natures = natureKeys
-          .filter(k => d[k] === 1)
-          .map(k => k.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase()));
+          .filter((k) => d[k] === 1)
+          .map((k) => k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()));
 
         const mapped = {
           id: d.id,
@@ -218,7 +252,8 @@ export default function AccidentFormPage() {
       centerid: activeCentreId,
       roomid: activeRoomId,
       childid: data.childId,
-      child_name: children.find(c => String(c.id) === String(data.childId))?.name || data.childName || "",
+      child_name:
+        children.find((c) => String(c.id) === String(data.childId))?.name || data.childName || "",
       child_dob: data.childDob,
       child_age: data.childAge,
       gender: data.childGender?.toLowerCase(),
@@ -241,11 +276,11 @@ export default function AccidentFormPage() {
       prevention_step_1: data.preventionSteps,
       emrg_serv_attend: data.emergencyAttended === "yes" ? "yes" : "no",
       med_attention: data.medicalSought === "yes" ? "yes" : "no",
-      
+
       parent1_name: data.parentName,
       contact1_date: data.parentDate,
       contact1_time: data.parentTime,
-      
+
       responsible_person_name: data.directorName,
       nsv_date: data.directorDate,
       nsv_time: data.directorTime,
@@ -271,14 +306,14 @@ export default function AccidentFormPage() {
     const natureMap = {
       "Abrasion / Scrape": "abrasion",
       "Allergic Reaction": "allergic_reaction",
-      "Amputation": "amputation",
-      "Anaphylaxis": "anaphylaxis",
+      Amputation: "amputation",
+      Anaphylaxis: "anaphylaxis",
       "Asthma / Respiratory": "asthma",
       "Bite Wound": "bite_wound",
       "Broken Bone / Fracture / Dislocation": "broken_bone",
       "Burn / Sunburn": "burn",
-      "Choking": "choking",
-      "Concussion": "concussion",
+      Choking: "choking",
+      Concussion: "concussion",
       "Crush / Jam": "crush",
       "Cut / Open Wound": "cut",
       "Drowning (Nonfatal)": "drowning",
@@ -288,18 +323,18 @@ export default function AccidentFormPage() {
       "Infectious Disease": "infectious_disease",
       "Ingestion / Inhalation / Insertion": "ingestion",
       "Internal Injury / Infection": "internal_injury",
-      "Poisoning": "poisoning",
-      "Rash": "rash",
-      "Respiratory": "respiratory",
+      Poisoning: "poisoning",
+      Rash: "rash",
+      Respiratory: "respiratory",
       "Seizure / Unconscious / Convulsion": "seizure",
       "Sprain / Swelling": "sprain",
       "Stabbing / Piercing": "stabbing",
-      "Tooth": "tooth",
+      Tooth: "tooth",
       "Venomous Bite / Sting": "venomous_bite",
-      "Other (Please specify)": "other"
+      "Other (Please specify)": "other",
     };
 
-    Object.keys(natureMap).forEach(label => {
+    Object.keys(natureMap).forEach((label) => {
       if (data.natures?.includes(label)) {
         payload[natureMap[label]] = "1";
       } else {
@@ -471,54 +506,75 @@ export default function AccidentFormPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((r) => (
             <article
               key={r.id}
-              className="group relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card to-muted/30 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+              className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-5 shadow-sm backdrop-blur transition-all hover:shadow-xl hover:shadow-primary/5"
             >
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-2xl transition-opacity group-hover:opacity-100"
-              />
-              <h3 className="text-lg font-bold text-foreground">{r.childName}</h3>
-              {r.roomName && (
-                <p className="mt-0.5 text-xs text-muted-foreground">{r.roomName}</p>
-              )}
+              <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 ring-1 ring-primary/30 transition-opacity group-hover:opacity-100" />
+              <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-primary/5 blur-2xl transition-all duration-500 group-hover:bg-primary/10" />
 
-              <dl className="mt-4 space-y-2 text-sm">
-                <Row icon={UserCircle2} label="Created By" value={r.recorderName || user?.name || "Unknown"} />
-                <Row icon={CalendarDays} label="Incident Date" value={fmtDDMMYYYY(r.incidentDate)} />
-                <Row icon={CalendarDays} label="Created At" value={fmtDDMMYYYY(r.createdAt)} />
-              </dl>
+              <div className="relative flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <UserCircle2 className="h-3 w-3" />
+                    Accident Record
+                  </div>
+                  <h3 className="mt-1 text-xl font-bold tracking-tight text-foreground">
+                    {r.childName}
+                  </h3>
+                  <div className="mt-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    {r.childGender ? (
+                      <span className="capitalize text-primary/80">{r.childGender}</span>
+                    ) : (
+                      <span className="italic text-muted-foreground/60">Gender Unspecified</span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-              <div className="mt-5 flex items-center gap-2">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    className="h-9 w-9 text-primary hover:bg-primary/10"
-                    onClick={() => fetchDetails(r.id, "view")}
-                    aria-label="View"
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    className="h-9 w-9"
-                    onClick={() => fetchDetails(r.id, "edit")}
-                    aria-label="Edit"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                <Button
-                  size="icon"
-                  variant="destructive"
-                  className="h-9 w-9"
+              <div className="relative mt-5 space-y-2.5 flex-grow">
+                <Row
+                  icon={UserCircle2}
+                  label="Created By"
+                  value={r.recorderName || user?.name || "Unknown"}
+                />
+                <Row
+                  icon={CalendarDays}
+                  label="Incident Date"
+                  value={fmtDDMMYYYY(r.incidentDate)}
+                />
+                <Row icon={ClipboardList} label="Parent Ack" value={r.ackParentName || "Pending"} />
+              </div>
+
+              <div className="relative mt-5 flex items-center justify-end gap-1 border-t border-border/50 pt-3">
+                <button
+                  type="button"
+                  onClick={() => fetchDetails(r.id, "view")}
+                  title="View"
+                  className={CARD_PRIMARY_ACTION_CLASSES}
+                  style={CARD_PRIMARY_ACTION_STYLE}
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fetchDetails(r.id, "edit")}
+                  title="Edit"
+                  className={CARD_PRIMARY_ACTION_CLASSES}
+                  style={CARD_PRIMARY_ACTION_STYLE}
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setConfirmId(r.id)}
-                  aria-label="Delete"
+                  title="Delete"
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
                 >
                   <Trash2 className="h-4 w-4" />
-                </Button>
+                </button>
               </div>
             </article>
           ))}
@@ -550,10 +606,12 @@ export default function AccidentFormPage() {
 
 function Row({ icon: Icon, label, value }) {
   return (
-    <div className="flex items-center gap-2">
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <span className="font-semibold text-foreground">{label}:</span>
-      <span className="text-muted-foreground">{value}</span>
+    <div className="flex items-center gap-2.5 text-sm">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <span className="text-xs font-medium text-muted-foreground w-24">{label}</span>
+      <span className="flex-1 truncate text-sm font-medium text-foreground">{value}</span>
     </div>
   );
 }

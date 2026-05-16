@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
+import { FileText, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -16,6 +16,7 @@ export default function AddQipModal({ open, onOpenChange, onSubmit, initial }) {
   const { centres, activeCentreId } = useCentreStore();
   const [name, setName] = useState("");
   const [centerId, setCenterId] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -24,7 +25,7 @@ export default function AddQipModal({ open, onOpenChange, onSubmit, initial }) {
     }
   }, [open, initial, activeCentreId]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) {
       toast.error("Please enter a QIP name");
       return;
@@ -33,56 +34,97 @@ export default function AddQipModal({ open, onOpenChange, onSubmit, initial }) {
       toast.error("Please select a centre");
       return;
     }
-    onSubmit?.({ 
-      name: name.trim(), 
-      center_id: centerId 
-    });
+    
+    setIsSaving(true);
+    try {
+      await onSubmit?.({ 
+        name: name.trim(), 
+        center_id: centerId 
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
-        <div className="flex items-center gap-3 bg-gradient-to-r from-teal-600 to-emerald-600 px-6 py-4 text-white">
-          <Sparkles className="h-5 w-5" />
-          <DialogHeader className="space-y-0">
-            <DialogTitle className="text-white">
-              {initial ? "Edit QIP" : "Add New QIP"}
-            </DialogTitle>
-          </DialogHeader>
-        </div>
-        <div className="space-y-4 p-6">
-          <div className="space-y-1.5">
-            <Label htmlFor="qip-name">QIP Name<span className="text-destructive"> *</span></Label>
+      <DialogContent className="sm:max-w-lg p-0 overflow-hidden rounded-3xl border-border/60 bg-card/95 backdrop-blur shadow-2xl">
+        <div className="absolute top-0 right-0 h-32 w-32 -translate-y-1/2 translate-x-1/3 rounded-full bg-primary/10 blur-2xl pointer-events-none" />
+        
+        <DialogHeader className="px-6 pb-2 pt-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+                {initial ? "Edit QIP Report" : "Create New QIP"}
+              </DialogTitle>
+              <p className="text-sm font-medium text-muted-foreground mt-0.5">
+                {initial ? "Modify the details of your quality plan" : "Define a new quality improvement initiative"}
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-6 p-6">
+          <div className="space-y-2">
+            <Label htmlFor="qip-name" className="text-sm font-bold px-1 text-foreground/80">QIP Name *</Label>
             <Input
               id="qip-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Create By April 2026"
+              placeholder="e.g. Quality Improvement Plan 2026"
+              className="h-11 rounded-xl bg-background/50 border-border/60 focus-visible:ring-primary/20 font-medium"
             />
           </div>
           
-          <div className="space-y-1.5">
-            <Label>Centre</Label>
+          <div className="space-y-2">
+            <Label className="text-sm font-bold px-1 text-foreground/80">Select Centre *</Label>
             <Select value={String(centerId)} onValueChange={setCenterId}>
-              <SelectTrigger><SelectValue placeholder="Select a centre" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger className="h-11 rounded-xl bg-background/50 border-border/60 focus-visible:ring-primary/20 font-medium">
+                <SelectValue placeholder="Select a centre" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border-border/60 backdrop-blur">
                 {centres.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  <SelectItem key={c.id} value={String(c.id)} className="font-medium">{c.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="rounded-xl bg-muted/30 p-4 border border-dashed">
-            <p className="text-xs text-muted-foreground text-center">
-              Additional QIP sections and details can be configured after creation.
-            </p>
+          <div className="relative overflow-hidden rounded-2xl bg-muted/20 p-4 border border-border/40 group/note transition-colors hover:bg-muted/30">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5 opacity-60" />
+              <p className="text-[11px] font-bold text-muted-foreground leading-relaxed uppercase tracking-wider">
+                Note: Additional QIP sections, goals, and specific measures can be meticulously configured once the report is created.
+              </p>
+            </div>
           </div>
         </div>
-        <DialogFooter className="bg-muted/30 px-6 py-3">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-            {initial ? "Save Changes" : "Create QIP"}
+
+        <DialogFooter className="border-t border-border/50 px-6 py-4 bg-muted/10">
+          <Button 
+            variant="ghost" 
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+            className="rounded-xl font-bold h-11 hover:bg-muted transition-all"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving}
+            className="rounded-xl h-11 px-8 bg-gradient-to-r from-primary to-indigo-600 text-white font-bold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              initial ? "Update QIP" : "Create QIP"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -7,7 +7,7 @@ export const menuService = {
       const response = await api.get("/healthy-menu", {
         params: { center_id: centerId, selected_date: selectedDate },
       });
-      if (response.data && response.data.status === "success") {
+      if (response.data && (response.data.status === "success" || response.data.status === "Success" || response.data.status === true || response.data.success)) {
         return response.data; // returns { menus, selected_date, selected_day, ... }
       }
       throw new Error(response.data?.message || "Failed to fetch menu");
@@ -38,7 +38,7 @@ export const menuService = {
         headers: { "Content-Type": "multipart/form-data" },
       });
       
-      if (response.data && response.data.status === "success") {
+      if (response.data && (response.data.status === "success" || response.data.status === "Success" || response.data.status === true || response.data.success)) {
         return response.data;
       }
       throw new Error(response.data?.message || "Failed to add recipes to menu");
@@ -52,10 +52,10 @@ export const menuService = {
   deleteMenu: async (id) => {
     try {
       const response = await api.delete(`/menu/${id}`);
-      if (response.data && response.data.status === "success") {
-        return response.data;
+      if (response.data?.status === "error" || response.data?.status === false) {
+        throw new Error(response.data?.message || "Failed to delete menu item");
       }
-      throw new Error(response.data?.message || "Failed to delete menu item");
+      return response.data;
     } catch (error) {
       console.error("Error deleting menu item:", error);
       throw error;

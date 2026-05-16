@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ImageIcon, X, Upload } from "lucide-react";
+import { ChefHat, Utensils, Video, X, Upload, Loader2, Image as ImageIcon } from "lucide-react";
 import {
   RECIPE_MEAL_TYPES,
   FOOD_TYPES,
@@ -84,7 +84,7 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
           ingredients: names,
           description: initial.recipe || "",
           note: initial.notes || initial.note || "",
-          image: initial.mediaUrl || "",
+          image: initial.mediaUrl ? (initial.mediaUrl.startsWith("http") ? initial.mediaUrl : `https://mydiaree.com.au/${initial.mediaUrl}`) : "",
           videoUrl: initial.RecipeVideolink || "",
         });
       } else {
@@ -182,224 +182,295 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl p-0 overflow-hidden max-h-[92vh] flex flex-col">
-        <DialogHeader className="bg-primary text-primary-foreground px-5 py-4 space-y-0">
-          <DialogTitle className="text-primary-foreground text-base">
-            {initial ? "Edit Recipe" : "Add Recipe"}
-          </DialogTitle>
+      <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-3xl border-border/60 bg-card/95 backdrop-blur shadow-2xl max-h-[92vh] flex flex-col">
+        <div className="absolute top-0 right-0 h-40 w-40 -translate-y-1/2 translate-x-1/3 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        
+        <DialogHeader className="px-6 pb-2 pt-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <ChefHat className="h-5 w-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground">
+                {initial ? "Edit Recipe" : "Create New Recipe"}
+              </DialogTitle>
+              <p className="text-sm font-medium text-muted-foreground mt-0.5">
+                {initial ? "Update your recipe details and ingredients" : "Add a new culinary masterpiece to your collection"}
+              </p>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="px-5 py-4 space-y-4 overflow-y-auto">
-          <div className="space-y-1.5">
-            <Label>Item Name</Label>
-            <Input
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="e.g. Chicken Dum Biryani"
-            />
-          </div>
+        <div className="px-6 py-4 space-y-6 overflow-y-auto custom-scrollbar">
+          <div className="rounded-2xl border border-border/60 bg-muted/20 p-5 space-y-5">
+            <h3 className="text-xs font-bold text-foreground uppercase tracking-widest opacity-70">
+              Basic Information
+            </h3>
+            
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="text-sm font-bold">Item Name *</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => set("name", e.target.value)}
+                  placeholder="e.g. Chicken Dum Biryani"
+                  className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                />
+              </div>
 
-          <div className="space-y-1.5">
-            <Label>Food Type</Label>
-            <Select value={form.foodType} onValueChange={(v) => set("foodType", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="-- Select Type --" />
-              </SelectTrigger>
-              <SelectContent>
-                {FOOD_TYPES.map((f) => (
-                  <SelectItem key={f.id} value={f.id}>
-                    {f.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-bold">Food Type *</Label>
+                <Select value={form.foodType} onValueChange={(v) => set("foodType", v)}>
+                  <SelectTrigger className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {FOOD_TYPES.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Select Meal Type</Label>
-              <Select value={form.mealType} onValueChange={(v) => set("mealType", v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select MealType" />
-                </SelectTrigger>
-                <SelectContent>
-                  {RECIPE_MEAL_TYPES.map((m, i) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {i + 1} - {m.label.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label className="text-sm font-bold">Meal Type *</Label>
+                <Select value={form.mealType} onValueChange={(v) => set("mealType", v)}>
+                  <SelectTrigger className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium">
+                    <SelectValue placeholder="Select Meal Type" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {RECIPE_MEAL_TYPES.map((m, i) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.label.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2 relative">
+                <Label className="text-sm font-bold">Add Ingredients</Label>
+                <div className="relative">
+                  <Utensils className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+                  <Input
+                    value={ingQuery}
+                    onChange={(e) => {
+                      setIngQuery(e.target.value);
+                      setIngOpen(true);
+                    }}
+                    onFocus={() => setIngOpen(true)}
+                    onBlur={() => setTimeout(() => setIngOpen(false), 200)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addIngredient(ingQuery);
+                      }
+                    }}
+                    placeholder="Search ingredients..."
+                    className="h-11 pl-10 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                  />
+                </div>
+                
+                {ingOpen && filteredIngs.length > 0 && (
+                  <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border/60 bg-popover/95 backdrop-blur shadow-lg p-1 animate-in fade-in zoom-in-95 duration-200">
+                    {filteredIngs.map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          addIngredient(o.name);
+                        }}
+                        className="flex w-full items-center px-3 py-2 text-sm font-medium rounded-lg hover:bg-primary/10 hover:text-primary transition-colors text-left"
+                      >
+                        {o.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-1.5 relative">
-              <Label>Select Ingredient</Label>
-              <Input
-                value={ingQuery}
-                onChange={(e) => {
-                  setIngQuery(e.target.value);
-                  setIngOpen(true);
-                }}
-                onFocus={() => setIngOpen(true)}
-                onBlur={() => setTimeout(() => setIngOpen(false), 150)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addIngredient(ingQuery);
-                  }
-                }}
-                placeholder="Select ingredients"
-              />
-              {ingOpen && filteredIngs.length > 0 && (
-                <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-popover shadow-md">
-                  {filteredIngs.map((o) => (
+            {form.ingredients.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {form.ingredients.map((ing) => (
+                  <Badge 
+                    key={ing} 
+                    variant="secondary" 
+                    className="pl-3 pr-1 py-1 gap-1 rounded-full bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary transition-all font-bold"
+                  >
+                    {ing}
                     <button
-                      key={o.id}
                       type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        addIngredient(o.name);
-                      }}
-                      className="block w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
+                      onClick={() => removeIngredient(ing)}
+                      className="ml-1 flex h-4 w-4 items-center justify-center rounded-full transition-colors hover:bg-primary hover:text-white"
+                      aria-label={`Remove ${ing}`}
                     >
-                      {o.name}
+                      <X className="h-2.5 w-2.5" />
                     </button>
-                  ))}
-                </div>
-              )}
-              {form.ingredients.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {form.ingredients.map((ing) => (
-                    <Badge key={ing} variant="secondary" className="gap-1">
-                      {ing}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label className="text-sm font-bold px-1">Preparation Steps</Label>
+              <Textarea
+                rows={4}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+                placeholder="Write the step-by-step preparation method here..."
+                className="rounded-2xl bg-muted/20 border-border/60 focus-visible:ring-primary/20 min-h-[120px] p-4 font-medium"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-bold px-1">Additional Notes</Label>
+              <Textarea
+                rows={2}
+                value={form.note}
+                onChange={(e) => set("note", e.target.value)}
+                placeholder="Substitution tips or dietary warnings..."
+                className="rounded-xl bg-muted/20 border-border/60 focus-visible:ring-primary/20 min-h-[80px] p-4 font-medium"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-3">
+              <Label className="text-sm font-bold px-1">Visual Media</Label>
+              <div className="relative group">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFile}
+                  className="hidden"
+                />
+                <div 
+                  onClick={() => fileRef.current?.click()}
+                  className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all cursor-pointer p-4 h-32 ${
+                    form.image 
+                      ? "border-primary/40 bg-primary/5" 
+                      : "border-border/60 bg-muted/10 hover:bg-muted/20 hover:border-primary/20"
+                  }`}
+                >
+                  {form.image ? (
+                    <div className="relative h-full aspect-video rounded-lg overflow-hidden border border-primary/20">
+                      <img src={form.image} alt="Preview" className="h-full w-full object-cover" />
                       <button
                         type="button"
-                        onClick={() => removeIngredient(ing)}
-                        className="ml-0.5 rounded hover:bg-background/40"
-                        aria-label={`Remove ${ing}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          set("image", "");
+                          set("imageFile", null);
+                        }}
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow-md hover:scale-110 transition-transform"
                       >
                         <X className="h-3 w-3" />
                       </button>
-                    </Badge>
-                  ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-sm text-primary">
+                        <ImageIcon className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs font-bold text-muted-foreground">Add Recipe Photo</span>
+                    </>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Description Recipe</Label>
-            <Textarea
-              rows={4}
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-              placeholder="Step by step preparation..."
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Note (if ingredient not available)</Label>
-            <Textarea
-              rows={2}
-              value={form.note}
-              onChange={(e) => set("note", e.target.value)}
-              placeholder="Optional notes..."
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Add Image</Label>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFile}
-                className="hidden"
-              />
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileRef.current?.click()}
-                  className="gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Choose file
-                </Button>
-                {form.image ? (
-                  <div className="relative h-12 w-12 overflow-hidden rounded-md border">
-                    <img
-                      src={form.image}
-                      alt="preview"
-                      className="h-full w-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => set("image", "")}
-                      className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground"
-                      aria-label="Remove image"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">No file chosen</span>
-                )}
+                <p className="text-[10px] font-bold text-center mt-1.5 text-muted-foreground opacity-60 uppercase tracking-wider">
+                  JPG or PNG • Max 5MB
+                </p>
               </div>
-              <p className="text-xs font-semibold text-emerald-600">(Under 5 MB Only)</p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Add Video</Label>
-              <input
-                ref={videoFileRef}
-                type="file"
-                accept="video/*"
-                onChange={handleVideoFile}
-                className="hidden"
-              />
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => videoFileRef.current?.click()}
-                  className="gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Choose Video
-                </Button>
-                {form.videoFile ? (
-                  <span className="text-xs text-muted-foreground truncate max-w-[100px]">{form.videoFile.name}</span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">No file chosen</span>
-                )}
-              </div>
-              <p className="text-xs font-semibold text-emerald-600">(Under 10 MB Only)</p>
-              
-              <div className="mt-2 space-y-1.5">
-                <Label className="text-xs">Or YouTube Link</Label>
-                <Input
-                  value={form.videoUrl}
-                  onChange={(e) => set("videoUrl", e.target.value)}
-                  placeholder="https://youtube.com/..."
-                  className="h-8 text-xs"
+            <div className="space-y-3">
+              <Label className="text-sm font-bold px-1">Video Guide</Label>
+              <div className="space-y-3">
+                <input
+                  ref={videoFileRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleVideoFile}
+                  className="hidden"
                 />
+                <div 
+                  onClick={() => videoFileRef.current?.click()}
+                  className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all cursor-pointer p-4 h-32 ${
+                    form.videoFile 
+                      ? "border-primary/40 bg-primary/5" 
+                      : "border-border/60 bg-muted/10 hover:bg-muted/20 hover:border-primary/20"
+                  }`}
+                >
+                  {form.videoFile ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <Video className="h-6 w-6 text-primary" />
+                      <span className="text-xs font-bold text-primary truncate max-w-[150px]">
+                        {form.videoFile.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          set("videoFile", null);
+                        }}
+                        className="text-[10px] font-bold text-destructive hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-sm text-primary">
+                        <Video className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs font-bold text-muted-foreground">Upload Video</span>
+                    </>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <Input
+                    value={form.videoUrl}
+                    onChange={(e) => set("videoUrl", e.target.value)}
+                    placeholder="Or paste YouTube link..."
+                    className="h-10 rounded-xl bg-background/50 text-xs font-medium focus-visible:ring-primary/20"
+                  />
+                </div>
               </div>
             </div>
-
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t px-5 py-3 bg-muted/30">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>
+        <DialogFooter className="flex items-center justify-end gap-3 border-t border-border/50 px-6 py-4 bg-muted/10">
+          <Button 
+            variant="ghost" 
+            onClick={() => onOpenChange(false)} 
+            disabled={loading}
+            className="rounded-xl font-bold h-11"
+          >
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!canSubmit || loading}>
-            {loading ? (initial ? "Updating..." : "Saving...") : (initial ? "Update" : "Save")}
+          <Button 
+            onClick={submit} 
+            disabled={!canSubmit || loading}
+            className="rounded-xl h-11 px-8 bg-gradient-to-r from-primary to-indigo-500 text-white font-bold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              initial ? "Update Recipe" : "Save Recipe"
+            )}
           </Button>
-        </div>
-
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

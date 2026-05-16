@@ -9,6 +9,10 @@ import {
   Shield,
   ChevronDown,
   Check,
+  Mail,
+  Phone,
+  Briefcase,
+  User,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -220,24 +224,28 @@ export default function StaffSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Staff Settings"
+        title={
+          <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Staff Settings
+          </span>
+        }
         description="Manage staff accounts and access for each center"
         breadcrumbs={[{ label: "Settings", to: "/settings" }, { label: "Staff Settings" }]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" className="h-10 gap-2 rounded-xl bg-card/60 backdrop-blur border-border/60 shadow-sm font-medium">
                   {activeCenter?.name ?? "Select Center"}
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-64 rounded-xl">
                 {storeCenters.map((c) => (
                   <DropdownMenuItem
                     key={c.id}
                     onClick={() => setCenterId(c.id)}
-                    className="flex items-center justify-between gap-2"
+                    className="flex items-center justify-between gap-2 py-2.5 cursor-pointer font-medium"
                   >
                     {c.name}
                     {c.id === centerId && <Check className="h-4 w-4 text-primary" />}
@@ -245,7 +253,7 @@ export default function StaffSettingsPage() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button onClick={() => setModal({ open: true, initial: null })} className="gap-2">
+            <Button onClick={() => setModal({ open: true, initial: null })} className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20">
               <Plus className="h-4 w-4" />
               Add Staff
             </Button>
@@ -254,38 +262,47 @@ export default function StaffSettingsPage() {
       />
 
       <div className="flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-card text-primary">
-          <Filter className="h-4 w-4" />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-card/60 text-primary shadow-sm backdrop-blur">
+          <Filter className="h-5 w-5" />
         </div>
         <div className="relative flex-1 max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter by name"
-            className="pl-9"
+            className="h-11 rounded-2xl border-border/60 bg-card/60 pl-10 backdrop-blur shadow-sm focus-visible:ring-primary/20 transition-all font-medium"
           />
         </div>
       </div>
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-80 animate-pulse rounded-3xl border border-border/60 bg-card/40 backdrop-blur" />
+          ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border bg-card p-12 text-center">
-          <Users className="mx-auto h-10 w-10 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">No staff in this center.</p>
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/60 bg-card/40 py-24 text-center backdrop-blur">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
+            <Users className="h-8 w-8" />
+          </div>
+          <h3 className="text-lg font-bold tracking-tight text-foreground">No Staff Found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {query ? "Try adjusting your search filters." : "You haven't added any staff to this center yet."}
+          </p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {paginatedStaff.map((s) => {
               const hasAccess = !!s.accessExpiresAt && new Date(s.accessExpiresAt) > new Date();
+              const isAdmin = s.admin === "1";
+              
               return (
                 <div
                   key={s.id}
-                  className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+                  className="group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/60 p-6 shadow-sm backdrop-blur transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/30 h-full"
                 >
                   <div
                     className="absolute inset-0 -z-10 opacity-60"
@@ -295,15 +312,33 @@ export default function StaffSettingsPage() {
                     }}
                   />
 
-                  <div className="flex justify-end">
+                  <div className="flex justify-between items-start mb-4 relative z-10">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary/50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
+                        <Briefcase className="h-3 w-3" />
+                        {isAdmin ? "Admin" : (s.title || "Staff")}
+                      </div>
+                      {s.active ? (
+                        <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-success w-fit">
+                          <span className="h-1.5 w-1.5 rounded-full bg-success"></span>
+                          Active
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-fit">
+                          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground"></span>
+                          Inactive
+                        </div>
+                      )}
+                    </div>
+                    
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold shadow-sm ${
+                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 ${
                             hasAccess
-                              ? "bg-success text-success-foreground"
-                              : "bg-destructive text-destructive-foreground"
+                              ? "bg-success/15 text-success hover:bg-success/25"
+                              : "bg-destructive/10 text-destructive hover:bg-destructive/20"
                           }`}
                         >
                           <Shield className="h-3.5 w-3.5" />
@@ -311,78 +346,94 @@ export default function StaffSettingsPage() {
                           <ChevronDown className="h-3 w-3" />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-32">
+                      <DropdownMenuContent align="end" className="w-40 rounded-xl">
                         {ACCESS_OPTIONS.map((opt) => (
-                          <DropdownMenuItem key={opt.value} onClick={() => setAccess(s.id, opt)}>
-                            {opt.label}
+                          <DropdownMenuItem key={opt.value} onClick={() => setAccess(s.id, opt)} className="font-medium cursor-pointer">
+                            Grant for {opt.label}
                           </DropdownMenuItem>
                         ))}
                         {hasAccess && (
                           <DropdownMenuItem
                             onClick={() => setAccess(s.id, null)}
-                            className="text-destructive"
+                            className="text-destructive font-bold cursor-pointer"
                           >
-                            Revoke
+                            Revoke Access
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
 
-                  <div className="mt-1 flex flex-col items-center text-center">
-                    <Avatar className="h-20 w-20 border-2 border-background shadow-sm">
-                      <AvatarImage src={s.avatar} alt={s.name} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                        {getInitials(s.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <h3 className="mt-3 text-base font-bold text-foreground">{s.name}</h3>
-                    <p className="mt-1 text-xs text-foreground">
-                      <span className="font-semibold">Email: </span>
-                      <span className="text-muted-foreground">{s.email}</span>
-                    </p>
-                    <p className="mt-0.5 text-xs text-foreground">
-                      <span className="font-semibold">Contact: </span>
-                      <span className="text-muted-foreground">{s.contact || "—"}</span>
-                    </p>
+                  <div className="flex flex-col items-center text-center relative z-10 flex-grow">
+                    <div className="relative mb-4 group-hover:scale-105 transition-transform duration-300">
+                      <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-primary/40 to-indigo-500/40 opacity-70 blur-md"></div>
+                      <Avatar className="relative h-20 w-20 border-2 border-background shadow-md">
+                        <AvatarImage src={s.avatar} alt={s.name} className="object-cover" />
+                        <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">
+                          {getInitials(s.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <h3 className="text-lg font-bold tracking-tight text-foreground line-clamp-1">{s.name}</h3>
+                    
+                    <div className="mt-3 space-y-2 w-full text-sm">
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground bg-background/40 py-1.5 px-3 rounded-lg w-full">
+                        <Mail className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                        <span className="truncate text-xs font-medium">{s.email}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground bg-background/40 py-1.5 px-3 rounded-lg w-full">
+                        <Phone className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                        <span className="truncate text-xs font-medium">{s.contact || "No Contact"}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 text-muted-foreground bg-background/40 py-1.5 px-3 rounded-lg w-full">
+                        <User className="h-3.5 w-3.5 shrink-0 text-primary/60" />
+                        <span className="truncate text-xs font-medium capitalize">{s.gender?.toLowerCase() || "Not Specified"}</span>
+                      </div>
+                    </div>
+
+                    {hasAccess && (
+                      <div className="mt-4 w-full rounded-lg bg-destructive/10 py-1.5 px-2 text-center border border-destructive/20">
+                        <p className="text-[10px] font-bold uppercase text-destructive tracking-wide">
+                          Expires: {formatExpiry(s.accessExpiresAt)}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-4 flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setModal({ open: true, initial: s })}
-                      className="inline-flex items-center justify-center rounded-md bg-primary p-2 text-primary-foreground shadow-sm hover:opacity-90"
-                      aria-label="Edit"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirm({ open: true, id: s.id })}
-                      className="inline-flex items-center justify-center rounded-md bg-destructive p-2 text-destructive-foreground shadow-sm hover:opacity-90"
-                      aria-label="Delete"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                  <div className="mt-6 flex items-center justify-between gap-2 border-t border-border/50 pt-4 relative z-10">
                     <button
                       type="button"
                       onClick={() => toggleActive(s.id)}
-                      className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold shadow-sm ${
+                      title={s.active ? "Deactivate Staff" : "Activate Staff"}
+                      className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
                         s.active
-                          ? "border-success/40 bg-success/10 text-success"
-                          : "border-muted-foreground/30 bg-muted text-muted-foreground"
+                          ? "border-success/30 bg-success/10 text-success hover:bg-success/20"
+                          : "border-muted-foreground/30 bg-muted text-muted-foreground hover:bg-muted-foreground/20"
                       }`}
                     >
                       <Check className="h-3.5 w-3.5" />
                       {s.active ? "Active" : "Inactive"}
                     </button>
+                    
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setModal({ open: true, initial: s })}
+                        title="Edit Staff"
+                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors hover:bg-primary/20 active:scale-95"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirm({ open: true, id: s.id })}
+                        title="Delete Staff"
+                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700 active:scale-95 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-900/40"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-
-                  {hasAccess && (
-                    <p className="mt-3 text-center text-xs font-semibold text-destructive">
-                      Access Expires: {formatExpiry(s.accessExpiresAt)}
-                    </p>
-                  )}
                 </div>
               );
             })}
@@ -456,16 +507,21 @@ export default function StaffSettingsPage() {
       />
 
       <AlertDialog open={confirm.open} onOpenChange={(o) => setConfirm((c) => ({ ...c, open: o }))}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl p-6">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this staff?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="text-xl">Delete this staff member?</AlertDialogTitle>
+            <AlertDialogDescription className="font-medium text-muted-foreground">
               This action cannot be undone. The staff member will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="rounded-xl font-semibold">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-semibold shadow-md shadow-rose-500/20 hover:shadow-lg hover:shadow-rose-500/30"
+            >
+              Delete Staff
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

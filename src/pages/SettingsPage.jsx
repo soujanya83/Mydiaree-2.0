@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Filter, Building } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Filter, Building, MapPin, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,11 +76,15 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Centers Settings"
+        title={
+          <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Centers Settings
+          </span>
+        }
         description="Manage all centers across your organization"
         breadcrumbs={[{ label: "Centers Settings" }]}
         actions={
-          <Button onClick={() => setModal({ open: true, initial: null })} className="gap-2">
+          <Button onClick={() => setModal({ open: true, initial: null })} className="gap-2 rounded-xl">
             <Plus className="h-4 w-4" />
             Add Center
           </Button>
@@ -88,69 +92,73 @@ export default function SettingsPage() {
       />
 
       <div className="flex items-center gap-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-card text-primary">
-          <Filter className="h-4 w-4" />
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-card/60 text-primary shadow-sm backdrop-blur">
+          <Filter className="h-5 w-5" />
         </div>
         <div className="relative flex-1 max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter by center name"
-            className="pl-9"
+            className="h-11 rounded-2xl border-border/60 bg-card/60 pl-10 backdrop-blur shadow-sm focus-visible:ring-primary/20 transition-all font-medium"
           />
         </div>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-48 animate-pulse rounded-xl border bg-card/50" />
+            <div key={i} className="h-64 animate-pulse rounded-3xl border border-border/60 bg-card/40 backdrop-blur" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border bg-card p-12 text-center">
-          <Building className="mx-auto h-10 w-10 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">No centers found.</p>
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/60 bg-card/40 py-24 text-center backdrop-blur">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
+            <Building className="h-8 w-8" />
+          </div>
+          <h3 className="text-lg font-bold tracking-tight text-foreground">No Centers Found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {query ? "Try adjusting your search filters." : "You haven't added any centers yet."}
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((c) => (
             <div
               key={c.id}
-              className="group relative overflow-hidden rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+              className="group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/60 p-6 shadow-sm backdrop-blur transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/30 h-full"
             >
-              <div
-                className="absolute inset-0 -z-10 opacity-60"
-                style={{
-                  background:
-                    "radial-gradient(circle at top right, color-mix(in oklab, var(--primary) 8%, transparent), transparent 60%)",
-                }}
-              />
-              <h3 className="text-base font-bold text-foreground">{c.name}</h3>
-              <div className="mt-3 space-y-1 text-sm">
-                <p className="text-foreground">
-                  <span className="font-semibold">Street: </span>
-                  <span className="text-muted-foreground">{c.addressStreet || "—"}</span>
-                </p>
-                <p className="text-foreground">
-                  <span className="font-semibold">City: </span>
-                  <span className="text-muted-foreground">{c.addressCity || "—"}</span>
-                </p>
-                <p className="text-foreground">
-                  <span className="font-semibold">State: </span>
-                  <span className="text-muted-foreground">{c.addressState || "—"}</span>
-                </p>
-                <p className="text-foreground">
-                  <span className="font-semibold">Postal Code: </span>
-                  <span className="text-muted-foreground">{c.addressZip || "—"}</span>
-                </p>
+              <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-primary/10 blur-3xl transition-opacity group-hover:bg-primary/20" />
+              
+              <div className="flex items-start gap-4 mb-5 relative">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-indigo-500/20 text-primary shadow-inner ring-1 ring-primary/30">
+                  <Building className="h-6 w-6" />
+                </div>
+                <div className="pt-1">
+                  <h3 className="text-lg font-bold leading-tight tracking-tight text-foreground line-clamp-2">
+                    {c.name}
+                  </h3>
+                </div>
               </div>
-              <div className="mt-4 flex items-center gap-2">
+
+              <div className="space-y-2.5 text-sm mb-6 flex-grow relative">
+                <div className="flex items-start gap-2.5 text-muted-foreground">
+                  <MapPin className="h-4 w-4 shrink-0 mt-0.5 text-primary/60" />
+                  <div className="space-y-1">
+                    <p className="font-medium text-foreground">{c.addressStreet || "No street address"}</p>
+                    <p className="text-xs">
+                      {c.addressCity || "City"}, {c.addressState || "State"} {c.addressZip}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-auto flex items-center justify-end gap-2 border-t border-border/50 pt-4 relative">
                 <button
                   type="button"
                   onClick={() => setModal({ open: true, initial: c })}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-primary/10 px-4 text-xs font-bold text-primary transition-colors hover:bg-primary/20 active:scale-95"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
@@ -158,7 +166,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={() => setConfirm({ open: true, id: c.id })}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground shadow-sm hover:opacity-90"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-rose-50 px-4 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700 active:scale-95 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-900/40"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Delete
@@ -177,16 +185,21 @@ export default function SettingsPage() {
       />
 
       <AlertDialog open={confirm.open} onOpenChange={(o) => setConfirm((c) => ({ ...c, open: o }))}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl p-6">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this center?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. The center will be permanently removed.
+            <AlertDialogTitle className="text-xl">Delete this center?</AlertDialogTitle>
+            <AlertDialogDescription className="font-medium text-muted-foreground">
+              This action cannot be undone. All data associated with this center will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel className="rounded-xl font-semibold">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDelete}
+              className="rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-semibold shadow-md shadow-rose-500/20 hover:shadow-lg hover:shadow-rose-500/30"
+            >
+              Delete Center
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

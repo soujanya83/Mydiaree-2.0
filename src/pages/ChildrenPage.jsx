@@ -13,6 +13,8 @@ import {
   Phone,
   Home,
   UserRound,
+  Mail,
+  Baby,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -497,50 +499,68 @@ function ChildDetailsModal({ open, onOpenChange, child, isLoading }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-3xl">
-        <DialogHeader className="border-b border-border px-6 py-4">
-          <DialogTitle>Child Details</DialogTitle>
-          <DialogDescription>Complete profile information and family contacts.</DialogDescription>
+      <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-3xl rounded-3xl border-border/60 bg-card/95 backdrop-blur shadow-2xl">
+        <div className="absolute top-0 right-0 h-40 w-40 -translate-y-1/2 translate-x-1/3 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+        
+        <DialogHeader className="px-6 pb-2 pt-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <Baby className="h-5 w-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-bold tracking-tight text-foreground pr-8">
+                Child Profile Details
+              </DialogTitle>
+              <p className="text-sm font-medium text-muted-foreground mt-0.5">
+                Complete profile information and family contacts
+              </p>
+            </div>
+          </div>
         </DialogHeader>
 
         {isLoading ? (
-          <div className="flex min-h-72 items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            Loading child details...
+          <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
+            <p className="text-sm font-medium">Loading child details...</p>
           </div>
         ) : child ? (
           <div className="max-h-[calc(90vh-96px)] overflow-y-auto px-6 py-5">
-            <div className="flex flex-col gap-5 sm:flex-row">
-              <div className="h-36 w-36 shrink-0 overflow-hidden rounded-lg bg-muted">
-                {imageUrl ? (
-                  <img src={imageUrl} alt={fullName} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Users className="h-10 w-10 text-muted-foreground/50" />
+            <div className="flex flex-col gap-6 sm:flex-row">
+              <div className="flex flex-col items-center relative shrink-0">
+                <div className="relative mb-2">
+                  <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-primary/40 to-indigo-500/40 opacity-70 blur-md"></div>
+                  <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full border-2 border-background bg-muted shadow-md">
+                    {imageUrl ? (
+                      <img src={imageUrl} alt={fullName} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-muted/50">
+                        <Users className="h-10 w-10 text-muted-foreground/40" />
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
+                <span
+                  className={`mt-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide shadow-sm ${
+                    isActive
+                      ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                      : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+                  }`}
+                >
+                  {child.status || "Inactive"}
+                </span>
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-2xl font-bold leading-tight text-foreground">
-                      {textOrDash(fullName)}
-                    </h3>
-                    <p className="mt-1 text-sm text-muted-foreground">Child ID: {child.id}</p>
-                  </div>
-                  <span
-                    className={`rounded-md border px-2.5 py-1 text-xs font-semibold uppercase ${
-                      isActive
-                        ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
-                        : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
-                    }`}
-                  >
-                    {child.status || "Inactive"}
-                  </span>
+                <div className="mb-4">
+                  <h3 className="text-3xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
+                    {textOrDash(fullName)}
+                  </h3>
+                  <p className="mt-1 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <IdCard className="h-4 w-4" /> ID: {child.id}
+                  </p>
                 </div>
 
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <DetailItem icon={Calendar} label="Date of Birth" value={fmtDate(child.dob)} />
                   <DetailItem icon={Calendar} label="Start Date" value={fmtDate(child.startDate)} />
                   <DetailItem icon={DoorOpen} label="Room" value={child.room} />
@@ -550,33 +570,49 @@ function ChildDetailsModal({ open, onOpenChange, child, isLoading }) {
             </div>
 
             {(child.address || child.other_details) && (
-              <div className="mt-6 grid gap-5 lg:grid-cols-2">
-                {child.address && (
-                  <DetailSection title="Contact Details">
-                    <DetailItem icon={Home} label="Address" value={child.address} />
-                  </DetailSection>
-                )}
-
-                {child.other_details && (
-                  <DetailSection title="Other Details">
-                    <p className="text-sm leading-6 text-muted-foreground">{child.other_details}</p>
-                  </DetailSection>
-                )}
-              </div>
+               <div className="mt-6 grid gap-5 lg:grid-cols-2">
+                 {child.address && (
+                   <DetailSection title="Contact Details">
+                     <DetailItem icon={Home} label="Address" value={child.address} />
+                   </DetailSection>
+                 )}
+ 
+                 {child.other_details && (
+                   <DetailSection title="Other Details">
+                     <p className="text-sm font-medium leading-6 text-muted-foreground">{child.other_details}</p>
+                   </DetailSection>
+                 )}
+               </div>
             )}
 
             {child.parents?.length ? (
-              <DetailSection title="Parents / Guardians" className="mt-5">
-                <div className="grid gap-3 sm:grid-cols-2">
+              <DetailSection title="Parents / Guardians" className="mt-6">
+                <div className="grid gap-4 sm:grid-cols-2">
                   {child.parents.map((parent) => (
-                    <div key={parent.id} className="rounded-lg border border-border p-4">
-                      <p className="font-semibold text-foreground">{textOrDash(parent.name)}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {textOrDash(parent.relation)}
-                      </p>
-                      <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                        <Phone className="h-4 w-4" />
-                        <span>{textOrDash(parent.phone)}</span>
+                    <div key={parent.id} className="group relative overflow-hidden rounded-2xl border border-border/60 bg-background/50 p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
+                      <div className="absolute top-0 right-0 p-3 opacity-10">
+                        <Users className="h-10 w-10" />
+                      </div>
+                      <div className="relative z-10">
+                        <div className="flex items-start justify-between">
+                          <p className="text-base font-bold text-foreground">{textOrDash(parent.name)}</p>
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                            {textOrDash(parent.relation)}
+                          </span>
+                        </div>
+                        
+                        <div className="mt-3 flex flex-col gap-2.5 text-sm font-medium text-muted-foreground">
+                          {parent.email && (
+                            <div className="flex items-center gap-2.5 rounded-lg bg-muted/40 px-2.5 py-1.5 transition-colors group-hover:bg-muted/60">
+                              <Mail className="h-4 w-4 shrink-0 text-primary/60" />
+                              <span className="break-all">{textOrDash(parent.email)}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2.5 rounded-lg bg-muted/40 px-2.5 py-1.5 transition-colors group-hover:bg-muted/60">
+                            <Phone className="h-4 w-4 shrink-0 text-primary/60" />
+                            <span>{textOrDash(parent.phone || parent.contactNo)}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -585,25 +621,28 @@ function ChildDetailsModal({ open, onOpenChange, child, isLoading }) {
             ) : null}
 
             {child.siblings?.length ? (
-              <DetailSection title="Siblings" className="mt-5">
-                <div className="flex flex-wrap gap-2">
+              <DetailSection title="Siblings" className="mt-6">
+                <div className="flex flex-wrap gap-2.5">
                   {child.siblings.map((sibling) => (
-                    <span
+                    <div
                       key={sibling.id || sibling.childname || sibling.name}
-                      className="rounded-md bg-muted px-2.5 py-1 text-sm text-foreground"
+                      className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-1.5 shadow-sm transition-colors hover:bg-muted/50"
                     >
-                      {sibling.childname ||
-                        sibling.name ||
-                        `${sibling.firstname || ""} ${sibling.lastname || ""}`.trim()}
-                      {sibling.lastname ? ` ${sibling.lastname}` : ""}
-                    </span>
+                      <UserRound className="h-4 w-4 text-muted-foreground/70" />
+                      <span className="text-sm font-semibold text-foreground">
+                        {sibling.childname ||
+                          sibling.name ||
+                          `${sibling.firstname || ""} ${sibling.lastname || ""}`.trim()}
+                        {sibling.lastname ? ` ${sibling.lastname}` : ""}
+                      </span>
+                    </div>
                   ))}
                 </div>
               </DetailSection>
             ) : null}
           </div>
         ) : (
-          <div className="p-6 text-sm text-muted-foreground">No child details available.</div>
+          <div className="p-10 text-center text-sm font-medium text-muted-foreground">No child details available.</div>
         )}
       </DialogContent>
     </Dialog>
@@ -612,8 +651,8 @@ function ChildDetailsModal({ open, onOpenChange, child, isLoading }) {
 
 function DetailSection({ title, children, className = "" }) {
   return (
-    <section className={`rounded-lg border border-border p-4 ${className}`}>
-      <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+    <section className={`rounded-2xl border border-border/60 bg-muted/10 p-5 shadow-sm ${className}`}>
+      <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-muted-foreground opacity-90">
         {title}
       </h4>
       {children}
@@ -623,11 +662,13 @@ function DetailSection({ title, children, className = "" }) {
 
 function DetailItem({ icon: Icon, label, value }) {
   return (
-    <div className="flex gap-3 rounded-lg bg-muted/50 p-3">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+    <div className="flex items-center gap-3 rounded-xl bg-background/60 border border-border/40 p-3 shadow-sm transition-colors hover:bg-background/80">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
       <div className="min-w-0">
-        <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
-        <p className="mt-1 break-words text-sm font-medium text-foreground">{textOrDash(value)}</p>
+        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="truncate text-sm font-bold text-foreground">{textOrDash(value)}</p>
       </div>
     </div>
   );

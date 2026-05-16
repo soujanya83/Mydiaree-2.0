@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -189,11 +190,11 @@ export default function MenuPage() {
     try {
       await deleteMenuItem(confirmDelete.id, activeCentreId, formatForAPI(date));
       toast.success("Item removed from menu");
-      setConfirmDelete(null);
     } catch (error) {
       toast.error(error?.message || "Failed to remove item");
     } finally {
       setIsDeleting(false);
+      setConfirmDelete(null);
     }
   };
 
@@ -235,13 +236,17 @@ export default function MenuPage() {
     <div className="space-y-6">
 
       <PageHeader
-        title="Healthy Eating Menu"
-        description="Plan weekly meals across all meal times"
+        title={
+          <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Healthy Eating Menu
+          </span>
+        }
+        description="Plan weekly meals across all meal times with precision"
         breadcrumbs={[{ label: "Healthy Eating Menu" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="w-[220px]">
+              <SelectTrigger className="h-10 w-[220px] rounded-xl border-border/70 bg-background/70 backdrop-blur">
                 <SelectValue placeholder="Select centre" />
               </SelectTrigger>
               <SelectContent>
@@ -256,69 +261,68 @@ export default function MenuPage() {
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-[170px]"
+              className="h-10 w-[170px] rounded-xl border-border/70 bg-background/70 backdrop-blur"
             />
           </div>
         }
       />
 
       {/* Hero banner */}
-      <div
-        className="rounded-2xl px-6 py-8 text-center text-white shadow-md"
-        style={{
-          backgroundImage:
-            "linear-gradient(135deg, oklch(0.72 0.13 180), oklch(0.65 0.16 240))",
-        }}
-      >
-        <div className="flex items-center justify-center gap-2 text-2xl font-bold sm:text-3xl">
-          <UtensilsCrossed className="h-7 w-7" />
-          <span>Summer Menu</span>
+      <div className="relative overflow-hidden rounded-3xl border border-primary/10 bg-gradient-to-br from-primary/10 via-background to-background p-8 text-center shadow-sm">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-amber-500/10 blur-3xl" />
+        
+        <div className="relative z-10 flex flex-col items-center justify-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-amber-500 text-white shadow-lg shadow-primary/20">
+            <UtensilsCrossed className="h-7 w-7" />
+          </div>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Seasonal Menu
+          </h2>
+          <p className="mt-2 text-sm font-medium text-muted-foreground">
+            Nutritious meals crafted for growing minds and bodies
+          </p>
+          <div className="mt-6">
+            <Select value={currentWeekMon} onValueChange={setDate}>
+              <SelectTrigger className="mx-auto h-11 w-auto min-w-[320px] rounded-xl border border-primary/20 bg-background/50 font-semibold text-foreground shadow-sm backdrop-blur transition-colors hover:bg-background/80 focus:ring-primary/30">
+                <div className="flex items-center gap-2.5">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent className="rounded-xl max-w-[400px]">
+                {monthWeeks.map((w) => (
+                  <SelectItem key={w.id} value={w.id} className="py-2.5">
+                    {w.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <p className="mt-2 text-sm opacity-90">
-          Nutritious meals crafted for growing minds and bodies
-        </p>
-        <div className="mt-4">
-          <Select value={currentWeekMon} onValueChange={setDate}>
-            <SelectTrigger className="mx-auto w-auto min-w-[300px] border-0 bg-white/20 text-white backdrop-blur hover:bg-white/30 focus:ring-0">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                <SelectValue />
-              </div>
-            </SelectTrigger>
-            <SelectContent className="max-w-[400px]">
-              {monthWeeks.map((w) => (
-                <SelectItem key={w.id} value={w.id}>
-                  {w.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
       </div>
 
       {/* Menu grid */}
-      <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+      <div className="overflow-x-auto rounded-3xl border border-border/60 bg-card/60 shadow-sm backdrop-blur">
         <table className="w-full min-w-[900px] border-collapse text-sm">
           <thead>
-            <tr className="bg-muted/50">
-              <th className="w-40 border-b border-r px-4 py-3 text-left font-semibold text-primary">
+            <tr className="bg-muted/40">
+              <th className="w-40 border-b border-border/50 border-r px-5 py-4 text-left font-bold tracking-tight text-primary uppercase text-xs">
                 Meal Times
               </th>
               {WEEKDAYS.map((d) => (
                 <th
                   key={d.id}
-                  className={`border-b border-r px-4 py-3 text-left font-semibold last:border-r-0 ${
-                    todayId === d.id
-                      ? "bg-primary/10 text-primary"
-                      : "text-primary"
-                  }`}
+                  className={cn(
+                    "border-b border-border/50 border-r px-5 py-4 text-left font-bold tracking-tight uppercase text-xs last:border-r-0 transition-colors",
+                    todayId === d.id ? "bg-primary/5 text-primary" : "text-muted-foreground"
+                  )}
                 >
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" />
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-3.5 w-3.5" />
                     {d.label}
                     {todayId === d.id && (
-                      <span className="ml-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                      <span className="ml-auto flex items-center justify-center rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary ring-1 ring-primary/30">
                         Today
                       </span>
                     )}
@@ -329,30 +333,30 @@ export default function MenuPage() {
           </thead>
           <tbody>
             {MEAL_TIMES.map((meal) => (
-              <tr key={meal.id} className="border-b last:border-b-0">
-                <td className="border-r bg-muted/20 px-4 py-4 text-center font-semibold text-primary align-middle">
+              <tr key={meal.id} className="border-b border-border/50 last:border-b-0">
+                <td className="border-r border-border/50 bg-muted/20 px-5 py-5 text-center font-bold text-muted-foreground align-middle text-xs uppercase tracking-wider">
                   {meal.label}
                 </td>
                 {WEEKDAYS.map((day) => {
                   const items = grouped[meal.id]?.[day.id] || [];
                   return (
-
                     <td
                       key={day.id}
-                      className={`border-r px-3 py-3 align-top last:border-r-0 ${
-                        todayId === day.id ? "bg-primary/5" : ""
-                      }`}
+                      className={cn(
+                        "border-r border-border/50 px-4 py-4 align-top last:border-r-0 transition-colors",
+                        todayId === day.id ? "bg-primary/[0.02]" : ""
+                      )}
                     >
                       {items.length === 0 ? (
-                        <div className="flex flex-col items-start gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            No menu available
+                        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-background/30 p-4 text-center">
+                          <span className="text-xs font-medium text-muted-foreground/70">
+                            No items
                           </span>
                           {can(perms.add) && (
                             <button
                               type="button"
                               onClick={() => openModal(meal.id, day.id)}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
+                              className="group flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary transition-all hover:scale-110 hover:bg-primary hover:text-white hover:shadow-lg hover:shadow-primary/30"
                               aria-label="Add items"
                             >
                               <Plus className="h-4 w-4" />
@@ -360,45 +364,44 @@ export default function MenuPage() {
                           )}
                         </div>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                           {items.map((it) => (
                             <div
                               key={it.id}
-                              className="rounded-md border bg-background px-3 py-2 shadow-sm group"
+                              className="group relative flex flex-col gap-1 rounded-xl border border-border/60 bg-background p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30"
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <div className="text-sm font-semibold text-foreground">
+                                <div className="text-sm font-bold text-foreground leading-snug">
                                   {it.name}
                                 </div>
                                 {can(perms.delete) && (
                                   <button
                                     type="button"
                                     onClick={() => setConfirmDelete(it)}
-                                    className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive opacity-0 transition-all hover:bg-destructive hover:text-white group-hover:opacity-100"
                                     aria-label="Remove"
                                   >
-
-
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </button>
                                 )}
                               </div>
                               {it.note && (
-                                <div className="mt-1 text-xs text-muted-foreground">
+                                <div className="text-xs font-medium text-muted-foreground">
                                   {it.note}
                                 </div>
                               )}
                             </div>
                           ))}
                           {can(perms.add) && (
-                            <button
-                              type="button"
-                              onClick={() => openModal(meal.id, day.id)}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20"
-                              aria-label="Add items"
-                            >
-                              <Plus className="h-4 w-4" />
-                            </button>
+                            <div className="pt-1">
+                              <button
+                                type="button"
+                                onClick={() => openModal(meal.id, day.id)}
+                                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-primary/30 bg-primary/5 py-2 text-xs font-semibold text-primary transition-all hover:bg-primary/10 hover:border-primary/50"
+                              >
+                                <Plus className="h-3.5 w-3.5" /> Add more
+                              </button>
+                            </div>
                           )}
                         </div>
                       )}
@@ -412,37 +415,43 @@ export default function MenuPage() {
       </div>
 
       {/* Requirements */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-primary">
-            <ClipboardList className="h-5 w-5" />
-            <h3 className="text-base font-semibold">Daily Requirements</h3>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="group relative overflow-hidden rounded-3xl border border-border/60 bg-card/60 p-6 shadow-sm backdrop-blur transition-all hover:shadow-lg hover:shadow-primary/5">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/5 blur-3xl transition-opacity group-hover:bg-primary/10" />
+          <div className="relative mb-5 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <ClipboardList className="h-5 w-5" />
+            </div>
+            <h3 className="text-lg font-bold tracking-tight text-foreground">Daily Requirements</h3>
           </div>
-          <ul className="space-y-2 text-sm text-foreground">
+          <ul className="relative space-y-3 text-sm font-medium text-muted-foreground">
             {dailyRequirements.map((r, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="text-primary">•</span>
-                <span>{r}</span>
+              <li key={i} className="flex gap-3 items-start">
+                <span className="mt-1 flex h-1.5 w-1.5 shrink-0 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.8)]" />
+                <span className="leading-relaxed">{r}</span>
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="rounded-xl border bg-card p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-primary">
-            <CalendarDays className="h-5 w-5" />
-            <h3 className="text-base font-semibold">Fortnightly Requirements</h3>
+        <div className="group relative overflow-hidden rounded-3xl border border-border/60 bg-card/60 p-6 shadow-sm backdrop-blur transition-all hover:shadow-lg hover:shadow-primary/5">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/5 blur-3xl transition-opacity group-hover:bg-primary/10" />
+          <div className="relative mb-5 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <CalendarDays className="h-5 w-5" />
+            </div>
+            <h3 className="text-lg font-bold tracking-tight text-foreground">Fortnightly Requirements</h3>
           </div>
-          <ul className="space-y-2 text-sm text-foreground">
+          <ul className="relative space-y-3 text-sm font-medium text-muted-foreground">
             {fortnightlyRequirements.map((r, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="text-primary">•</span>
-                <span>{r}</span>
+              <li key={i} className="flex gap-3 items-start">
+                <span className="mt-1 flex h-1.5 w-1.5 shrink-0 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--primary),0.8)]" />
+                <span className="leading-relaxed">{r}</span>
               </li>
             ))}
           </ul>
-          <div className="mt-4 rounded-md border border-primary/20 bg-primary/5 p-3 text-xs italic text-foreground">
-            <span className="font-semibold not-italic">Note:</span> This menu follows Long
+          <div className="relative mt-6 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-xs font-medium leading-relaxed text-primary/80">
+            <span className="font-bold text-primary">Note:</span> This menu follows Long
             Day Care nutritional guidelines and Australian Dietary Guidelines. Water is
             available to children with all meals.
           </div>
@@ -460,22 +469,22 @@ export default function MenuPage() {
       />
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-3xl p-6">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove from menu?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to remove "{confirmDelete?.name}" from the menu?
+            <AlertDialogTitle className="text-xl">Remove from menu?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground font-medium">
+              Are you sure you want to remove <span className="font-bold text-foreground">"{confirmDelete?.name}"</span> from the menu?
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel disabled={isDeleting} className="rounded-xl font-semibold">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
                 handleConfirmDelete();
               }}
               disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-semibold shadow-md shadow-rose-500/20 hover:shadow-lg hover:shadow-rose-500/30"
             >
               {isDeleting ? (
                 <>
@@ -483,7 +492,7 @@ export default function MenuPage() {
                   Removing...
                 </>
               ) : (
-                "Remove"
+                "Remove Item"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

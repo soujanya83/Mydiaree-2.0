@@ -33,36 +33,41 @@ import { useCentreStore } from "@/stores/centreStore";
 function Section({ icon: Icon, title, children, accent = "primary", tinted = false }) {
   const accentBar = {
     primary: "bg-primary",
-    success: "bg-success",
-    warning: "bg-warning",
-    info: "bg-info",
+    success: "bg-emerald-500",
+    warning: "bg-amber-500",
+    info: "bg-sky-500",
   }[accent];
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm",
-        tinted && "bg-accent/40",
+        "group relative overflow-hidden rounded-3xl border border-border/60 bg-card/60 p-6 md:p-8 shadow-sm backdrop-blur transition-all hover:shadow-lg hover:shadow-primary/5",
+        tinted && "bg-muted/30",
       )}
     >
-      <div className="mb-5 flex items-center gap-2">
-        {Icon && <Icon className="h-5 w-5 text-primary" />}
-        <h2 className="text-base font-semibold text-primary">{title}</h2>
+      <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-primary/5 blur-3xl transition-all duration-500 group-hover:bg-primary/10" />
+      <div className="relative mb-6 flex items-center gap-3">
+        {Icon && (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
+            <Icon className="h-5 w-5" />
+          </div>
+        )}
+        <h2 className="text-lg font-bold tracking-tight text-foreground">{title}</h2>
       </div>
-      <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">{children}</div>
-      <span className={cn("absolute inset-x-0 bottom-0 h-1", accentBar)} />
+      <div className="relative grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">{children}</div>
+      <span className={cn("absolute inset-x-0 bottom-0 h-1 opacity-40", accentBar)} />
     </section>
   );
 }
 
 function Field({ label, children, full = false, error }) {
   return (
-    <div className={cn("space-y-1.5", full && "md:col-span-2")}>
-      <Label className={cn("text-xs font-semibold text-primary", error && "text-destructive")}>
+    <div className={cn("space-y-2", full && "md:col-span-2")}>
+      <Label className={cn("text-[11px] font-bold uppercase tracking-wider text-muted-foreground", error && "text-destructive")}>
         {label}
       </Label>
       {children}
       {error && (
-        <p className="text-[10px] font-medium text-destructive animate-in fade-in slide-in-from-top-1">
+        <p className="text-[11px] font-medium text-destructive animate-in fade-in slide-in-from-top-1">
           {error}
         </p>
       )}
@@ -358,7 +363,7 @@ export default function ServiceDetailsPage() {
             onValueChange={setActiveCentre}
             disabled={centresLoading || loading || centres.length === 0}
           >
-            <SelectTrigger className="w-full sm:w-64">
+            <SelectTrigger className="h-10 w-full rounded-xl sm:w-64 border-border/70 bg-background/70 backdrop-blur">
               <SelectValue placeholder="Select Centre" />
             </SelectTrigger>
             <SelectContent>
@@ -527,42 +532,52 @@ export default function ServiceDetailsPage() {
             </Field>
           </Section>
 
-          <section className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary to-primary-glow p-6 shadow-lg">
-            <div className="mb-3 flex items-center gap-2">
-              <Lightbulb className="h-5 w-5 text-primary-foreground" />
-              <h2 className="text-base font-semibold text-primary-foreground">
-                Service Statement of Philosophy
-              </h2>
+          <section className="group relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card p-6 md:p-8 shadow-md backdrop-blur">
+            <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/20 blur-3xl transition-opacity group-hover:bg-primary/30" />
+            <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl" />
+            <div className="relative mb-6 flex items-center gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-indigo-500 text-white shadow-lg shadow-primary/20">
+                <Lightbulb className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-foreground">
+                  Service Statement of Philosophy
+                </h2>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Insert your service's core beliefs and guiding principles here
+                </p>
+              </div>
             </div>
-            <p className="mb-3 text-xs font-medium text-primary-foreground/90">
-              Insert your service's statement of philosophy here
-            </p>
-            <Textarea
-              rows={6}
-              value={data.philosophy}
-              onChange={set("philosophy")}
-              className="bg-card/95 text-foreground"
-            />
-            {errors.philosophy && (
-              <p className="mt-2 text-[10px] font-medium text-white animate-in fade-in slide-in-from-top-1">
-                {errors.philosophy}
-              </p>
-            )}
+            <div className="relative">
+              <Textarea
+                rows={8}
+                value={data.philosophy}
+                onChange={set("philosophy")}
+                className="resize-y rounded-2xl border-border/50 bg-background/50 p-5 text-base shadow-inner backdrop-blur focus-visible:ring-primary/30"
+                placeholder="Our service believes..."
+              />
+              {errors.philosophy && (
+                <p className="mt-2 text-[11px] font-medium text-destructive animate-in fade-in slide-in-from-top-1">
+                  {errors.philosophy}
+                </p>
+              )}
+            </div>
           </section>
 
-          <div className="flex justify-center pt-2">
+          <div className="flex justify-end pt-4">
             <Button
               onClick={handleSave}
               size="lg"
               disabled={isSaving}
-              className="rounded-full bg-gradient-to-r from-primary to-primary-glow px-10 shadow-glow"
+              className="group relative overflow-hidden rounded-xl bg-gradient-to-r from-primary to-indigo-500 px-8 text-white shadow-md shadow-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/30"
             >
+              <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
               {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               ) : (
-                <Save className="mr-2 h-4 w-4" />
+                <Save className="mr-2 h-5 w-5 transition-transform group-hover:scale-110" />
               )}
-              {isSaving ? "Saving..." : "Save"}
+              <span className="text-base font-semibold">{isSaving ? "Saving..." : "Save Changes"}</span>
             </Button>
           </div>
         </>

@@ -281,10 +281,7 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
               />
             </FormField>
             <FormField label="Age">
-              <Input
-                value={data.childAge}
-                onChange={(e) => set({ childAge: e.target.value })}
-              />
+              <Input value={data.childAge} onChange={(e) => set({ childAge: e.target.value })} />
             </FormField>
             <FormField label="Gender">
               <RadioGroup
@@ -297,7 +294,7 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
                     key={g}
                     className={cn(
                       "flex cursor-pointer items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm transition",
-                      data.childGender === g && "border-primary bg-primary/10 text-primary"
+                      data.childGender === g && "border-primary bg-primary/10 text-primary",
                     )}
                   >
                     <RadioGroupItem value={g} className="sr-only" />
@@ -457,10 +454,7 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
                 />
               </FormField>
               <FormField label="Was medical attention sought from a registered practitioner / hospital?">
-                <YesNo
-                  value={data.medicalSought}
-                  onChange={(v) => set({ medicalSought: v })}
-                />
+                <YesNo value={data.medicalSought} onChange={(v) => set({ medicalSought: v })} />
               </FormField>
             </Grid2>
 
@@ -483,7 +477,10 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
         </Section>
 
         {/* Section 6: Notifications */}
-        <Section icon={Bell} title="Parent / Guardian Notifications (including attempted notifications)">
+        <Section
+          icon={Bell}
+          title="Parent / Guardian Notifications (including attempted notifications)"
+        >
           <NotifyRow
             label="Parent / Guardian / Carer"
             name={data.parentName}
@@ -533,8 +530,8 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
                 placeholder="Parent / guardian name"
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                (name of parent / guardian) have been notified of my child's incident /
-                injury / trauma / illness.
+                (name of parent / guardian) have been notified of my child's incident / injury /
+                trauma / illness.
               </p>
             </FormField>
 
@@ -543,10 +540,7 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
                 const checked = data.ackTypes.includes(t);
                 return (
                   <label key={t} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(v) => toggleAckType(t, !!v)}
-                    />
+                    <Checkbox checked={checked} onCheckedChange={(v) => toggleAckType(t, !!v)} />
                     <span className="font-medium">{t}</span>
                   </label>
                 );
@@ -651,7 +645,9 @@ function NatureColumn({ options, selected, onToggle }) {
             key={opt}
             className="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm hover:bg-muted/40"
           >
-            <span className={cn("font-medium", checked ? "text-foreground" : "text-muted-foreground")}>
+            <span
+              className={cn("font-medium", checked ? "text-foreground" : "text-muted-foreground")}
+            >
               {opt}
             </span>
             <Switch checked={checked} onCheckedChange={() => onToggle(opt)} />
@@ -664,7 +660,12 @@ function NatureColumn({ options, selected, onToggle }) {
 
 function NotifyRow({ label, name, date, time, onName, onDate, onTime, last }) {
   return (
-    <div className={cn("grid grid-cols-1 gap-3 py-3 md:grid-cols-3", !last && "border-b border-dashed border-border")}>
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-3 py-3 md:grid-cols-3",
+        !last && "border-b border-dashed border-border",
+      )}
+    >
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {label}
@@ -672,11 +673,15 @@ function NotifyRow({ label, name, date, time, onName, onDate, onTime, last }) {
         <Input value={name} onChange={(e) => onName(e.target.value)} />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date</Label>
+        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Date
+        </Label>
         <Input type="date" value={date} onChange={(e) => onDate(e.target.value)} />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Time</Label>
+        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Time
+        </Label>
         <Input type="time" value={time} onChange={(e) => onTime(e.target.value)} />
       </div>
     </div>

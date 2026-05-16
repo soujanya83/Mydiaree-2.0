@@ -1,9 +1,4 @@
-import {
-  ArrowLeft,
-  Download,
-  Send,
-  FileText,
-} from "lucide-react";
+import { ArrowLeft, Download, Send, FileText } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useChildrenStore } from "@/stores/childrenStore";
@@ -18,10 +13,7 @@ export function AccidentReadOnlyView({ record, onBack, onEdit }) {
       <PageHeader
         title="Accident View"
         description="Read-only record"
-        breadcrumbs={[
-          { label: "Accident Forms", to: "/accident-form" },
-          { label: "View" },
-        ]}
+        breadcrumbs={[{ label: "Accident Forms", to: "/accident-form" }, { label: "View" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={onBack}>
@@ -67,10 +59,7 @@ export function AccidentReadOnlyView({ record, onBack, onEdit }) {
         </Block>
 
         <Block title="Child details">
-          <Pair
-            label="Child's full name"
-            value={child ? child.name : "—"}
-          />
+          <Pair label="Child's full name" value={child ? child.name : "—"} />
           <Pair label="Date of birth" value={record.childDob} />
           <Pair label="Age" value={record.childAge} />
           <Pair label="Gender" value={record.childGender} />
@@ -123,13 +112,25 @@ export function AccidentReadOnlyView({ record, onBack, onEdit }) {
 
         <Block title="Notifications">
           <Pair label="Parent / Guardian" value={record.parentName} />
-          <Pair label="Parent date / time" value={`${record.parentDate || "—"} ${record.parentTime || ""}`} />
+          <Pair
+            label="Parent date / time"
+            value={`${record.parentDate || "—"} ${record.parentTime || ""}`}
+          />
           <Pair label="Director" value={record.directorName} />
-          <Pair label="Director date / time" value={`${record.directorDate || "—"} ${record.directorTime || ""}`} />
+          <Pair
+            label="Director date / time"
+            value={`${record.directorDate || "—"} ${record.directorTime || ""}`}
+          />
           <Pair label="Other agency" value={record.otherAgency} />
-          <Pair label="Other date / time" value={`${record.otherAgencyDate || "—"} ${record.otherAgencyTime || ""}`} />
+          <Pair
+            label="Other date / time"
+            value={`${record.otherAgencyDate || "—"} ${record.otherAgencyTime || ""}`}
+          />
           <Pair label="Regulatory authority" value={record.regulatoryAuthority} />
-          <Pair label="Reg date / time" value={`${record.regDate || "—"} ${record.regTime || ""}`} />
+          <Pair
+            label="Reg date / time"
+            value={`${record.regDate || "—"} ${record.regTime || ""}`}
+          />
         </Block>
 
         <Block title="Parental acknowledgement">
