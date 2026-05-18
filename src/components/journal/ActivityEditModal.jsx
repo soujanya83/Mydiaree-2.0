@@ -19,6 +19,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 
 function nowHHMM() {
   const d = new Date();
@@ -37,15 +40,45 @@ const activityMeta = {
   bottle: { icon: MilkIcon, hint: "Bottle time and volume details" },
 };
 
+// Define schema generator
+const getValidationSchema = (key) => {
+  const baseSchema = {
+    comments: z.string().optional(),
+  };
+
+  if (key === "sleep") {
+    return z.object({
+      ...baseSchema,
+      sleepTime: z.string().min(1, "Sleep time is required"),
+      wakeTime: z.string().optional(),
+    });
+  }
+
+  const schema = {
+    ...baseSchema,
+    time: z.string().min(1, "Time is required"),
+  };
+
+  if (["breakfast", "lunch", "late_snacks", "bottle"].includes(key)) {
+    schema.item = z.string().min(1, `${key === "bottle" ? "Bottle details" : "Item"} is required`);
+  }
+
+  if (key === "lunch") {
+    schema.serve = z.string().min(1, "Serve is required");
+  }
+
+  if (["sunscreen", "toileting"].includes(key)) {
+    schema.signature = z.string().optional();
+  }
+
+  if (key === "toileting") {
+    schema.status = z.string().min(1, "Status is required");
+  }
+
+  return z.object(schema);
+};
+
 export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, onSave }) {
-  const [time, setTime] = useState("");
-  const [item, setItem] = useState("");
-  const [comments, setComments] = useState("");
-  const [serve, setServe] = useState("1");
-  const [sleepTime, setSleepTime] = useState("");
-  const [wakeTime, setWakeTime] = useState("");
-  const [signature, setSignature] = useState("");
-  const [status, setStatus] = useState("clean");
   const [isSaving, setIsSaving] = useState(false);
 
   const key = activityLabel?.toLowerCase().replace(/\s+/g, "_");
@@ -53,47 +86,65 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
   const Icon = meta.icon;
   const isEdit = Boolean(initial?.id);
 
+  const schema = getValidationSchema(key);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(schema),
+  });
+
+  const watchServe = watch("serve");
+  const watchStatus = watch("status");
+
   useEffect(() => {
     if (open) {
       const currentTime = nowHHMM();
-      setTime(initial?.time || currentTime);
-      setItem(initial?.item || "");
-      setComments(initial?.comments || "");
-      setServe(String(initial?.serve ?? initial?.server ?? initial?.noOfServe ?? "1"));
-      setSleepTime(initial?.sleepTime || currentTime);
-      setWakeTime(initial?.wakeTime || "");
-      setSignature(initial?.signature || "");
-      setStatus(initial?.status || "clean");
+      reset({
+        time: initial?.time || currentTime,
+        item: initial?.item || "",
+        comments: initial?.comments || "",
+        serve: String(initial?.serve ?? initial?.server ?? initial?.noOfServe ?? "1"),
+        sleepTime: initial?.sleepTime || currentTime,
+        wakeTime: initial?.wakeTime || "",
+        signature: initial?.signature || "",
+        status: initial?.status || "clean",
+      });
     }
-  }, [open, initial]);
+  }, [open, initial, reset]);
 
-  const handleSave = async () => {
+  const onSubmitForm = async (data) => {
     const payload = {
-      comments,
+      comments: data.comments,
       ...(initial?.id ? { id: initial.id } : {}),
     };
 
     if (key === "sleep") {
-      payload.sleepTime = sleepTime;
-      payload.wakeTime = wakeTime;
+      payload.sleepTime = data.sleepTime;
+      payload.wakeTime = data.wakeTime;
     } else {
-      payload.time = time;
+      payload.time = data.time;
     }
 
     if (["breakfast", "lunch", "late_snacks", "bottle"].includes(key)) {
-      payload.item = item;
+      payload.item = data.item;
     }
 
     if (key === "lunch") {
-      payload.serve = serve;
+      payload.serve = data.serve;
     }
 
     if (["sunscreen", "toileting"].includes(key)) {
-      payload.signature = signature;
+      payload.signature = data.signature;
     }
 
     if (key === "toileting") {
-      payload.status = status;
+      payload.status = data.status;
     }
 
     if (onSave) {
@@ -130,132 +181,147 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
         </div>
 
         <div className="max-h-[70vh] space-y-5 overflow-y-auto bg-muted/20 p-6">
-          <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
-              <ClipboardEditIcon className="h-4 w-4 text-primary" />
-              Activity Details
-            </div>
+          <form id="activity-form" onSubmit={handleSubmit(onSubmitForm)}>
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <ClipboardEditIcon className="h-4 w-4 text-primary" />
+                Activity Details
+              </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {key === "sleep" ? (
-                <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {key === "sleep" ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label>Sleep Time <span className="text-red-500">*</span></Label>
+                      <Input type="time" {...register("sleepTime")} />
+                      {errors.sleepTime && (
+                        <p className="text-red-500 text-xs">{errors.sleepTime.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Wake Time</Label>
+                      <Input type="time" {...register("wakeTime")} />
+                      {errors.wakeTime && (
+                        <p className="text-red-500 text-xs">{errors.wakeTime.message}</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
                   <div className="space-y-1.5">
-                    <Label>Sleep Time</Label>
-                    <Input
-                      type="time"
-                      value={sleepTime}
-                      onChange={(e) => setSleepTime(e.target.value)}
-                    />
+                    <Label>Time <span className="text-red-500">*</span></Label>
+                    <Input type="time" {...register("time")} />
+                    {errors.time && (
+                      <p className="text-red-500 text-xs">{errors.time.message}</p>
+                    )}
                   </div>
+                )}
+
+                {["breakfast", "lunch", "late_snacks", "bottle"].includes(key) && (
                   <div className="space-y-1.5">
-                    <Label>Wake Time</Label>
+                    <Label>{key === "bottle" ? "Bottle Details" : "Item"} <span className="text-red-500">*</span></Label>
                     <Input
-                      type="time"
-                      value={wakeTime}
-                      onChange={(e) => setWakeTime(e.target.value)}
+                      {...register("item")}
+                      placeholder={key === "bottle" ? "e.g. 120ml formula" : "e.g. Toast with butter"}
                     />
+                    {errors.item && (
+                      <p className="text-red-500 text-xs">{errors.item.message}</p>
+                    )}
                   </div>
-                </>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label>Time</Label>
-                  <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                )}
+              </div>
+
+              {key === "lunch" && (
+                <div className="mt-4 space-y-2">
+                  <Label>No of Serve <span className="text-red-500">*</span></Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[1, 2, 3, 4, 5].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setValue("serve", String(val))}
+                        className={cn(
+                          "h-9 rounded-full border px-4 text-sm font-medium transition",
+                          watchServe === String(val)
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/60 hover:text-primary",
+                        )}
+                      >
+                        {val}
+                      </button>
+                    ))}
+                  </div>
+                  {errors.serve && (
+                    <p className="text-red-500 text-xs">{errors.serve.message}</p>
+                  )}
                 </div>
               )}
 
-              {["breakfast", "lunch", "late_snacks", "bottle"].includes(key) && (
-                <div className="space-y-1.5">
-                  <Label>{key === "bottle" ? "Bottle Details" : "Item"}</Label>
+              {key === "toileting" && (
+                <div className="mt-4 space-y-2">
+                  <Label>Nappy Status <span className="text-red-500">*</span></Label>
+                  <div className="flex flex-wrap gap-2">
+                    {["clean", "wet", "solid", "soiled", "successfully"].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setValue("status", s)}
+                        className={cn(
+                          "h-9 rounded-full border px-4 text-sm font-medium capitalize transition",
+                          watchStatus === s
+                            ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                            : "border-border bg-background text-muted-foreground hover:border-primary/60 hover:text-primary",
+                        )}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                  {errors.status && (
+                    <p className="text-red-500 text-xs">{errors.status.message}</p>
+                  )}
+                </div>
+              )}
+            </section>
+
+            <section className="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
+                <CheckIcon className="h-4 w-4 text-primary" />
+                Family Note
+              </div>
+
+              {["sunscreen", "toileting"].includes(key) && (
+                <div className="mb-4 space-y-1.5">
+                  <Label>Signature (Optional)</Label>
                   <Input
-                    value={item}
-                    onChange={(e) => setItem(e.target.value)}
-                    placeholder={key === "bottle" ? "e.g. 120ml formula" : "e.g. Toast with butter"}
+                    {...register("signature")}
+                    placeholder="Enter your name"
                   />
+                  {errors.signature && (
+                    <p className="text-red-500 text-xs">{errors.signature.message}</p>
+                  )}
                 </div>
               )}
-            </div>
 
-            {key === "lunch" && (
-              <div className="mt-4 space-y-2">
-                <Label>No of Serve</Label>
-                <div className="flex flex-wrap gap-2">
-                  {[1, 2, 3, 4, 5].map((val) => (
-                    <button
-                      key={val}
-                      type="button"
-                      onClick={() => setServe(String(val))}
-                      className={cn(
-                        "h-9 rounded-full border px-4 text-sm font-medium transition",
-                        serve === String(val)
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/60 hover:text-primary",
-                      )}
-                    >
-                      {val}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {key === "toileting" && (
-              <div className="mt-4 space-y-2">
-                <Label>Nappy Status</Label>
-                <div className="flex flex-wrap gap-2">
-                  {["clean", "wet", "solid", "soiled", "successfully"].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setStatus(s)}
-                      className={cn(
-                        "h-9 rounded-full border px-4 text-sm font-medium capitalize transition",
-                        status === s
-                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                          : "border-border bg-background text-muted-foreground hover:border-primary/60 hover:text-primary",
-                      )}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
-              <CheckIcon className="h-4 w-4 text-primary" />
-              Family Note
-            </div>
-
-            {["sunscreen", "toileting"].includes(key) && (
-              <div className="mb-4 space-y-1.5">
-                <Label>Signature (Optional)</Label>
-                <Input
-                  value={signature}
-                  onChange={(e) => setSignature(e.target.value)}
-                  placeholder="Enter your name"
+              <div className="space-y-1.5">
+                <Label>Comments (Optional)</Label>
+                <Textarea
+                  rows={4}
+                  {...register("comments")}
+                  placeholder="Anything to share with families..."
                 />
+                {errors.comments && (
+                  <p className="text-red-500 text-xs">{errors.comments.message}</p>
+                )}
               </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label>Comments (Optional)</Label>
-              <Textarea
-                rows={4}
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                placeholder="Anything to share with families..."
-              />
-            </div>
-          </section>
+            </section>
+          </form>
         </div>
 
         <div className="flex flex-col-reverse gap-2 border-t border-border bg-card px-6 py-4 sm:flex-row sm:items-center sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button type="submit" form="activity-form" disabled={isSaving}>
             {isSaving ? (
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
             ) : (

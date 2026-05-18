@@ -452,6 +452,7 @@ export default function DailyDiaryPage() {
         childList={diaryChildren}
         onSubmit={async (payload) => {
           try {
+            console.log("Bulk save payload:", payload);
             const { children: selectedIds, notes, activity, ...rest } = payload;
             const data = {
               ...rest,
@@ -532,7 +533,7 @@ export default function DailyDiaryPage() {
             );
           } catch (error) {
             console.error("Bulk save failed", error);
-            toast.error("Failed to save bulk entry");
+            toast.error(`Failed to save bulk entry: ${error.message}`);
             throw error;
           }
         }}

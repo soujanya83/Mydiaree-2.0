@@ -28,6 +28,10 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useChildrenStore } from "@/stores/childrenStore";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { toast } from "sonner";
 
 function nowHHMM() {
   const d = new Date();
@@ -66,22 +70,87 @@ function childInitials(child) {
     .slice(0, 2);
 }
 
+const getValidationSchema = (activity) => {
+  const baseSchema = {
+    date: z.string().min(1, "Date is required"),
+    children: z.array(z.union([z.string(), z.number()])).min(1, "Select at least one child"),
+    notes: z.string().optional(),
+  };
+
+  if (activity === "sleep") {
+    return z.object({
+      ...baseSchema,
+      time: z.string().min(1, "Sleep time is required"),
+      wakeTime: z.string().optional(),
+    });
+  }
+
+  const schema = {
+    ...baseSchema,
+    time: z.string().min(1, "Time is required"),
+  };
+
+  if (["breakfast", "lunch", "late_snacks", "bottle"].includes(activity)) {
+    schema.item = z.string().min(1, `${activity === "bottle" ? "Bottle details" : "Item"} is required`);
+  }
+
+  if (activity === "lunch") {
+    schema.serve = z.string().min(1, "Serve is required");
+  }
+
+  if (["sunscreen", "toileting"].includes(activity)) {
+    schema.signature = z.string().optional();
+  }
+
+  if (activity === "toileting") {
+    schema.status = z.string().min(1, "Status is required");
+  }
+
+  return z.object(schema);
+};
+
 export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
   const storeChildren = useChildrenStore((s) => s.children);
   const children = childList?.length > 0 ? childList : storeChildren;
-  const [activity, setActivity] = useState("breakfast");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState([]);
-  const [notes, setNotes] = useState("");
-  const [time, setTime] = useState(() => nowHHMM());
-  const [wakeTime, setWakeTime] = useState("");
-  const [item, setItem] = useState("");
-  const [amount, setAmount] = useState("");
-  const [serve, setServe] = useState("1");
-  const [signature, setSignature] = useState("");
-  const [status, setStatus] = useState("clean");
   const [isSaving, setIsSaving] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm({
+    resolver: (data, context, options) => {
+      const schema = getValidationSchema(data.activity);
+      return zodResolver(schema)(data, context, options);
+    },
+    defaultValues: {
+      activity: "breakfast",
+      date: new Date().toISOString().slice(0, 10),
+      children: [],
+      notes: "",
+      time: nowHHMM(),
+      wakeTime: "",
+      item: "",
+      serve: "1",
+      signature: "",
+      status: "clean",
+    },
+  });
+
+  // Register custom fields that don't have direct ref bindings
+  useEffect(() => {
+    register("children");
+  }, [register]);
+
+  const activity = watch("activity");
+  const selected = watch("children");
+  const watchServe = watch("serve");
+  const watchStatus = watch("status");
 
   const current = ACTIVITIES.find((a) => a.key === activity);
   const Icon = current.icon;
@@ -95,58 +164,36 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
   const allSelected =
     filteredChildren.length > 0 && filteredChildren.every((c) => selected.includes(c.id));
 
-  const toggleChild = (id) =>
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const toggleChild = (id) => {
+    const next = selected.includes(id)
+      ? selected.filter((x) => x !== id)
+      : [...selected, id];
+    setValue("children", next, { shouldValidate: true });
+  };
 
   const toggleAll = () => {
     if (allSelected) {
-      setSelected((prev) => prev.filter((id) => !filteredChildren.some((c) => c.id === id)));
+      const next = selected.filter((id) => !filteredChildren.some((c) => c.id === id));
+      setValue("children", next, { shouldValidate: true });
     } else {
-      setSelected((prev) => Array.from(new Set([...prev, ...filteredChildren.map((c) => c.id)])));
+      const next = Array.from(new Set([...selected, ...filteredChildren.map((c) => c.id)]));
+      setValue("children", next, { shouldValidate: true });
     }
-  };
-
-  const reset = () => {
-    setActivity("breakfast");
-    setSearch("");
-    setSelected([]);
-    setNotes("");
-    setTime(nowHHMM());
-    setWakeTime("");
-    setItem("");
-    setAmount("");
-    setServe("1");
-    setSignature("");
-    setStatus("clean");
   };
 
   useEffect(() => {
     if (open) {
-      setTime(nowHHMM());
+      setValue("time", nowHHMM());
+      setValue("activity", "breakfast"); // Ensure it has a value on open
     }
-  }, [open]);
+  }, [open, setValue]);
 
-  const handleSave = async () => {
+  const onSubmitForm = async (data) => {
     const payload = {
-      activity,
-      date,
-      children: selected,
-      time,
-      wakeTime,
-      amount,
-      serve,
-      signature,
-      notes,
+      ...data,
+      activity: activity, // Explicitly pass watched activity
     };
-
-    if (["breakfast", "lunch", "late_snacks", "bottle"].includes(activity)) {
-      payload.item = item;
-    }
-
-    if (activity === "toileting") {
-      payload.status = status;
-    }
-
+    console.log("Submitting NewEntryModal data:", payload);
     if (onSubmit) {
       setIsSaving(true);
       try {
@@ -162,6 +209,14 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
       reset();
       onOpenChange(false);
     }
+  };
+
+  const onValidationError = (errors) => {
+    console.log("Validation Errors:", errors);
+    const errorMessages = Object.values(errors)
+      .map((err) => err.message)
+      .join(", ");
+    toast.error(`Please fix: ${errorMessages}`);
   };
 
   const valueLabel = activity === "bottle" ? "Volume (ml)" : `${current.label} Item`;
@@ -206,7 +261,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
                   return (
                     <button
                       key={a.key}
-                      onClick={() => setActivity(a.key)}
+                      onClick={() => setValue("activity", a.key, { shouldValidate: true })}
                       className={cn(
                         "flex min-h-12 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-all",
                         active
@@ -225,7 +280,12 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
 
           {/* Main content */}
           <ScrollArea className="md:h-[75vh]">
-            <div className="space-y-6 p-6">
+            <form id="new-entry-form" onSubmit={handleSubmit(onSubmitForm, onValidationError)} className="space-y-6 p-6">
+              {/* Hidden inputs for custom fields to ensure they are registered and have values */}
+              <input type="hidden" {...register("activity")} />
+              <input type="hidden" {...register("serve")} />
+              <input type="hidden" {...register("status")} />
+
               <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="rounded-xl bg-primary/10 p-3 text-primary">
@@ -251,11 +311,14 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Date</Label>
-                    <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                    <Label>Date <span className="text-red-500">*</span></Label>
+                    <Input type="date" {...register("date")} />
+                    {errors.date && (
+                      <p className="text-red-500 text-xs">{errors.date.message}</p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Select Children</Label>
+                    <Label>Select Children <span className="text-red-500">*</span></Label>
                     <div className="relative">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
@@ -322,6 +385,9 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
                     )}
                   </div>
                 </ScrollArea>
+                {errors.children && (
+                  <p className="text-red-500 text-xs">{errors.children.message}</p>
+                )}
               </section>
 
               {/* Activity Details */}
@@ -333,29 +399,33 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>{timeLabel}</Label>
-                    <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                    <Label>{timeLabel} <span className="text-red-500">*</span></Label>
+                    <Input type="time" {...register("time")} />
+                    {errors.time && (
+                      <p className="text-red-500 text-xs">{errors.time.message}</p>
+                    )}
                   </div>
                   {activity === "sleep" ? (
                     <div className="space-y-1.5">
                       <Label>Wake Time</Label>
-                      <Input
-                        type="time"
-                        value={wakeTime}
-                        onChange={(e) => setWakeTime(e.target.value)}
-                      />
+                      <Input type="time" {...register("wakeTime")} />
+                      {errors.wakeTime && (
+                        <p className="text-red-500 text-xs">{errors.wakeTime.message}</p>
+                      )}
                     </div>
                   ) : (
                     ["breakfast", "lunch", "late_snacks", "bottle"].includes(activity) && (
                       <div className="space-y-1.5">
-                        <Label>{valueLabel}</Label>
+                        <Label>{valueLabel} <span className="text-red-500">*</span></Label>
                         <Input
-                          value={item}
-                          onChange={(e) => setItem(e.target.value)}
+                          {...register("item")}
                           placeholder={`e.g. ${
                             activity === "bottle" ? "120ml formula" : "Toast with butter"
                           }`}
                         />
+                        {errors.item && (
+                          <p className="text-red-500 text-xs">{errors.item.message}</p>
+                        )}
                       </div>
                     )
                   )}
@@ -363,16 +433,16 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
 
                 {activity === "lunch" && (
                   <div className="space-y-1.5">
-                    <Label>No of Serve</Label>
+                    <Label>No of Serve <span className="text-red-500">*</span></Label>
                     <div className="flex flex-wrap gap-2">
                       {[1, 2, 3, 4, 5].map((val) => (
                         <button
                           key={val}
                           type="button"
-                          onClick={() => setServe(String(val))}
+                          onClick={() => setValue("serve", String(val), { shouldValidate: true })}
                           className={cn(
                             "rounded-full border px-4 py-1.5 text-xs font-medium transition",
-                            serve === String(val)
+                            watchServe === String(val)
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
                           )}
@@ -381,21 +451,24 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
                         </button>
                       ))}
                     </div>
+                    {errors.serve && (
+                      <p className="text-red-500 text-xs">{errors.serve.message}</p>
+                    )}
                   </div>
                 )}
 
                 {activity === "toileting" && (
                   <div className="space-y-1.5">
-                    <Label>Nappy Status</Label>
+                    <Label>Nappy Status <span className="text-red-500">*</span></Label>
                     <div className="flex flex-wrap gap-2">
                       {["clean", "wet", "solid", "successfully"].map((s) => (
                         <button
                           key={s}
                           type="button"
-                          onClick={() => setStatus(s)}
+                          onClick={() => setValue("status", s, { shouldValidate: true })}
                           className={cn(
                             "rounded-full border px-4 py-1.5 text-xs font-medium capitalize transition",
-                            status === s
+                            watchStatus === s
                               ? "border-primary bg-primary text-primary-foreground"
                               : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
                           )}
@@ -404,6 +477,9 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
                         </button>
                       ))}
                     </div>
+                    {errors.status && (
+                      <p className="text-red-500 text-xs">{errors.status.message}</p>
+                    )}
                   </div>
                 )}
 
@@ -411,37 +487,12 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
                   <div className="space-y-1.5">
                     <Label>Signature (Optional)</Label>
                     <Input
-                      value={signature}
-                      onChange={(e) => setSignature(e.target.value)}
+                      {...register("signature")}
                       placeholder="Enter your name"
                     />
-                  </div>
-                )}
-
-                {(activity === "breakfast" ||
-                  activity === "morning_tea" ||
-                  activity === "lunch" ||
-                  activity === "afternoon_tea" ||
-                  activity === "late_snacks") && (
-                  <div className="space-y-2">
-                    <Label>Amount Eaten</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {["all", "most", "some", "none"].map((a) => (
-                        <button
-                          key={a}
-                          type="button"
-                          onClick={() => setAmount(a)}
-                          className={cn(
-                            "rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition",
-                            amount === a
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary",
-                          )}
-                        >
-                          {a}
-                        </button>
-                      ))}
-                    </div>
+                    {errors.signature && (
+                      <p className="text-red-500 text-xs">{errors.signature.message}</p>
+                    )}
                   </div>
                 )}
 
@@ -449,10 +500,12 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
                   <Label>Notes (Optional)</Label>
                   <Textarea
                     rows={3}
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    {...register("notes")}
                     placeholder="Anything to share with families..."
                   />
+                  {errors.notes && (
+                    <p className="text-red-500 text-xs">{errors.notes.message}</p>
+                  )}
                 </div>
               </section>
               {selected.length > 0 && (
@@ -472,7 +525,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
                   )}
                 </div>
               )}
-            </div>
+            </form>
           </ScrollArea>
         </div>
 
@@ -489,7 +542,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isSaving}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={selected.length === 0 || isSaving}>
+            <Button type="submit" form="new-entry-form" size="sm" disabled={isSaving}>
               {isSaving ? (
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
               ) : (

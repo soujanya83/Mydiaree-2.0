@@ -9,7 +9,7 @@ const dailyDiaryService = {
   storeAfternoonTea: (data) => api.post("/activities/afternoon-tea", data),
   storeLateSnacks: (data) => api.post("/activities/late-snacks", data),
   storeSunscreen: (data) => api.post("/dailyDiary/storeSunscreen", data),
-  storeToileting: (data) => api.post("/dailyDiary/storeTolitring", data),
+  storeToileting: (data) => api.post("/dailyDiary/storeToileting", data),
   listDiary: (data) => api.post("/DailyDiary/list", data),
 };
 
