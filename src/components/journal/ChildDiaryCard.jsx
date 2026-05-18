@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   ChevronDown,
 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { ActivityEditModal } from "./ActivityEditModal";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -155,7 +155,15 @@ function EntryDetails({ def, entry }) {
     );
   };
 
-  const hasContent = entry.time || entry.item || entry.comments || entry.status || entry.sleepTime || entry.serve || entry.server || entry.noOfServe;
+  const hasContent =
+    entry.time ||
+    entry.item ||
+    entry.comments ||
+    entry.status ||
+    entry.sleepTime ||
+    entry.serve ||
+    entry.server ||
+    entry.noOfServe;
   if (!hasContent) return <span className="italic">Entry added</span>;
 
   if (def.key === "sleep") {
@@ -233,7 +241,7 @@ function ActivityTile({ def, entry, onSave }) {
                 <ChevronDown
                   className={cn(
                     "h-4 w-4 text-muted-foreground transition-transform duration-200",
-                    isOpen && "rotate-180"
+                    isOpen && "rotate-180",
                   )}
                 />
               </div>
@@ -359,6 +367,17 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar className="h-12 w-12 shrink-0 border border-primary/15 bg-primary/10">
+              {child.imageUrl && (
+                <AvatarImage
+                  src={
+                    child.imageUrl.startsWith("http")
+                      ? child.imageUrl
+                      : `https://mydiaree.com.au/${child.imageUrl}`
+                  }
+                  alt={child.name}
+                  className="object-cover"
+                />
+              )}
               <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
                 {initials}
               </AvatarFallback>
@@ -427,4 +446,3 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
 }
 
 export default ChildDiaryCard;
-
