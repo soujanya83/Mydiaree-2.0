@@ -365,6 +365,7 @@ function FieldGroup({ icon: Icon, label, children }) {
       <div className="flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}
+        <span className="text-destructive font-bold ml-0.5">*</span>
       </div>
       {children}
     </div>

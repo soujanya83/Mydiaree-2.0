@@ -65,8 +65,7 @@ export default function SleepCheckPage() {
     });
   }, [fetchedChildren, search]);
 
-  const getCard = (id) =>
-    cards[id] ?? { selected: false, openEntryId: null, entries: [] };
+  const getCard = (id) => cards[id] ?? { selected: false, openEntryId: null, entries: [] };
 
   const fetchSleepChecks = async () => {
     if (!activeCentreId || !activeRoomId) return;
@@ -257,9 +256,7 @@ export default function SleepCheckPage() {
   const updateEntry = (childId, entryId, patch) => {
     setCards((p) => {
       const card = { ...getCard(childId) };
-      card.entries = card.entries.map((e) =>
-        e.id === entryId ? { ...e, ...patch } : e
-      );
+      card.entries = card.entries.map((e) => (e.id === entryId ? { ...e, ...patch } : e));
       return { ...p, [childId]: card };
     });
   };
@@ -339,7 +336,10 @@ export default function SleepCheckPage() {
         <div className="space-y-5">
           {visibleChildren.map((child) => {
             const card = getCard(child.id);
-            const initials = (child.name || "??").split(" ").map(n => n[0]).join("");
+            const initials = (child.name || "??")
+              .split(" ")
+              .map((n) => n[0])
+              .join("");
             return (
               <article
                 key={child.id}
@@ -354,11 +354,9 @@ export default function SleepCheckPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="text-base font-bold text-foreground">
-                        {child.name}
-                      </h3>
+                      <h3 className="text-base font-bold text-foreground">{child.name}</h3>
                       <p className="text-xs text-muted-foreground">
-                        {rooms.find(r => r.id === activeRoomId)?.name || "—"}
+                        {rooms.find((r) => r.id === activeRoomId)?.name || "—"}
                       </p>
                     </div>
                   </div>
@@ -414,16 +412,20 @@ export default function SleepCheckPage() {
                             {entry.signature || "—"}
                           </div>
                           <div className="hidden items-center justify-center md:flex">
-                            <span className={cn(
-                              "inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
-                              entry.isNew === false ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-                            )}>
+                            <span
+                              className={cn(
+                                "inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                                entry.isNew === false
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : "bg-amber-100 text-amber-700",
+                              )}
+                            >
                               {entry.isNew === false ? "Saved" : "New"}
                             </span>
                             <ChevronDown
                               className={cn(
                                 "ml-2 h-4 w-4 text-muted-foreground transition-transform",
-                                open && "rotate-180"
+                                open && "rotate-180",
                               )}
                             />
                           </div>
@@ -433,7 +435,7 @@ export default function SleepCheckPage() {
                         {open && (
                           <div className="border-t border-dashed border-border bg-muted/20 px-5 py-4">
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                              <Field icon={Clock} label="Time">
+                              <Field icon={Clock} label="Time" required>
                                 <Input
                                   type="time"
                                   value={entry.time}
@@ -442,7 +444,7 @@ export default function SleepCheckPage() {
                                   }
                                 />
                               </Field>
-                              <Field icon={ActivityIcon} label="Breathing">
+                              <Field icon={ActivityIcon} label="Breathing" required>
                                 <Select
                                   value={entry.breathing}
                                   onValueChange={(v) =>
@@ -461,7 +463,7 @@ export default function SleepCheckPage() {
                                   </SelectContent>
                                 </Select>
                               </Field>
-                              <Field icon={Thermometer} label="Body Temperature">
+                              <Field icon={Thermometer} label="Body Temperature" required>
                                 <Select
                                   value={entry.temperature}
                                   onValueChange={(v) =>
@@ -490,7 +492,7 @@ export default function SleepCheckPage() {
                                   placeholder="Sleep check list notes…"
                                 />
                               </Field>
-                              <Field icon={PenLine} label="Signature">
+                              <Field icon={PenLine} label="Signature" required>
                                 <Input
                                   value={entry.signature}
                                   onChange={(e) =>
@@ -505,7 +507,9 @@ export default function SleepCheckPage() {
                               <Button
                                 size="sm"
                                 variant="destructive"
-                                onClick={() => handleDeleteEntry(child.id, entry.id, entry.isNew !== false)}
+                                onClick={() =>
+                                  handleDeleteEntry(child.id, entry.id, entry.isNew !== false)
+                                }
                               >
                                 <Trash2 className="mr-1.5 h-4 w-4" />
                                 Remove
@@ -552,12 +556,13 @@ export default function SleepCheckPage() {
   );
 }
 
-function Field({ icon: Icon, label, children, className }) {
+function Field({ icon: Icon, label, required, children, className }) {
   return (
     <div className={cn("space-y-1.5", className)}>
       <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
         <Icon className="h-3.5 w-3.5 text-primary" />
         {label}
+        {required && <span className="text-destructive font-bold ml-0.5">*</span>}
       </p>
       {children}
     </div>
