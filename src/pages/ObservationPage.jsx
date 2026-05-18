@@ -18,6 +18,8 @@ import {
   Loader2,
   AlertTriangle,
   UserCircle2,
+  CalendarRange,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -30,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CustomDateFilter } from "@/components/common/CustomDateFilter";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
@@ -73,6 +76,8 @@ export default function ObservationPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [dateRange, setDateRange] = useState("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [author, setAuthor] = useState("all");
   const [childId, setChildId] = useState("all");
   const [page, setPage] = useState(1);
@@ -89,9 +94,9 @@ export default function ObservationPage() {
         status: status !== "all" ? status : undefined,
         search: search || undefined,
         author: author !== "all" ? author : undefined,
-        // For date range, we might need specific logic if server supports it,
-        // but for now let's pass it as is or handle it client-side if needed.
-        date_range: dateRange !== "all" ? dateRange : undefined,
+        date_range: dateRange !== "all" && dateRange !== "custom" ? dateRange : undefined,
+        from_date: dateRange === "custom" && customFrom ? customFrom : undefined,
+        to_date: dateRange === "custom" && customTo ? customTo : undefined,
       };
       const res = await observationService.getObservations(activeCentreId, PAGE_SIZE, page, filters);
       if (res.success) {
@@ -105,23 +110,32 @@ export default function ObservationPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeCentreId, page, activeRoomId, status, search, author, dateRange]);
+  }, [activeCentreId, page, activeRoomId, status, search, author, dateRange, customFrom, customTo]);
 
   useEffect(() => {
     fetchObservations();
   }, [fetchObservations]);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [activeRoomId, status, search, author, dateRange, activeCentreId]);
+  }, [activeRoomId, status, search, author, dateRange, customFrom, customTo, activeCentreId]);
 
   const childrenInRoom = useMemo(() => {
     if (!activeRoomId) return children;
     const room = rooms.find((r) => r.id === activeRoomId);
     if (!room) return [];
-    return children.filter((c) => String(c.room) === String(room.name));
+    return children.filter(
+      (c) =>
+        String(c.room) === String(activeRoomId) ||
+        String(c.room) === String(room.id) ||
+        String(c.room) === String(room.name),
+    );
   }, [children, activeRoomId, rooms]);
+
+  const authors = useMemo(() => {
+    const set = new Set(items.map((o) => o.user?.name).filter(Boolean));
+    return Array.from(set);
+  }, [items]);
 
   const filtered = items; // Now using server-side filtering
 
@@ -176,6 +190,8 @@ export default function ObservationPage() {
   const resetFilters = () => {
     setStatus("all");
     setDateRange("all");
+    setCustomFrom("");
+    setCustomTo("");
     setAuthor("all");
     setChildId("all");
     setSearch("");
@@ -280,18 +296,15 @@ export default function ObservationPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Date</label>
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DATE_FILTERS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      {d.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CustomDateFilter
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+                customFrom={customFrom}
+                setCustomFrom={setCustomFrom}
+                customTo={customTo}
+                setCustomTo={setCustomTo}
+                options={DATE_FILTERS}
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Author</label>
@@ -301,7 +314,7 @@ export default function ObservationPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All authors</SelectItem>
-                  {AUTHORS.map((a) => (
+                  {authors.map((a) => (
                     <SelectItem key={a} value={a}>
                       {a}
                     </SelectItem>

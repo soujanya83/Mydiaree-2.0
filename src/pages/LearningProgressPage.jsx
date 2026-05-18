@@ -20,6 +20,7 @@ import {
   formatDob,
 } from "@/components/lessonplan/progressData";
 import { learningProgressService } from "@/services/learning/learningProgressService";
+import { Pagination } from "@/components/common/Pagination";
 
 export default function LearningProgressPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
@@ -29,13 +30,30 @@ export default function LearningProgressPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [query, setQuery] = useState("");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+
+  const [debouncedSearch, setDebouncedSearch] = useState(query);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(query);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [query]);
+
   const loadData = useCallback(async () => {
     if (!activeCentreId) return;
     setIsLoading(true);
     try {
-      const response = await learningProgressService.getIndex(activeCentreId, activeRoomId);
+      const response = await learningProgressService.getIndex(activeCentreId, activeRoomId, currentPage, perPage, debouncedSearch);
       if (response.status && response.data) {
-        setChildrenList(response.data.children || []);
+        const childrenObj = response.data.children;
+        const rawChildren = childrenObj.data || [];
+        
+        setChildrenList(rawChildren);
+        setTotalPages(childrenObj.last_page || 1);
         
         // If no activeRoomId is set, and API returns a selected_room, we could set it
         if (!activeRoomId && response.data.selected_room) {
@@ -47,7 +65,7 @@ export default function LearningProgressPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeCentreId, activeRoomId, setActiveRoom]);
+  }, [activeCentreId, activeRoomId, currentPage, perPage, debouncedSearch, setActiveRoom]);
 
   // Fetch rooms when centre changes
   useEffect(() => {
@@ -61,17 +79,13 @@ export default function LearningProgressPage() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeCentreId, activeRoomId, debouncedSearch]);
+
   const filteredChildren = useMemo(() => {
-    return childrenList.filter((c) => {
-      if (query) {
-        const q = query.toLowerCase();
-        const fn = (c.name || "").toLowerCase();
-        const ln = (c.lastname || "").toLowerCase();
-        if (!fn.includes(q) && !ln.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [childrenList, query]);
+    return childrenList;
+  }, [childrenList]);
 
   return (
     <div>
@@ -131,6 +145,16 @@ export default function LearningProgressPage() {
           {filteredChildren.map((c) => (
             <ChildCard key={c.id} child={c} />
           ))}
+        </div>
+      )}
+
+      {filteredChildren.length > 0 && (
+        <div className="mt-6 flex justify-center">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
     </div>

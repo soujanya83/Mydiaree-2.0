@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { ChildDiaryCard } from "@/components/journal/ChildDiaryCard";
 import { NewEntryModal } from "@/components/journal/NewEntryModal";
+import { Pagination } from "@/components/common/Pagination";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
@@ -40,16 +41,25 @@ export default function DailyDiaryPage() {
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
 
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+
   // Per-child, per-activity entries: { [childId]: { [activityKey]: {time,item,comments} } }
   const [entriesByChild, setEntriesByChild] = useState({});
 
   const visibleChildren = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return diaryChildren.filter((c) => {
-      if (q && !c.name.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [diaryChildren, search]);
+    return diaryChildren;
+  }, [diaryChildren]);
 
   const diaryStats = useMemo(() => {
     const totalChildren = diaryChildren.length;
@@ -85,12 +95,19 @@ export default function DailyDiaryPage() {
         center_id: activeCentreId,
         room_id: activeRoomId,
         selected_date: date,
+        search: debouncedSearch || undefined,
+        per_page: perPage,
+        page: currentPage,
       });
 
       console.log("Daily dairy response ", response.data.data.children);
 
       if (response.data.status && response.data.data.children) {
-        const rawChildren = response.data.data.children;
+        const childrenObj = response.data.data.children;
+        const rawChildren = childrenObj.data || [];
+
+        setTotalPages(childrenObj.last_page || 1);
+
         const normalized = {};
         const extracted = [];
 
@@ -177,11 +194,15 @@ export default function DailyDiaryPage() {
     } finally {
       setIsFetching(false);
     }
-  }, [activeCentreId, activeRoomId, date]);
+  }, [activeCentreId, activeRoomId, date, debouncedSearch, currentPage, perPage]);
 
   useEffect(() => {
     fetchDiary();
   }, [fetchDiary]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeCentreId, activeRoomId, date, debouncedSearch]);
 
   useEffect(() => {
     if (activeCentreId && activeRoomId) {
@@ -412,6 +433,16 @@ export default function DailyDiaryPage() {
               onSaveEntry={handleSaveEntry}
             />
           ))}
+        </div>
+      )}
+
+      {visibleChildren.length > 0 && (
+        <div className="mt-6 flex justify-center">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 

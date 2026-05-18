@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
+  CalendarRange,
   FileText,
   UserCircle2,
   Users,
@@ -20,6 +21,7 @@ import {
   Pencil,
   Video,
   Loader2,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -32,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CustomDateFilter } from "@/components/common/CustomDateFilter";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
@@ -114,6 +117,8 @@ export default function DailyReflectionsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [dateRange, setDateRange] = useState("all");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [author, setAuthor] = useState("all");
   const [childId, setChildId] = useState("all");
   const [page, setPage] = useState(1);
@@ -177,13 +182,24 @@ export default function DailyReflectionsPage() {
         const hasChild = r.children?.some((c) => String(c.childid) === String(childId));
         if (!hasChild) return false;
       }
-      if (!inDateRange(r.created_at, dateRange)) return false;
+      // Custom date range filtering
+      if (dateRange === "custom") {
+        if (customFrom || customTo) {
+          const date = new Date(r.created_at);
+          if (customFrom && date < new Date(customFrom)) return false;
+          if (customTo) {
+            const toEnd = new Date(customTo);
+            toEnd.setHours(23, 59, 59, 999);
+            if (date > toEnd) return false;
+          }
+        }
+      } else if (!inDateRange(r.created_at, dateRange)) return false;
 
       const cleanTitle = stripHtml(r.title);
       if (search && !cleanTitle.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [items, activeCentreId, activeRoomId, rooms, status, author, childId, dateRange, search]);
+  }, [items, activeCentreId, activeRoomId, rooms, status, author, childId, dateRange, customFrom, customTo, search]);
 
   const authors = useMemo(() => {
     const set = new Set(items.map((s) => s.creator?.name).filter(Boolean));
@@ -236,6 +252,8 @@ export default function DailyReflectionsPage() {
   const resetFilters = () => {
     setStatus("all");
     setDateRange("all");
+    setCustomFrom("");
+    setCustomTo("");
     setAuthor("all");
     setChildId("all");
     setSearch("");
@@ -336,18 +354,15 @@ export default function DailyReflectionsPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Date</label>
-              <Select value={dateRange} onValueChange={setDateRange}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DATE_FILTERS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      {d.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CustomDateFilter
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+                customFrom={customFrom}
+                setCustomFrom={setCustomFrom}
+                customTo={customTo}
+                setCustomTo={setCustomTo}
+                options={DATE_FILTERS}
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Author</label>

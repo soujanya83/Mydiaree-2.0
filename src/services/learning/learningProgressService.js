@@ -5,11 +5,14 @@ export const learningProgressService = {
    * Get learning and progress index data (centers, rooms, children)
    * GET /learningandprogress/index
    */
-  async getIndex(centerId, roomId) {
+  async getIndex(centerId, roomId, page = 1, perPage = 10, search = "") {
     const res = await api.get("/learningandprogress/index", {
       params: { 
         centerid: centerId,
-        room_id: roomId
+        room_id: roomId,
+        page,
+        per_page: perPage,
+        search: search || undefined
       },
     });
     return res.data;
