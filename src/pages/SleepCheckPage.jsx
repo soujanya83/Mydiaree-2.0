@@ -14,6 +14,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -329,7 +330,7 @@ export default function SleepCheckPage() {
 
       {/* Children list */}
       {isFetching ? (
-        <div className="py-20 text-center text-muted-foreground">Loading data...</div>
+        <PageLoader label="Loading sleep checks…" />
       ) : visibleChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
           No children found in this room.

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Search, LineChart, Baby, Cake, VenetianMask } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -120,7 +121,7 @@ export default function LearningProgressPage() {
       <h2 className="mb-4 text-center text-2xl font-semibold text-primary">Children Directory</h2>
 
       {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">Loading children...</div>
+        <PageLoader label="Loading children…" />
       ) : filteredChildren.length === 0 ? (
         <div className="rounded-xl border bg-card p-10 text-center text-sm text-muted-foreground">
           No children found for the selected centre and room.

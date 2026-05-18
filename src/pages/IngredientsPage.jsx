@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Plus, Pencil, Trash2, Search, Sparkles, Loader2, Carrot } from "lucide-react";
 
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -127,10 +128,7 @@ export default function IngredientsPage() {
             {isLoading && ingredients.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={3} className="h-48 text-center">
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary/60" />
-                    <span className="text-sm font-medium text-muted-foreground">Loading ingredients...</span>
-                  </div>
+                  <PageLoader label="Loading ingredients…" size="sm" />
                 </TableCell>
               </TableRow>
             ) : (

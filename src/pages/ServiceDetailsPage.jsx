@@ -14,7 +14,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
-import { Loader } from "@/components/common/Loader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -378,9 +378,7 @@ export default function ServiceDetailsPage() {
       />
 
       {loading ? (
-        <div className="rounded-xl border bg-card">
-          <Loader className="py-20" label="Loading service details..." />
-        </div>
+        <PageLoader label="Loading service details…" />
       ) : (
         <>
           <Section icon={Info} title="Service Information">

@@ -22,6 +22,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -385,9 +386,7 @@ export default function DailyReflectionsPage() {
       )}
 
       {isLoadingReflections ? (
-        <div className="flex h-64 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
-        </div>
+        <PageLoader label="Loading reflections…" />
       ) : pageItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
           <Sparkles className="mb-3 h-10 w-10 text-muted-foreground/50" />

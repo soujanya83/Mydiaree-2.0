@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { AddChildModal } from "@/components/children/AddChildModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -255,7 +256,7 @@ export default function RoomDetailsPage() {
   };
 
   if ((isLoading && rooms.length === 0) || !activeCentreId) {
-    return <div className="py-20 text-center text-muted-foreground">Loading room details...</div>;
+    return <PageLoader label="Loading room details…" />;
   }
 
   if (!room) {
@@ -376,9 +377,7 @@ export default function RoomDetailsPage() {
           </div>
 
           {childrenLoading ? (
-            <div className="rounded-xl border border-border bg-card p-12 text-center text-muted-foreground">
-              Loading children...
-            </div>
+            <PageLoader label="Loading children…" />
           ) : filteredChildren.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
               <Baby className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />

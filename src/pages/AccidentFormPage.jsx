@@ -10,6 +10,7 @@ import {
   UserCircle2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -490,7 +491,7 @@ export default function AccidentFormPage() {
       </div>
 
       {isLoadingList || isLoadingDetails ? (
-        <div className="py-20 text-center text-muted-foreground">Loading...</div>
+        <PageLoader label="Loading accident records…" />
       ) : filtered.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-border bg-card p-12 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">

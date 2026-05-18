@@ -20,6 +20,7 @@ import {
   UserCircle2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -330,10 +331,7 @@ export default function ObservationPage() {
 
       {/* Observation list */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-20 text-center">
-          <Loader2 className="mb-3 h-10 w-10 animate-spin text-primary opacity-40" />
-          <h3 className="text-base font-semibold text-foreground">Loading observations...</h3>
-        </div>
+        <PageLoader label="Loading observations…" />
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
           <Eye className="mb-3 h-10 w-10 text-muted-foreground/50" />

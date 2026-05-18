@@ -3,6 +3,7 @@ import { Baby, CheckCircle2, Clock3, Plus, Search, UsersRound } from "lucide-rea
 import { toast } from "sonner";
 import dailyDiaryService from "@/services/daily-operations/dailyDiaryService";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -395,7 +396,7 @@ export default function DailyDiaryPage() {
       </section>
 
       {isFetching ? (
-        <div className="py-20 text-center text-muted-foreground">Loading data...</div>
+        <PageLoader label="Loading diary entries…" />
       ) : visibleChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
           No children found in this room.

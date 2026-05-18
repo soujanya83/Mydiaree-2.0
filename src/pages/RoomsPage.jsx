@@ -15,6 +15,7 @@ import {
   Users2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -219,25 +220,7 @@ export default function RoomsPage() {
       </section>
 
       {isLoading && rooms.length === 0 ? (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {[0, 1, 2, 3, 4, 5].map((item) => (
-            <div key={item} className="rounded-lg border border-border bg-card p-5 shadow-sm">
-              <div className="mb-5 flex items-start gap-3">
-                <Skeleton className="h-11 w-11 rounded-lg" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-5 w-2/3" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              </div>
-              <Skeleton className="mb-4 h-2 w-full" />
-              <div className="grid grid-cols-3 gap-2">
-                <Skeleton className="h-16" />
-                <Skeleton className="h-16" />
-                <Skeleton className="h-16" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <PageLoader label="Loading rooms…" />
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-primary/10 text-primary">

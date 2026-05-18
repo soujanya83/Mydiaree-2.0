@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { ClipboardCheck, Clock, PenLine, Plus, Printer, Save, Trash2, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -260,19 +261,7 @@ export default function HeadCheckPage() {
         </div>
 
         {isLoading ? (
-          <div className="space-y-3 p-4 sm:p-5">
-            {[0, 1, 2].map((item) => (
-              <div key={item} className="rounded-lg border border-border p-4">
-                <div className="grid gap-4 md:grid-cols-[72px_1fr_1fr_1fr_42px]">
-                  <Skeleton className="h-12" />
-                  <Skeleton className="h-12" />
-                  <Skeleton className="h-12" />
-                  <Skeleton className="h-12" />
-                  <Skeleton className="h-10" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <PageLoader label="Loading head checks…" />
         ) : !hasEntries ? (
           <div className="p-6 sm:p-10">
             <div className="rounded-lg border border-dashed border-border bg-muted/30 p-10 text-center">

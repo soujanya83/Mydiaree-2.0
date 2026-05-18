@@ -23,6 +23,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -642,11 +643,7 @@ export default function ProgramPlanPage() {
 
       {/* Body */}
       {isLoadingPlans ? (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <CardSkeleton key={i} />
-          ))}
-        </div>
+        <PageLoader label="Loading program plans…" />
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/70 bg-card/40 p-16 text-center">
           <div className="relative mb-6">

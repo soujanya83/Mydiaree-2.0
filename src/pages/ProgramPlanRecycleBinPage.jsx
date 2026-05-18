@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -118,9 +119,7 @@ export default function ProgramPlanRecycleBinPage() {
       />
 
       {isLoading ? (
-        <div className="flex h-64 items-center justify-center rounded-2xl border border-border bg-card">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <PageLoader label="Loading recycle bin…" />
       ) : items.length === 0 ? (
         <EmptyState label="No deleted program plans" />
       ) : (

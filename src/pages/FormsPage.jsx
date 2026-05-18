@@ -6,6 +6,7 @@ import {
   Loader2, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -378,10 +379,7 @@ export default function FormsPage() {
       </div>
       {/* Content */}
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <Loader2 className="mb-3 h-10 w-10 animate-spin text-primary opacity-40" />
-          <h2 className="text-lg font-bold text-foreground">Loading submissions...</h2>
-        </div>
+        <PageLoader label="Loading submissions…" />
       ) : (
         <>
           {view === VIEW.TABLE ? (
@@ -451,9 +449,8 @@ export default function FormsPage() {
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto pr-2 py-2">
             {isLoadingFormOptions ? (
-              <div className="flex flex-col items-center justify-center space-y-3 p-8">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                <span className="text-sm font-medium text-muted-foreground">Loading premium forms...</span>
+              <div className="p-8">
+                <PageLoader label="Loading forms…" size="sm" />
               </div>
             ) : formOptions?.length > 0 ? (
               <div className="flex flex-col gap-3">

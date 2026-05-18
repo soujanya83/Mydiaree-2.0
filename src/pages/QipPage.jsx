@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -299,15 +300,7 @@ export default function QipPage() {
               {isLoading ? (
                 <TableRow>
                   <TableCell colSpan={4} className="py-24 text-center">
-                    <div className="flex flex-col items-center gap-4 text-muted-foreground">
-                      <div className="relative">
-                        <div className="absolute -inset-2 rounded-full bg-primary/20 blur-lg animate-pulse" />
-                        <Loader2 className="relative h-10 w-10 animate-spin text-primary" />
-                      </div>
-                      <p className="text-sm font-bold tracking-wide uppercase opacity-70">
-                        Fetching QIP data...
-                      </p>
-                    </div>
+                    <PageLoader label="Loading QIPs…" />
                   </TableCell>
                 </TableRow>
               ) : pageRows.length === 0 ? (

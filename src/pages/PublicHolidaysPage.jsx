@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -227,10 +228,7 @@ export default function PublicHolidaysPage() {
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={6} className="py-20 text-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary opacity-40" />
-                    <p className="text-sm text-muted-foreground">Fetching holidays...</p>
-                  </div>
+                  <PageLoader label="Loading holidays…" size="sm" />
                 </TableCell>
               </TableRow>
             ) : holidays.length === 0 ? (

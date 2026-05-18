@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { StatCard } from "@/components/common/StatCard";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { useCentreStore } from "@/stores/centreStore";
 import { dashboardService } from "@/services/admin/dashboardService";
 import { DashboardCalendar } from "@/components/dashboard/DashboardCalendar";
@@ -119,11 +120,7 @@ function DashboardPage() {
 
       {/* Stats Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-[120px] rounded-xl" />
-          ))}
-        </div>
+        <PageLoader label="Loading dashboard…" />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((s) => (

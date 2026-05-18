@@ -27,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -288,7 +289,7 @@ export default function ChildrenPage() {
       </div>
 
       {isLoading ? (
-        <div className="py-20 text-center text-muted-foreground">Loading children...</div>
+        <PageLoader label="Loading children…" />
       ) : children.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
           <Users className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />

@@ -3,7 +3,7 @@ import { Plus, Trash2, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Loader } from "@/components/common/Loader";
+import { PageLoader } from "@/components/common/PageLoader";
 import {
   Table,
   TableHeader,
@@ -178,7 +178,7 @@ export default function IpManagementPage() {
             {loading ? (
               <TableRow>
                 <TableCell colSpan={6}>
-                  <Loader className="py-10" label="Loading IPs..." />
+                  <PageLoader label="Loading IPs…" size="sm" />
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (

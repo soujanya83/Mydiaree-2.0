@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus, CalendarDays, Filter as FilterIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -204,9 +205,7 @@ export default function EventsPage() {
       </div>
 
       {isLoading ? (
-        <div className="rounded-lg border bg-card p-10 text-center text-muted-foreground">
-          Loading events...
-        </div>
+        <PageLoader label="Loading events…" />
       ) : filtered.length === 0 ? (
         <div className="rounded-lg border bg-card p-10 text-center text-muted-foreground">
           No events match your filters.

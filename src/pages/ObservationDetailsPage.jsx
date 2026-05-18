@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageLoader } from "@/components/common/PageLoader";
 import { Textarea } from "@/components/ui/textarea";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
@@ -110,10 +111,7 @@ export default function ObservationDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <Loader2 className="mb-3 h-10 w-10 animate-spin text-primary opacity-40" />
-        <h2 className="text-lg font-bold text-foreground">Loading details...</h2>
-      </div>
+      <PageLoader label="Loading observation details…" />
     );
   }
 

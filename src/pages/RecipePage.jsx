@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/PageLoader";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -155,12 +156,7 @@ export default function RecipePage() {
 
       <div className="space-y-8">
         {isLoading && !hasRecipes ? (
-          <div className="flex h-64 items-center justify-center rounded-3xl border border-border/60 bg-card/60 backdrop-blur shadow-sm">
-            <div className="flex flex-col items-center gap-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm font-medium text-muted-foreground">Loading your recipes...</p>
-            </div>
-          </div>
+          <PageLoader label="Loading recipes…" />
         ) : hasRecipes ? (
           <Tabs defaultValue={availableMealTypes[0]} className="w-full">
             <div className="mb-6 flex overflow-x-auto pb-2 scrollbar-hide">
