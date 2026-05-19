@@ -412,44 +412,91 @@ function RoomCard({
           <MiniMetric icon={UserRoundCheck} label="Educators" value={educators.length} />
         </div>
 
-        <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
-          <div className="min-w-0">
-            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
-              <Users2 className="h-3.5 w-3.5" />
-              Educators
-            </p>
-            <div className="flex items-center gap-2">
-              {educators.length === 0 ? (
-                <span className="text-xs text-muted-foreground">No educators assigned</span>
-              ) : (
-                <>
-                  <div className="flex gap-1.5">
-                    {educators.slice(0, 5).map((ed, index) => (
-                      <img
-                        key={ed.userid || ed.id || `${ed.name}-${index}`}
-                        src={
-                          ed.imageUrl
-                            ? `https://mydiaree.com.au/${ed.imageUrl}`
-                            : `https://ui-avatars.com/api/?name=${encodeURIComponent(ed.name || "Educator")}`
-                        }
-                        alt={ed.name || "Educator"}
-                        title={ed.name || "Educator"}
-                        className="h-8 w-8 rounded-full border-2 border-card bg-muted object-cover"
-                      />
-                    ))}
-                  </div>
-                  {educators.length > 5 && (
-                    <span className="ml-2 text-xs font-medium text-muted-foreground">
-                      +{educators.length - 5} more
-                    </span>
+        <div className="mt-5 border-t border-border pt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-1 flex-col gap-4">
+              {/* Educators Avatars */}
+              <div className="min-w-0">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
+                  <Users2 className="h-3.5 w-3.5" />
+                  Educators
+                </p>
+                <div className="flex items-center gap-2">
+                  {educators.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">None</span>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-1.5">
+                        {educators.slice(0, 4).map((ed, index) => (
+                          <img
+                            key={ed.userid || ed.id || `${ed.name}-${index}`}
+                            src={
+                              ed.imageUrl && !ed.imageUrl.startsWith("http")
+                                ? `https://mydiaree.com.au/${ed.imageUrl}`
+                                : ed.imageUrl ||
+                                  `https://ui-avatars.com/api/?name=${encodeURIComponent(ed.name || "Educator")}&background=EEF2FF&color=4338CA`
+                            }
+                            alt={ed.name || "Educator"}
+                            title={ed.name || "Educator"}
+                            className="h-8 w-8 rounded-full border-2 border-card bg-muted object-cover"
+                          />
+                        ))}
+                      </div>
+                      {educators.length > 4 && (
+                        <span className="ml-1 text-xs font-medium text-muted-foreground">
+                          +{educators.length - 4}
+                        </span>
+                      )}
+                    </>
                   )}
-                </>
-              )}
-            </div>
-          </div>
+                </div>
+              </div>
 
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-            <ChevronRight className="h-4 w-4" />
+              {/* Children Avatars */}
+              <div className="min-w-0">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
+                  <Baby className="h-3.5 w-3.5" />
+                  Children
+                </p>
+                <div className="flex items-center gap-2">
+                  {room.children?.length === 0 || !room.children ? (
+                    <span className="text-xs text-muted-foreground">None</span>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap gap-1.5">
+                        {room.children.slice(0, 4).map((child, index) => {
+                          const fullName =
+                            `${child.name || ""} ${child.lastname || ""}`.trim() || "Child";
+                          return (
+                            <img
+                              key={child.id || `${fullName}-${index}`}
+                              src={
+                                child.imageUrl && !child.imageUrl.startsWith("http")
+                                  ? `https://mydiaree.com.au/${child.imageUrl}`
+                                  : child.imageUrl ||
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=FDF4FF&color=C026D3`
+                              }
+                              alt={fullName}
+                              title={fullName}
+                              className="h-8 w-8 rounded-full border-2 border-card bg-muted object-cover"
+                            />
+                          );
+                        })}
+                      </div>
+                      {room.children.length > 4 && (
+                        <span className="ml-1 text-xs font-medium text-muted-foreground">
+                          +{room.children.length - 4}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+              <ChevronRight className="h-4 w-4" />
+            </div>
           </div>
         </div>
       </div>

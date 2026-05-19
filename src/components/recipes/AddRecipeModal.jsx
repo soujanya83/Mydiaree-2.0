@@ -40,6 +40,7 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
   const { addRecipe, updateRecipe } = useRecipeStore();
 
   const [form, setForm] = useState(empty);
+  const [errors, setErrors] = useState({});
   const [ingQuery, setIngQuery] = useState("");
   const [ingOpen, setIngOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -50,6 +51,7 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
   useEffect(() => {
     if (open) {
       fetchIngredients();
+      setErrors({}); // Reset error messages on open
     }
   }, [open, fetchIngredients]);
 
@@ -76,6 +78,17 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
           return found ? found.name : item;
         }).filter(Boolean);
 
+        const getCleanImageUrl = (url) => {
+          if (!url) return "";
+          let cleaned = url.replace(/\\/g, "/");
+          cleaned = cleaned.replace(/([^:]\/)\/+/g, "$1");
+          if (cleaned.startsWith("uploads/recipes/")) {
+            cleaned = "storage/" + cleaned;
+          }
+          if (cleaned.startsWith("http")) return cleaned;
+          return `https://mydiaree.com.au/${cleaned}`;
+        };
+
         setForm({
           ...empty,
           name: initial.itemName || "",
@@ -84,33 +97,47 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
           ingredients: names,
           description: initial.recipe || "",
           note: initial.notes || initial.note || "",
-          image: initial.mediaUrl ? (initial.mediaUrl.startsWith("http") ? initial.mediaUrl : `https://mydiaree.com.au/${initial.mediaUrl}`) : "",
+          image: getCleanImageUrl(initial.mediaUrl),
           videoUrl: initial.RecipeVideolink || "",
         });
       } else {
         setForm(empty);
       }
       setIngQuery("");
+      setErrors({});
     }
   }, [open, initial, allIngredients]);
 
 
 
 
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    // Proactively clear error validation for edited field
+    if (k === "name") setErrors((prev) => ({ ...prev, itemName: null }));
+    if (k === "foodType") setErrors((prev) => ({ ...prev, foodtype: null }));
+    if (k === "mealType") setErrors((prev) => ({ ...prev, mealType: null }));
+    if (k === "ingredients") setErrors((prev) => ({ ...prev, ingredient: null, ingredients: null }));
+    if (k === "description") setErrors((prev) => ({ ...prev, recipe: null }));
+  };
 
   const addIngredient = (val) => {
     const v = val.trim();
     if (!v) return;
     if (form.ingredients.includes(v)) return;
-    set("ingredients", [...form.ingredients, v]);
+    const newIngs = [...form.ingredients, v];
+    set("ingredients", newIngs);
     setIngQuery("");
+    setErrors((prev) => ({ ...prev, ingredient: null, ingredients: null }));
   };
-  const removeIngredient = (val) =>
-    set(
-      "ingredients",
-      form.ingredients.filter((x) => x !== val)
-    );
+
+  const removeIngredient = (val) => {
+    const newIngs = form.ingredients.filter((x) => x !== val);
+    set("ingredients", newIngs);
+    if (newIngs.length === 0) {
+      // Clear or set error as appropriate, but let set handle it
+    }
+  };
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -128,14 +155,12 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
   };
 
 
-  const canSubmit = form.name.trim() && form.foodType && form.mealType;
-
   const submit = async () => {
-    if (!canSubmit || loading) return;
+    if (loading) return;
     setLoading(true);
+    setErrors({});
     
     // Find ingredient IDs from names
-
     const selectedIngIds = form.ingredients.map(name => {
       const found = allIngredients.find(i => i.name === name);
       return found ? found.id : null;
@@ -165,7 +190,13 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
       }
       onOpenChange(false);
     } catch (error) {
-      toast.error(error?.message || "Failed to save recipe");
+      const responseData = error?.response?.data;
+      if (responseData && responseData.errors) {
+        setErrors(responseData.errors);
+        toast.error(responseData.message || "Validation failed.");
+      } else {
+        toast.error(error?.message || "Failed to save recipe");
+      }
     } finally {
       setLoading(false);
     }
@@ -209,19 +240,32 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
             
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label className="text-sm font-bold">Item Name *</Label>
+                <Label className="text-sm font-bold flex items-center gap-0.5">
+                  Item Name <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <Input
                   value={form.name}
                   onChange={(e) => set("name", e.target.value)}
                   placeholder="e.g. Chicken Dum Biryani"
-                  className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                  className={`h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium ${
+                    errors.itemName ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
+                  }`}
                 />
+                {errors.itemName && (
+                  <p className="text-xs font-medium text-red-500 px-1 mt-1 animate-in fade-in-50 duration-150">
+                    {errors.itemName[0] || errors.itemName}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-bold">Food Type *</Label>
+                <Label className="text-sm font-bold flex items-center gap-0.5">
+                  Food Type <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <Select value={form.foodType} onValueChange={(v) => set("foodType", v)}>
-                  <SelectTrigger className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium">
+                  <SelectTrigger className={`h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium ${
+                    errors.foodtype ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
+                  }`}>
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -232,26 +276,42 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.foodtype && (
+                  <p className="text-xs font-medium text-red-500 px-1 mt-1 animate-in fade-in-50 duration-150">
+                    {errors.foodtype[0] || errors.foodtype}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-bold">Meal Type *</Label>
+                <Label className="text-sm font-bold flex items-center gap-0.5">
+                  Meal Type <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <Select value={form.mealType} onValueChange={(v) => set("mealType", v)}>
-                  <SelectTrigger className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium">
+                  <SelectTrigger className={`h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium ${
+                    errors.mealType ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
+                  }`}>
                     <SelectValue placeholder="Select Meal Type" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
-                    {RECIPE_MEAL_TYPES.map((m, i) => (
+                    {RECIPE_MEAL_TYPES.map((m) => (
                       <SelectItem key={m.id} value={m.id}>
                         {m.label.toUpperCase()}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.mealType && (
+                  <p className="text-xs font-medium text-red-500 px-1 mt-1 animate-in fade-in-50 duration-150">
+                    {errors.mealType[0] || errors.mealType}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2 relative">
-                <Label className="text-sm font-bold">Add Ingredients</Label>
+                <Label className="text-sm font-bold flex items-center gap-0.5">
+                  Add Ingredients <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <div className="relative">
                   <Utensils className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
                   <Input
@@ -269,9 +329,16 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                       }
                     }}
                     placeholder="Search ingredients..."
-                    className="h-11 pl-10 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                    className={`h-11 pl-10 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium ${
+                      (errors.ingredient || errors.ingredients) ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
+                    }`}
                   />
                 </div>
+                {(errors.ingredient || errors.ingredients) && (
+                  <p className="text-xs font-medium text-red-500 px-1 mt-1 animate-in fade-in-50 duration-150">
+                    {errors.ingredient?.[0] || errors.ingredient || errors.ingredients?.[0] || errors.ingredients}
+                  </p>
+                )}
                 
                 {ingOpen && filteredIngs.length > 0 && (
                   <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border/60 bg-popover/95 backdrop-blur shadow-lg p-1 animate-in fade-in zoom-in-95 duration-200">
@@ -318,14 +385,23 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-sm font-bold px-1">Preparation Steps</Label>
+              <Label className="text-sm font-bold px-1 flex items-center gap-0.5">
+                Preparation Steps <span className="text-red-500 font-bold">*</span>
+              </Label>
               <Textarea
                 rows={4}
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
                 placeholder="Write the step-by-step preparation method here..."
-                className="rounded-2xl bg-muted/20 border-border/60 focus-visible:ring-primary/20 min-h-[120px] p-4 font-medium"
+                className={`rounded-2xl bg-muted/20 border-border/60 focus-visible:ring-primary/20 min-h-[120px] p-4 font-medium ${
+                  errors.recipe ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
+                }`}
               />
+              {errors.recipe && (
+                <p className="text-xs font-medium text-red-500 px-1 mt-1 animate-in fade-in-50 duration-150">
+                  {errors.recipe[0] || errors.recipe}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -458,7 +534,7 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
           </Button>
           <Button 
             onClick={submit} 
-            disabled={!canSubmit || loading}
+            disabled={loading}
             className="rounded-xl h-11 px-8 bg-gradient-to-r from-primary to-indigo-500 text-white font-bold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95"
           >
             {loading ? (

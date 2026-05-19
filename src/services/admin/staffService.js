@@ -1,9 +1,9 @@
 import api from "../../api/api";
 
 export const staffService = {
-  async getStaffSettings(centerId) {
+  async getStaffSettings({ center_id, search = "", page = 1, per_page = 10 }) {
     const res = await api.get(`/settings/staff_settings`, {
-      params: { center_id: centerId },
+      params: { center_id, search, page, per_page },
     });
     return res.data;
   },

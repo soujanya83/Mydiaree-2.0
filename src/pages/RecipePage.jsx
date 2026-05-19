@@ -23,7 +23,9 @@ import {
   ImageOff,
   Loader2,
   ChevronDown,
-  ChefHat
+  ChefHat,
+  Eye,
+  ZoomIn
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +38,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useCentreStore } from "@/stores/centreStore";
 
 import {
@@ -84,6 +93,7 @@ export default function RecipePage() {
   const [modal, setModal] = useState({ open: false, initial: null });
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState(null);
 
   useEffect(() => {
     if (activeCentreId) {
@@ -115,13 +125,11 @@ export default function RecipePage() {
     return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   };
 
-
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-12">
       <PageHeader
         title={
-          <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-foreground to-foreground/75 bg-clip-text text-transparent font-black tracking-tight">
             Recipes Library
           </span>
         }
@@ -130,7 +138,7 @@ export default function RecipePage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-10 w-[220px] rounded-xl border-border/70 bg-background/70 backdrop-blur">
+              <SelectTrigger className="h-10 w-[220px] rounded-xl border-border/70 bg-background/70 backdrop-blur shadow-sm">
                 <SelectValue placeholder="Select centre" />
               </SelectTrigger>
               <SelectContent>
@@ -144,9 +152,9 @@ export default function RecipePage() {
             {can(perms.add) && (
               <Button
                 onClick={() => setModal({ open: true, initial: null })}
-                className="h-10 gap-2 rounded-xl bg-gradient-to-r from-primary to-indigo-500 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all font-semibold"
+                className="h-10 gap-1.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 shadow-md shadow-primary/20 hover:scale-[1.01] transition-transform font-bold"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4.5 w-4.5" />
                 Add Recipe
               </Button>
             )}
@@ -208,6 +216,7 @@ export default function RecipePage() {
                           }}
                           onEdit={() => setModal({ open: true, initial: r })}
                           onDelete={() => setConfirmDelete(r)}
+                          onZoomImage={setZoomedImage}
                           canEdit={can(perms.edit)}
                           canDelete={can(perms.delete)}
                         />
@@ -268,22 +277,59 @@ export default function RecipePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Zoom Modal */}
+      <Dialog open={!!zoomedImage} onOpenChange={(o) => !o && setZoomedImage(null)}>
+        <DialogContent className="p-0 overflow-hidden sm:max-w-2xl border border-border/80 bg-black/95 backdrop-blur rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="relative w-full flex items-center justify-center p-2 bg-neutral-950/80">
+            <img
+              src={zoomedImage?.url}
+              alt={zoomedImage?.name}
+              className="max-h-[75vh] w-auto max-w-full object-contain rounded-2xl"
+            />
+            <div className="absolute bottom-0 inset-x-0 bg-black/75 px-6 py-4 text-white border-t border-white/10 backdrop-blur-sm">
+              <p className="font-extrabold text-base">{zoomedImage?.name}</p>
+              {zoomedImage?.author && (
+                <p className="text-xs text-white/60 mt-0.5">Recipe by: {zoomedImage.author}</p>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function RecipeCard({ recipe, onEdit, onDelete, canEdit = true, canDelete = true }) {
-  const [showIngredients, setShowIngredients] = useState(false);
+function RecipeCard({ recipe, onEdit, onDelete, onZoomImage, canEdit = true, canDelete = true }) {
   const foodLabel = FOOD_TYPES.find((f) => f.id === recipe.foodType || f.id === recipe.foodType?.toLowerCase())?.label || recipe.foodType;
   const isVeg = recipe.foodType?.toLowerCase() === "veg";
-  const imageUrl = recipe.image?.startsWith("http") ? recipe.image : recipe.image ? `https://mydiaree.com.au/${recipe.image}` : null;
+  
+  const getCleanImageUrl = (url) => {
+    if (!url) return null;
+    let cleaned = url.replace(/\\/g, "/");
+    // Clean up any double slashes (e.g. "//") except after protocol
+    cleaned = cleaned.replace(/([^:]\/)\/+/g, "$1");
+    if (cleaned.startsWith("uploads/recipes/")) {
+      cleaned = "storage/" + cleaned;
+    }
+    if (cleaned.startsWith("http")) return cleaned;
+    return `https://mydiaree.com.au/${cleaned}`;
+  };
+
+  const imageUrl = getCleanImageUrl(recipe.image);
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/60 shadow-sm backdrop-blur transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/30 h-full">
       <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-primary/10 blur-3xl transition-opacity group-hover:bg-primary/20" />
       
       {/* 1. Image Container (Top) */}
-      <div className="relative h-48 w-full shrink-0 overflow-hidden bg-muted/40">
+      <div 
+        onClick={() => imageUrl && onZoomImage({ url: imageUrl, name: recipe.name, author: recipe.author })}
+        className={cn(
+          "relative h-48 w-full shrink-0 overflow-hidden bg-muted/40",
+          imageUrl ? "cursor-zoom-in" : ""
+        )}
+      >
         {imageUrl ? (
           <>
             <img
@@ -293,6 +339,9 @@ function RecipeCard({ recipe, onEdit, onDelete, canEdit = true, canDelete = true
               loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
+            <div className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-xl bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <ZoomIn className="h-4.5 w-4.5" />
+            </div>
           </>
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-primary/5">
@@ -324,7 +373,7 @@ function RecipeCard({ recipe, onEdit, onDelete, canEdit = true, canDelete = true
           )}
         </div>
 
-        <div className="mb-5 space-y-2.5 text-xs text-muted-foreground">
+        <div className="mb-4 space-y-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-indigo-500/20 text-primary text-[10px] font-bold shadow-inner ring-1 ring-primary/30">
                {(recipe.author || "?").charAt(0).toUpperCase()}
@@ -335,45 +384,62 @@ function RecipeCard({ recipe, onEdit, onDelete, canEdit = true, canDelete = true
             </p>
           </div>
 
-          <div className="flex items-center gap-2 pt-1 font-medium">
+          <div className="flex items-center gap-2 pt-0.5 font-medium">
             <Calendar className="h-4 w-4 text-primary/60" />
             <span>{formatDate(recipe.date)}</span>
           </div>
         </div>
 
-        {/* Ingredients Dropdown */}
+        {/* Static Ingredients Tags (Show 4 explicitly, hover popup for more) */}
         {recipe.ingredients && recipe.ingredients.length > 0 && (
-          <div className="mt-auto mb-4 rounded-2xl border border-border/50 bg-background/50 overflow-hidden transition-all">
-            <button
-              type="button"
-              onClick={() => setShowIngredients(!showIngredients)}
-              className="flex w-full items-center justify-between px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-muted/30 transition-colors"
-            >
-              <span className="flex items-center gap-2">
-                <ChefHat className="h-3.5 w-3.5 text-primary/80" />
-                Ingredients ({recipe.ingredients.length})
-              </span>
-              <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", showIngredients && "rotate-180")} />
-            </button>
-            <div className={cn(
-              "grid transition-all duration-300 ease-in-out",
-              showIngredients ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-            )}>
-              <div className="overflow-hidden">
-                <div className="p-3 pt-0 flex flex-wrap gap-1.5">
-                  {recipe.ingredients.map((ing) => (
-                    <span key={ing.id || ing.name} className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-semibold text-primary transition-colors hover:bg-primary/10">
-                      {ing.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
+          <div className="mt-auto mb-5">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">
+              Ingredients
+            </span>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              {recipe.ingredients.slice(0, 4).map((ing) => (
+                <Badge
+                  key={ing.id || ing.name}
+                  variant="outline"
+                  className="rounded-xl border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-semibold text-primary/95"
+                >
+                  {ing.name}
+                </Badge>
+              ))}
+              
+              {recipe.ingredients.length > 4 && (
+                <TooltipProvider delayDuration={50}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex items-center rounded-full border border-border bg-muted/40 hover:bg-muted/80 px-2 py-0.5 text-[10px] font-bold text-muted-foreground transition-colors cursor-pointer"
+                      >
+                        +{recipe.ingredients.length - 4} more
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="bg-card text-card-foreground border shadow-xl max-w-[240px] p-2.5 rounded-2xl">
+                      <div className="flex flex-wrap gap-1">
+                        {recipe.ingredients.slice(4).map((ing) => (
+                          <Badge
+                            key={ing.id || ing.name}
+                            variant="outline"
+                            className="rounded-lg border-border bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium"
+                          >
+                            {ing.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           </div>
         )}
 
         {/* Actions */}
-        <div className={cn("flex items-center justify-end gap-1.5 pt-3", recipe.ingredients?.length === 0 && "mt-auto border-t border-border/50")}>
+        <div className={cn("flex items-center justify-end gap-1.5 pt-3 border-t border-border/50", recipe.ingredients?.length === 0 && "mt-auto")}>
           {recipe.videoUrl && (
             <a
               href={recipe.videoUrl}

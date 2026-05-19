@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import {
   Users,
   Venus,
   X,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -32,6 +33,7 @@ import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { childrenService } from "@/services/centre/childrenService";
 import { roomService } from "@/services/centre/roomService";
+import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
 
 const imageBase = "https://mydiaree.com.au/";
@@ -109,31 +111,8 @@ export default function RoomDetailsPage() {
   }, [activeCentreId, fetchRooms]);
 
   useEffect(() => {
-    if (!room || !activeCentreId) return;
-
-    const loadChildren = async () => {
-      setChildrenLoading(true);
-      try {
-        const response = await childrenService.filterChildren({
-          center_id: activeCentreId,
-          room_id: room.id,
-          room: room.id,
-        });
-        const items = response.data || response.children || [];
-        setChildren(items.length ? items : room.children || []);
-      } catch (error) {
-        setChildren(room.children || []);
-        toast.error(error?.response?.data?.message || "Loaded room children from cached room data");
-      } finally {
-        setChildrenLoading(false);
-      }
-    };
-
-    loadChildren();
-  }, [activeCentreId, room]);
-
-  useEffect(() => {
     if (!room) return;
+    setChildren(room.children || []);
     setEducatorIds(
       (room.educators || []).map((educator) =>
         toId(educator.userid || educator.id || educator.staffid),
@@ -143,12 +122,13 @@ export default function RoomDetailsPage() {
 
   const filteredChildren = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return children
+    const childrenArray = Array.isArray(children) ? children : [];
+    return childrenArray
       .filter(
         (child) =>
           !room ||
           childRoomMatches(child, room) ||
-          children.length === (room.children || []).length,
+          childrenArray.length === (room.children || []).length,
       )
       .filter((child) => {
         if (!term) return true;
@@ -167,12 +147,6 @@ export default function RoomDetailsPage() {
 
   const refreshRoomData = async () => {
     await fetchRooms(activeCentreId);
-    const response = await childrenService.filterChildren({
-      center_id: activeCentreId,
-      room_id: room.id,
-      room: room.id,
-    });
-    setChildren(response.data || response.children || []);
   };
 
   const toggleChild = (id) => {
@@ -222,10 +196,17 @@ export default function RoomDetailsPage() {
   const handleSaveEducators = async () => {
     setIsSaving(true);
     try {
-      await roomService.manageEducators({
-        centerId: activeCentreId,
+      const initialStaffIds = (room.educators || [])
+        .map((e) => Number(e.userid || e.id || e.staffid))
+        .filter(Boolean);
+      const selectedStaffIds = educatorIds.map(Number).filter(Boolean);
+      const removedStaffIds = initialStaffIds.filter((id) => !selectedStaffIds.includes(id));
+      const removedStaffIdStr = removedStaffIds.join(",");
+
+      await roomService.assignStaff({
         roomId: room.id,
-        educatorIds,
+        staffIds: selectedStaffIds,
+        removedStaffId: removedStaffIdStr,
       });
       toast.success("Educators updated");
       setEducatorModalOpen(false);
@@ -424,7 +405,7 @@ export default function RoomDetailsPage() {
 
       {educatorModalOpen && (
         <ManageEducatorsModal
-          educators={roomStaffs}
+          centerId={activeCentreId}
           selected={educatorIds}
           onToggle={(id) =>
             setEducatorIds((current) =>
@@ -563,13 +544,69 @@ function EducatorCard({ educator }) {
   );
 }
 
-function ManageEducatorsModal({ educators, selected, onToggle, onClose, onSubmit, isSaving }) {
+function ManageEducatorsModal({ centerId, selected, onToggle, onClose, onSubmit, isSaving }) {
   const [query, setQuery] = useState("");
-  const filtered = educators.filter((educator) =>
-    String(educator.name || "")
-      .toLowerCase()
-      .includes(query.trim().toLowerCase()),
-  );
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [staffList, setStaffList] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const observer = useRef();
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1); // Reset page on new search
+      setStaffList([]);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    if (!centerId) return;
+    const fetchStaff = async () => {
+      setIsLoading(true);
+      try {
+        const response = await staffService.getStaffSettings({
+          center_id: centerId,
+          search: debouncedQuery,
+          page,
+          per_page: 20,
+        });
+        const items = response.data?.staff?.data || [];
+        const activeItems = items.filter(s => s.status === "ACTIVE");
+        
+        setStaffList(prev => page === 1 ? activeItems : [...prev, ...activeItems]);
+        const pagination = response.pagination || response.data?.staff || {};
+        setHasMore(pagination.current_page < pagination.last_page);
+      } catch (error) {
+        console.error("Failed to fetch staff", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStaff();
+  }, [centerId, debouncedQuery, page]);
+
+  const lastElementRef = useCallback(node => {
+    if (isLoading) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        setPage(prev => prev + 1);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [isLoading, hasMore]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm">
@@ -602,17 +639,20 @@ function ManageEducatorsModal({ educators, selected, onToggle, onClose, onSubmit
         </div>
 
         <div className="max-h-[58vh] overflow-y-auto p-4">
-          {filtered.length === 0 ? (
+          {staffList.length === 0 && !isLoading ? (
             <p className="py-10 text-center text-sm text-muted-foreground">No educators found.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {filtered.map((educator) => {
+              {staffList.map((educator, index) => {
                 const id = toId(educator.staffid || educator.id || educator.userid);
                 const checked = selected.includes(id);
+                const isLastElement = staffList.length === index + 1;
+                
                 return (
                   <button
                     type="button"
                     key={id}
+                    ref={isLastElement ? lastElementRef : null}
                     onClick={() => onToggle(id)}
                     className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
                       checked
@@ -621,7 +661,7 @@ function ManageEducatorsModal({ educators, selected, onToggle, onClose, onSubmit
                     }`}
                   >
                     <span
-                      className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-input"}`}
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-input"}`}
                     >
                       {checked && <Check className="h-3.5 w-3.5" />}
                     </span>
@@ -631,14 +671,19 @@ function ManageEducatorsModal({ educators, selected, onToggle, onClose, onSubmit
                         educator.name,
                       )}
                       alt={educator.name}
-                      className="h-10 w-10 rounded-full bg-muted object-cover"
+                      className="h-10 w-10 shrink-0 rounded-full bg-muted object-cover"
                     />
-                    <span className="min-w-0 truncate font-semibold text-foreground">
+                    <span className="min-w-0 flex-1 truncate font-semibold text-foreground">
                       {educator.name}
                     </span>
                   </button>
                 );
               })}
+            </div>
+          )}
+          {isLoading && (
+            <div className="py-6 flex justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           )}
         </div>

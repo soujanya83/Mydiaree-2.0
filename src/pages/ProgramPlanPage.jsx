@@ -11,15 +11,12 @@ import {
   Sparkles,
   X,
   Activity,
-  ChevronLeft,
-  ChevronRight,
   Loader2,
   Calendar,
   Users,
   User,
   DoorOpen,
   CalendarDays,
-  Search,
   Inbox,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -49,6 +46,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +63,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/common/Pagination";
 
-const PAGE_SIZE_OPTIONS = [8, 12, 24, 48];
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -106,41 +103,88 @@ const parseActivityText = (value) => {
   return [{ activity: parts[0].replace(/-\s*$/, "").trim(), items: parts.slice(1) }];
 };
 
-const normalizeProgramPlan = (plan) => ({
-  raw: plan,
-  id: String(plan.id),
-  centreId: String(plan.centerid || ""),
-  roomId: String(plan.room?.id || toIdList(plan.room_id)[0] || ""),
-  roomName: plan.room?.name || toIdList(plan.room_id).join(", ") || "—",
-  roomIds: toIdList(plan.room_id),
-  month: toMonthName(plan.months),
-  year: Number(plan.years) || plan.years || "",
-  educators: toIdList(plan.educators),
-  children: toIdList(plan.children),
-  focusArea: stripHtml(plan.focus_area),
-  practicalLife: parseActivityText(plan.practical_life),
-  sensorial: parseActivityText(plan.sensorial),
-  math: parseActivityText(plan.math),
-  language: parseActivityText(plan.language),
-  culture: parseActivityText(plan.culture),
-  artCraft: stripHtml(plan.art_craft),
-  eylf: Array.from(String(plan.eylf || "").matchAll(/\b\d\.\d\b/g)).map((m) => m[0]),
-  outdoor: stripHtml(plan.outdoor_experiences),
-  inquiry: stripHtml(plan.inquiry_topic),
-  sustainability: stripHtml(plan.sustainability_topic),
-  specialEvents: stripHtml(plan.special_events),
-  childrenVoices: stripHtml(plan.children_voices),
-  familiesInput: stripHtml(plan.families_input),
-  groupExperience: stripHtml(plan.group_experience),
-  spontaneous: stripHtml(plan.spontaneous_experience),
-  mindfulness: stripHtml(plan.mindfulness_experiences),
-  whatIsWorking: stripHtml(plan.working),
-  whatIsNotWorking: stripHtml(plan.notworking),
-  status: String(plan.status || "Draft").toLowerCase(),
-  statusLabel: plan.status || "Draft",
-  createdBy: plan.creator?.name || "—",
-  publishedAt: toIsoDateOnly(plan.updated_at || plan.created_at),
-});
+const normalizeProgramPlan = (plan) => {
+  // Support both old (full detail) and new (list) response formats
+  const isListFormat = plan.month_name !== undefined;
+
+  if (isListFormat) {
+    return {
+      raw: plan,
+      id: String(plan.id),
+      centreId: "",
+      roomId: "",
+      roomName: plan.room_name || "—",
+      roomIds: [],
+      month: plan.month_name || toMonthName(plan.month),
+      year: Number(plan.years) || plan.years || "",
+      educators: [],
+      children: [],
+      focusArea: "",
+      practicalLife: [],
+      sensorial: [],
+      math: [],
+      language: [],
+      culture: [],
+      artCraft: "",
+      eylf: [],
+      outdoor: "",
+      inquiry: "",
+      sustainability: "",
+      specialEvents: "",
+      childrenVoices: "",
+      familiesInput: "",
+      groupExperience: "",
+      spontaneous: "",
+      mindfulness: "",
+      whatIsWorking: "",
+      whatIsNotWorking: "",
+      status: String(plan.status || "Draft").toLowerCase(),
+      statusLabel: plan.status || "Draft",
+      createdBy: plan.creator_name || "—",
+      publishedAt: plan.created_at_formatted || "—",
+      updatedAt: plan.updated_at_formatted || "—",
+      canEdit: plan.can_edit === 1,
+      canDelete: plan.can_delete === 1,
+    };
+  }
+
+  // Old full-detail format (for edit/view)
+  return {
+    raw: plan,
+    id: String(plan.id),
+    centreId: String(plan.centerid || ""),
+    roomId: String(plan.room?.id || toIdList(plan.room_id)[0] || ""),
+    roomName: plan.room?.name || toIdList(plan.room_id).join(", ") || "—",
+    roomIds: toIdList(plan.room_id),
+    month: toMonthName(plan.months),
+    year: Number(plan.years) || plan.years || "",
+    educators: toIdList(plan.educators),
+    children: toIdList(plan.children),
+    focusArea: stripHtml(plan.focus_area),
+    practicalLife: parseActivityText(plan.practical_life),
+    sensorial: parseActivityText(plan.sensorial),
+    math: parseActivityText(plan.math),
+    language: parseActivityText(plan.language),
+    culture: parseActivityText(plan.culture),
+    artCraft: stripHtml(plan.art_craft),
+    eylf: Array.from(String(plan.eylf || "").matchAll(/\b\d\.\d\b/g)).map((m) => m[0]),
+    outdoor: stripHtml(plan.outdoor_experiences),
+    inquiry: stripHtml(plan.inquiry_topic),
+    sustainability: stripHtml(plan.sustainability_topic),
+    specialEvents: stripHtml(plan.special_events),
+    childrenVoices: stripHtml(plan.children_voices),
+    familiesInput: stripHtml(plan.families_input),
+    groupExperience: stripHtml(plan.group_experience),
+    spontaneous: stripHtml(plan.spontaneous_experience),
+    mindfulness: stripHtml(plan.mindfulness_experiences),
+    whatIsWorking: stripHtml(plan.working),
+    whatIsNotWorking: stripHtml(plan.notworking),
+    status: String(plan.status || "Draft").toLowerCase(),
+    statusLabel: plan.status || "Draft",
+    createdBy: plan.creator?.name || "—",
+    publishedAt: toIsoDateOnly(plan.updated_at || plan.created_at),
+  };
+};
 
 function fmtDDMMYYYY(iso) {
   if (!iso) return "—";
@@ -286,9 +330,16 @@ export default function ProgramPlanPage() {
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [isDeletingPlan, setIsDeletingPlan] = useState(false);
-  const [filters, setFilters] = useState({ roomId: "all", createdBy: "all", status: "all" });
+  const [filters, setFilters] = useState({ room: "", createdBy: "", status: "", month: "", year: "" });
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    last_page: 1,
+    total: 0,
+    from: null,
+    to: null,
+    per_page: 10,
+  });
 
   const action = searchParams.get("action");
   const editId = searchParams.get("id");
@@ -305,10 +356,27 @@ export default function ProgramPlanPage() {
     if (!activeCentreId) return;
     setIsLoadingPlans(true);
     try {
-      const response = await programPlanService.getProgramPlans(activeCentreId);
+      const response = await programPlanService.filterProgramPlans({
+        center_id: activeCentreId,
+        room: filters.room || "",
+        created_by: filters.createdBy || "",
+        status: filters.status || "",
+        month: filters.month || "",
+        year: filters.year || "",
+        page,
+      });
       if (response.status) {
-        const plans = response.data?.programPlans || response.programPlans || [];
+        const programPlansData = response.data?.programPlans;
+        const plans = programPlansData?.data || [];
         setRecords(plans.map(normalizeProgramPlan));
+        setPagination(response.data?.pagination || {
+          current_page: programPlansData?.current_page || 1,
+          last_page: programPlansData?.last_page || 1,
+          total: programPlansData?.total || 0,
+          from: programPlansData?.from,
+          to: programPlansData?.to,
+          per_page: programPlansData?.per_page || 10,
+        });
       } else {
         setRecords([]);
         toast.error(response.message || "Failed to load program plans.");
@@ -320,46 +388,32 @@ export default function ProgramPlanPage() {
     } finally {
       setIsLoadingPlans(false);
     }
-  }, [activeCentreId]);
+  }, [activeCentreId, page, filters]);
 
   useEffect(() => {
     loadProgramPlans();
   }, [loadProgramPlans]);
 
-  const roomNames = useMemo(
-    () =>
-      Array.from(
-        new Set([...rooms.map((r) => r.name), ...records.map((r) => r.roomName)].filter(Boolean)),
-      ),
-    [records, rooms],
-  );
-  const creators = useMemo(
-    () => Array.from(new Set(records.map((r) => r.createdBy).filter(Boolean))),
-    [records],
-  );
-
-  const filtered = useMemo(() => {
-    return records.filter((r) => {
-      if (activeCentreId && String(r.centreId) !== String(activeCentreId)) return false;
-      if (filters.roomId !== "all" && r.roomName !== filters.roomId) return false;
-      if (filters.createdBy !== "all" && r.createdBy !== filters.createdBy) return false;
-      if (filters.status !== "all" && r.status !== filters.status) return false;
-      return true;
-    });
-  }, [records, activeCentreId, filters]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const pageStart = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
-  const pageEnd = Math.min(safePage * pageSize, filtered.length);
-  const pageItems = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
-
-  useEffect(() => {
+  const handleFilterChange = (key, value) => {
+    setFilters((p) => ({ ...p, [key]: value }));
     setPage(1);
-  }, [activeCentreId, filters, pageSize]);
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  };
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+  };
+
+  const roomNames = useMemo(
+    () => rooms.map((r) => r.name).filter(Boolean),
+    [rooms],
+  );
+
+  const totalPages = pagination.last_page || 1;
+  const safePage = pagination.current_page || 1;
+  const pageStart = pagination.from || 0;
+  const pageEnd = pagination.to || 0;
+  const totalRecords = pagination.total || 0;
+  const pageItems = records;
 
   const goCreate = (centreId, opts = {}) => {
     const params = new URLSearchParams();
@@ -489,7 +543,7 @@ export default function ProgramPlanPage() {
   }
 
   const hasActiveFilters =
-    filters.roomId !== "all" || filters.createdBy !== "all" || filters.status !== "all";
+    filters.room || filters.createdBy || filters.status || filters.month || filters.year;
 
   return (
     <div className="space-y-6 pb-10">
@@ -562,8 +616,8 @@ export default function ProgramPlanPage() {
         </div>
 
         <Select
-          value={filters.roomId}
-          onValueChange={(v) => setFilters((p) => ({ ...p, roomId: v }))}
+          value={filters.room || "all"}
+          onValueChange={(v) => handleFilterChange("room", v === "all" ? "" : v)}
         >
           <SelectTrigger className="h-9 w-[170px] rounded-xl border-border/60 bg-background">
             <DoorOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
@@ -580,26 +634,8 @@ export default function ProgramPlanPage() {
         </Select>
 
         <Select
-          value={filters.createdBy}
-          onValueChange={(v) => setFilters((p) => ({ ...p, createdBy: v }))}
-        >
-          <SelectTrigger className="h-9 w-[180px] rounded-xl border-border/60 bg-background">
-            <User className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Created by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Creators</SelectItem>
-            {creators.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.status}
-          onValueChange={(v) => setFilters((p) => ({ ...p, status: v }))}
+          value={filters.status || "all"}
+          onValueChange={(v) => handleFilterChange("status", v === "all" ? "" : v)}
         >
           <SelectTrigger className="h-9 w-[150px] rounded-xl border-border/60 bg-background">
             <Sparkles className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
@@ -612,39 +648,59 @@ export default function ProgramPlanPage() {
           </SelectContent>
         </Select>
 
+        <Select
+          value={filters.month || "all"}
+          onValueChange={(v) => handleFilterChange("month", v === "all" ? "" : v)}
+        >
+          <SelectTrigger className="h-9 w-[150px] rounded-xl border-border/60 bg-background">
+            <Calendar className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+            <SelectValue placeholder="Month" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Months</SelectItem>
+            {MONTHS.map((m) => (
+              <SelectItem key={m} value={m.toLowerCase()}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={filters.year || "all"}
+          onValueChange={(v) => handleFilterChange("year", v === "all" ? "" : v)}
+        >
+          <SelectTrigger className="h-9 w-[120px] rounded-xl border-border/60 bg-background">
+            <CalendarDays className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+            <SelectValue placeholder="Year" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Years</SelectItem>
+            {YEARS.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {hasActiveFilters && (
           <Button
             variant="ghost"
             size="sm"
             className="h-9 rounded-xl text-muted-foreground hover:text-foreground"
-            onClick={() => setFilters({ roomId: "all", createdBy: "all", status: "all" })}
+            onClick={() => { setFilters({ room: "", createdBy: "", status: "", month: "", year: "" }); setPage(1); }}
           >
             <X className="mr-1 h-3.5 w-3.5" />
             Clear
           </Button>
         )}
-
-        <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Rows</span>
-          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-            <SelectTrigger className="h-9 w-[80px] rounded-xl border-border/60 bg-background">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((s) => (
-                <SelectItem key={s} value={String(s)}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
       </div>
 
       {/* Body */}
       {isLoadingPlans ? (
         <PageLoader label="Loading program plans…" />
-      ) : filtered.length === 0 ? (
+      ) : records.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/70 bg-card/40 p-16 text-center">
           <div className="relative mb-6">
             <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl" />
@@ -674,7 +730,7 @@ export default function ProgramPlanPage() {
               <span className="font-medium text-foreground">
                 {pageStart}–{pageEnd}
               </span>{" "}
-              of <span className="font-medium text-foreground">{filtered.length}</span>
+              of <span className="font-medium text-foreground">{totalRecords}</span>
             </p>
             <p className="text-xs text-muted-foreground">
               Page {safePage} of {totalPages}
@@ -720,25 +776,14 @@ export default function ProgramPlanPage() {
                     <MetaRow icon={User} label="Created By">
                       {r.createdBy || "—"}
                     </MetaRow>
-                    <MetaRow icon={CalendarDays} label="Published">
-                      {fmtDDMMYYYY(r.publishedAt)}
+                    <MetaRow icon={CalendarDays} label="Created">
+                      {r.publishedAt || "—"}
                     </MetaRow>
-                  </div>
-
-                  {/* Avatars */}
-                  <div className="relative mt-4 flex flex-col gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
-                    <div>
-                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        <Users className="h-3 w-3" /> Educators
-                      </div>
-                      <AvatarGroup items={r.educators} label="Educators" />
-                    </div>
-                    <div>
-                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        <Users className="h-3 w-3" /> Children
-                      </div>
-                      <AvatarGroup items={r.children} label="Children" />
-                    </div>
+                    {r.updatedAt && (
+                      <MetaRow icon={CalendarDays} label="Updated">
+                        {r.updatedAt}
+                      </MetaRow>
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -752,7 +797,7 @@ export default function ProgramPlanPage() {
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    {can(perms.edit) && (
+                    {(r.canEdit !== undefined ? r.canEdit : can(perms.edit)) && (
                       <button
                         type="button"
                         onClick={() => goEdit(r.id)}
@@ -763,7 +808,7 @@ export default function ProgramPlanPage() {
                         <Pencil className="h-4 w-4" />
                       </button>
                     )}
-                    {can(perms.delete) && (
+                    {(r.canDelete !== undefined ? r.canDelete : can(perms.delete)) && (
                       <button
                         type="button"
                         onClick={() => setConfirmId(r.id)}
@@ -782,13 +827,14 @@ export default function ProgramPlanPage() {
                 </motion.div>
               ))}
             </AnimatePresence>
-            <Pagination
-              currentPage={safePage}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              className="mt-8"
-            />
           </div>
+
+          <Pagination
+            currentPage={safePage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            className="mt-8"
+          />
         </>
       )}
 

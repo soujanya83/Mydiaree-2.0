@@ -31,21 +31,7 @@ export const useRoomStore = create(
               children: r.children || [],
             }));
 
-            // Fetch active staff from staffService for the educator selection list
             let staffList = [];
-            try {
-              const staffResponse = await staffService.getStaffSettings(centerId);
-              if (staffResponse.status) {
-                staffList = (staffResponse.data?.staff || [])
-                  .filter(s => s.status === "ACTIVE")
-                  .map((s) => ({
-                    staffid: String(s.id),
-                    name: s.name,
-                  }));
-              }
-            } catch (err) {
-              console.error("Failed to fetch staff in roomStore:", err);
-            }
 
             const currentActiveId = get().activeRoomId;
 

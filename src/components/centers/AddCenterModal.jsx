@@ -10,26 +10,60 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Building, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const empty = { name: "", addressStreet: "", addressCity: "", addressState: "", addressZip: "" };
 
 export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
   const [form, setForm] = useState(empty);
   const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState({});
   const isEdit = !!initial?.id;
 
   useEffect(() => {
     if (!open) return;
     setForm(initial ? { ...empty, ...initial } : empty);
     setIsSaving(false);
+    setErrors({});
   }, [open, initial]);
 
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    if (k === "name") setErrors((prev) => ({ ...prev, centerName: null }));
+    if (k === "addressStreet") setErrors((prev) => ({ ...prev, adressStreet: null }));
+    if (k === "addressCity") setErrors((prev) => ({ ...prev, addressCity: null }));
+    if (k === "addressState") setErrors((prev) => ({ ...prev, addressState: null }));
+    if (k === "addressZip") setErrors((prev) => ({ ...prev, addressZip: null }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim() || isSaving) return;
+    setErrors({});
     
+    let localErrors = {};
+    if (!form.name.trim()) {
+      localErrors.centerName = ["The center name field is required."];
+    }
+    if (!form.addressStreet.trim()) {
+      localErrors.adressStreet = ["The adress street field is required."];
+    }
+    if (!form.addressCity.trim()) {
+      localErrors.addressCity = ["The address city field is required."];
+    }
+    if (!form.addressState.trim()) {
+      localErrors.addressState = ["The address state field is required."];
+    }
+    if (!form.addressZip.trim()) {
+      localErrors.addressZip = ["The address zip field is required."];
+    }
+
+    if (Object.keys(localErrors).length > 0) {
+      setErrors(localErrors);
+      toast.error("Validation failed.");
+      return;
+    }
+
     setIsSaving(true);
     try {
       await onSave?.({
@@ -41,6 +75,10 @@ export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
         addressZip: form.addressZip.trim(),
       });
       onOpenChange(false);
+    } catch (err) {
+      if (err && err.errors) {
+        setErrors(err.errors);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -75,50 +113,99 @@ export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-2 sm:col-span-2">
-                  <Label className="text-sm font-bold text-foreground">Center Name *</Label>
+                  <Label className="text-sm font-bold text-foreground">
+                    Center Name <span className="text-destructive font-bold ml-0.5">*</span>
+                  </Label>
                   <Input
                     value={form.name}
                     onChange={(e) => set("name", e.target.value)}
                     placeholder="e.g., Melbourne Early Learning"
-                    required
-                    className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.centerName && "border-destructive focus-visible:ring-destructive/20"
+                    )}
                   />
+                  {errors.centerName && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.centerName[0]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label className="text-sm font-bold text-foreground">Street Address</Label>
+                  <Label className="text-sm font-bold text-foreground">
+                    Street Address <span className="text-destructive font-bold ml-0.5">*</span>
+                  </Label>
                   <Input
                     value={form.addressStreet}
                     onChange={(e) => set("addressStreet", e.target.value)}
                     placeholder="123 Education Lane"
-                    className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.adressStreet && "border-destructive focus-visible:ring-destructive/20"
+                    )}
                   />
+                  {errors.adressStreet && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.adressStreet[0]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-bold text-foreground">City</Label>
+                  <Label className="text-sm font-bold text-foreground">
+                    City <span className="text-destructive font-bold ml-0.5">*</span>
+                  </Label>
                   <Input
                     value={form.addressCity}
                     onChange={(e) => set("addressCity", e.target.value)}
                     placeholder="Melbourne"
-                    className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.addressCity && "border-destructive focus-visible:ring-destructive/20"
+                    )}
                   />
+                  {errors.addressCity && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.addressCity[0]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-bold text-foreground">State</Label>
+                  <Label className="text-sm font-bold text-foreground">
+                    State <span className="text-destructive font-bold ml-0.5">*</span>
+                  </Label>
                   <Input
                     value={form.addressState}
                     onChange={(e) => set("addressState", e.target.value)}
                     placeholder="VIC"
-                    className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.addressState && "border-destructive focus-visible:ring-destructive/20"
+                    )}
                   />
+                  {errors.addressState && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.addressState[0]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-bold text-foreground">Postal Code</Label>
+                  <Label className="text-sm font-bold text-foreground">
+                    Postal Code <span className="text-destructive font-bold ml-0.5">*</span>
+                  </Label>
                   <Input
                     value={form.addressZip}
                     onChange={(e) => set("addressZip", e.target.value)}
                     placeholder="3000"
-                    className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.addressZip && "border-destructive focus-visible:ring-destructive/20"
+                    )}
                   />
+                  {errors.addressZip && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.addressZip[0]}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -136,7 +223,7 @@ export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
             </Button>
             <Button 
               type="submit"
-              disabled={isSaving || !form.name.trim()}
+              disabled={isSaving}
               className="rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30"
             >
               {isSaving ? (

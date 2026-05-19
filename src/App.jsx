@@ -9,6 +9,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import MyProfilePage from "@/pages/MyProfilePage";
 import AccidentFormPage from "@/pages/AccidentFormPage";
 import ChildrenPage from "@/pages/ChildrenPage";
+import ChildDetailsPage from "@/pages/ChildDetailsPage";
 import DailyDiaryPage from "@/pages/DailyDiaryPage";
 import DailyJournalPage from "@/pages/DailyJournalPage";
 import DailyReflectionsPage from "@/pages/DailyReflectionsPage";
@@ -51,6 +52,7 @@ import SnapshotCreatePage from "@/pages/SnapshotCreatePage";
 import StaffSettingsPage from "@/pages/StaffSettingsPage";
 import SuperAdminSettingsPage from "@/pages/SuperAdminSettingsPage";
 import ParentSettingsPage from "@/pages/ParentSettingsPage";
+import ParentDetailsPage from "@/pages/ParentDetailsPage";
 import StyleGuidePage from "@/pages/StyleGuidePage";
 import ProgramPlanRecycleBinPage from "@/pages/ProgramPlanRecycleBinPage";
 import ObservationRecycleBinPage from "@/pages/ObservationRecycleBinPage";
@@ -100,6 +102,7 @@ export default function App() {
           <Route path="/rooms" element={<ProtectedRoute path="/rooms"><RoomsPage /></ProtectedRoute>} />
           <Route path="/rooms/:roomId" element={<ProtectedRoute path="/rooms"><RoomDetailsPage /></ProtectedRoute>} />
           <Route path="/children" element={<ProtectedRoute path="/children"><ChildrenPage /></ProtectedRoute>} />
+          <Route path="/children/:id" element={<ProtectedRoute path="/children"><ChildDetailsPage /></ProtectedRoute>} />
           <Route path="/events" element={<ProtectedRoute path="/events"><EventsPage /></ProtectedRoute>} />
           <Route path="/events/create" element={<ProtectedRoute path="/events"><EventCreatePage /></ProtectedRoute>} />
           <Route path="/events/holidays" element={<ProtectedRoute path="/events"><PublicHolidaysPage /></ProtectedRoute>} />
@@ -128,6 +131,7 @@ export default function App() {
           <Route path="/staff-settings" element={<ProtectedRoute path="/staff-settings"><StaffSettingsPage /></ProtectedRoute>} />
           <Route path="/super-admin-settings" element={<ProtectedRoute path="/super-admin-settings"><SuperAdminSettingsPage /></ProtectedRoute>} />
           <Route path="/parent-settings" element={<ProtectedRoute path="/parent-settings"><ParentSettingsPage /></ProtectedRoute>} />
+          <Route path="/parent-settings/:id" element={<ProtectedRoute path="/parent-settings"><ParentDetailsPage /></ProtectedRoute>} />
           <Route path="/permissions" element={<ProtectedRoute path="/permissions"><PermissionsPage /></ProtectedRoute>} />
           <Route path="/permissions/assigned" element={<ProtectedRoute path="/permissions"><PermissionsAssignedListPage /></ProtectedRoute>} />
           <Route path="/permissions/assigned/:userId" element={<ProtectedRoute path="/permissions"><PermissionsAssignedDetailsPage /></ProtectedRoute>} />

@@ -8,21 +8,36 @@ import { cn } from "@/lib/utils";
 
 export function AddMenuItemsModal({ open, onOpenChange, mealId, mealLabel, dayLabel, recipes = [], selectedIds = [], onSave }) {
   const [picked, setPicked] = useState(selectedIds);
-
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setPicked(selectedIds);
+    if (open) {
+      setPicked(selectedIds);
+      setIsSaving(false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mealId]);
 
   const items = recipes;
 
-
   const toggle = (id) =>
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
+  const handleConfirmSave = async () => {
+    if (picked.length === 0 || isSaving) return;
+    setIsSaving(true);
+    try {
+      await onSave?.(picked);
+      onOpenChange(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={isSaving ? undefined : onOpenChange}>
       <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden rounded-3xl border-border/60 bg-card/95 backdrop-blur shadow-2xl">
         <div className="absolute top-0 right-0 h-40 w-40 -translate-y-1/2 translate-x-1/3 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
         
@@ -66,6 +81,7 @@ export function AddMenuItemsModal({ open, onOpenChange, mealId, mealLabel, dayLa
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={() => toggle(it.id)}
+                      disabled={isSaving}
                       className={cn(
                         "mt-0.5",
                         isSelected && "border-primary bg-primary text-primary-foreground"
@@ -92,22 +108,22 @@ export function AddMenuItemsModal({ open, onOpenChange, mealId, mealLabel, dayLa
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border/50 bg-muted/10 px-6 py-4">
-          <Button variant="ghost" className="rounded-xl font-semibold" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" disabled={isSaving} className="rounded-xl font-semibold" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
             className="rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30"
-            onClick={() => {
-              onSave?.(picked);
-              onOpenChange(false);
-            }}
+            onClick={handleConfirmSave}
+            disabled={picked.length === 0 || isSaving}
           >
-            {picked.length > 0 ? (
+            {isSaving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : picked.length > 0 ? (
               <Check className="mr-2 h-4 w-4" />
             ) : (
               <Plus className="mr-2 h-4 w-4" />
             )}
-            Save {picked.length > 0 ? `(${picked.length})` : "Items"}
+            {isSaving ? "Saving..." : `Save ${picked.length > 0 ? `(${picked.length})` : "Items"}`}
           </Button>
         </div>
       </DialogContent>

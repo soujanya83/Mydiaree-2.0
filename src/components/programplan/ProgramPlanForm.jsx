@@ -132,15 +132,17 @@ export function ProgramPlanForm({
       try {
         const [roomsResponse, staffResponse] = await Promise.all([
           programPlanService.getRoomsAndStaff(data.centreId),
-          staffService.getStaffSettings(data.centreId),
+          staffService.getStaffSettings({
+            center_id: data.centreId,
+            per_page: 10,
+          }),
         ]);
         if (roomsResponse.status) {
           setAvailableRooms(roomsResponse.rooms || roomsResponse.data?.rooms || []);
         }
         if (staffResponse.status) {
-          setAvailableEducators(
-            (staffResponse.data?.staff || []).filter((s) => s.status === "ACTIVE"),
-          );
+          const staff = staffResponse.data?.staff?.data || staffResponse.data?.staff || [];
+          setAvailableEducators(staff.filter((s) => s.status === "ACTIVE"));
         }
       } catch (error) {
         console.error("Failed to load program plan rooms/staff:", error);
@@ -157,8 +159,14 @@ export function ProgramPlanForm({
         return;
       }
       try {
-        const response = await childrenService.filterChildren({ room: data.roomId, center_id: data.centreId });
-        setAvailableChildren(response.children || response.data || []);
+        const response = await childrenService.filterChildren({
+          room: data.roomId,
+          center_id: data.centreId,
+        });
+        const items = Array.isArray(response.data)
+          ? response.data
+          : response.data?.data || response.children || [];
+        setAvailableChildren(items);
       } catch (error) {
         console.error("Failed to load program plan children:", error);
       }

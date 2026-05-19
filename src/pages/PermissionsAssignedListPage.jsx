@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Pagination } from "@/components/common/Pagination";
 import {
   ArrowLeft,
   Eye,
@@ -36,21 +37,38 @@ import { cn } from "@/lib/utils";
 export default function PermissionsAssignedListPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const { assignedUsers, isFetchingAssigned, fetchAssignedPermissions } = usePermissionStore();
+  const {
+    assignedUsers,
+    assignedPagination,
+    isFetchingAssigned,
+    fetchAssignedPermissions,
+  } = usePermissionStore();
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     if (activeCentreId) {
-      fetchAssignedPermissions(activeCentreId);
+      fetchAssignedPermissions(activeCentreId, {
+        page,
+        per_page: 10,
+        search: debouncedQuery,
+      });
     }
-  }, [activeCentreId, fetchAssignedPermissions]);
+  }, [activeCentreId, page, debouncedQuery, fetchAssignedPermissions]);
 
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (assignedUsers || []).filter((item) =>
-      q ? item.user?.name?.toLowerCase().includes(q) : true
-    );
-  }, [query, assignedUsers]);
+    return assignedUsers || [];
+  }, [assignedUsers]);
 
   return (
     <div className="space-y-6">
@@ -100,7 +118,8 @@ export default function PermissionsAssignedListPage() {
           </Select>
         </div>
         <div className="text-sm text-muted-foreground">
-          Showing <span className="font-bold text-foreground">{rows.length}</span> assigned users
+          Showing <span className="font-bold text-foreground">{rows.length}</span> of{" "}
+          <span className="font-bold text-foreground">{assignedPagination?.total || 0}</span> assigned users
         </div>
       </div>
 
@@ -215,6 +234,15 @@ export default function PermissionsAssignedListPage() {
             </tbody>
           </table>
         </div>
+        {assignedPagination && assignedPagination.last_page > 1 && (
+          <div className="border-t border-border/50 bg-muted/10 px-6 py-4 flex justify-center">
+            <Pagination
+              currentPage={assignedPagination.current_page}
+              totalPages={assignedPagination.last_page}
+              onPageChange={(p) => setPage(p)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

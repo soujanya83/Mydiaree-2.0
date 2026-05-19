@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import {
   Plus,
   Search,
@@ -72,7 +72,15 @@ export default function StaffSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const itemsPerPage = 8;
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    last_page: 1,
+    total: 0,
+    from: null,
+    to: null,
+    per_page: 10,
+  });
+  const searchTimerRef = useRef(null);
   const [modal, setModal] = useState({ open: false, initial: null });
   const [confirm, setConfirm] = useState({ open: false, id: null });
 
@@ -83,62 +91,92 @@ export default function StaffSettingsPage() {
     { label: "1 Week", value: "1w", ms: 604800000 },
   ];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        // If centerId is not set, set it to the first center from store
-        let currentCenterId = centerId;
-        if (!currentCenterId && storeCenters.length > 0) {
-          currentCenterId = storeCenters[0].id;
-          setCenterId(currentCenterId);
-        }
+  const mapStaff = (staffArray) =>
+    (staffArray || []).map((s) => ({
+      ...s,
+      avatar: s.imageUrl
+        ? s.imageUrl.startsWith("http")
+          ? s.imageUrl
+          : `https://mydiaree.com.au/${s.imageUrl}`
+        : "",
+      contact: s.contactNo || "",
+      active: s.status === "ACTIVE",
+    }));
 
-        if (currentCenterId) {
-          const res = await staffService.getStaffSettings(currentCenterId);
-          if (res.status && res.data) {
-            const mappedStaff = (res.data.staff || []).map((s) => ({
-              ...s,
-              avatar: s.imageUrl
-                ? s.imageUrl.startsWith("http")
-                  ? s.imageUrl
-                  : `https://mydiaree.com.au/${s.imageUrl}`
-                : "",
-              contact: s.contactNo || "",
-              active: s.status === "ACTIVE",
-            }));
-            setStaff(mappedStaff);
-          } else {
-            toast.error(res.message || "Failed to load staff");
-          }
-        }
-      } catch (error) {
-        toast.error("An error occurred while loading settings");
-        console.error(error);
-      } finally {
-        setLoading(false);
+  const fetchStaff = useCallback(async (cId, search = "", pg = 1) => {
+    if (!cId) return;
+    setLoading(true);
+    try {
+      const res = await staffService.getStaffSettings({
+        center_id: cId,
+        search,
+        page: pg,
+        per_page: 10,
+      });
+      if (res.status && res.data) {
+        const staffData = res.data.staff;
+        const staffList = staffData?.data || staffData || [];
+        setStaff(mapStaff(staffList));
+        setPagination(res.pagination || {
+          current_page: staffData?.current_page || 1,
+          last_page: staffData?.last_page || 1,
+          total: staffData?.total || 0,
+          from: staffData?.from,
+          to: staffData?.to,
+          per_page: staffData?.per_page || 10,
+        });
+      } else {
+        setStaff([]);
+        toast.error(res.message || "Failed to load staff");
       }
-    };
-    if (storeCenters.length > 0) {
-      fetchData();
+    } catch (error) {
+      toast.error("An error occurred while loading settings");
+      console.error(error);
+      setStaff([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Set default center on mount
+  useEffect(() => {
+    if (!centerId && storeCenters.length > 0) {
+      setCenterId(storeCenters[0].id);
+    }
+  }, [storeCenters, centerId]);
+
+  // Fetch when center or page changes
+  useEffect(() => {
+    if (centerId) {
+      fetchStaff(centerId, query, page);
     } else {
       setLoading(false);
     }
-  }, [centerId, storeCenters]);
+  }, [centerId, page, fetchStaff]);
+
+  const handleSearchChange = (value) => {
+    setQuery(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setPage(1);
+      fetchStaff(centerId, value, 1);
+    }, 500);
+  };
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+  };
+
+  const handleCenterChange = (newCenterId) => {
+    setCenterId(newCenterId);
+    setQuery("");
+    setPage(1);
+  };
 
   const activeCenter = storeCenters.find((c) => c.id === centerId);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return staff.filter((s) => (q ? s.name.toLowerCase().includes(q) : true));
-  }, [staff, query]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [query, centerId]);
-
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const paginatedStaff = filtered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = pagination.last_page || 1;
+  const totalRecords = pagination.total || 0;
 
   const handleSave = async (data) => {
     try {
@@ -159,30 +197,16 @@ export default function StaffSettingsPage() {
       if (res.status) {
         toast.success(res.message || `Staff ${data.id ? "updated" : "added"} successfully`);
         setModal({ open: false, initial: null });
-        // Refresh by triggering the same logic (we can just reset centerId to itself to re-trigger, or call fetch)
-        // Easiest is to manually update or just temporarily change loading
-        setLoading(true);
-        const refetch = await staffService.getStaffSettings(centerId);
-        if (refetch.status && refetch.data) {
-          const mappedStaff = (refetch.data.staff || []).map((s) => ({
-            ...s,
-            avatar: s.imageUrl
-              ? s.imageUrl.startsWith("http")
-                ? s.imageUrl
-                : `https://mydiaree.com.au/${s.imageUrl}`
-              : "",
-            contact: s.contactNo || "",
-            active: s.status === "ACTIVE",
-          }));
-          setStaff(mappedStaff);
-        }
-        setLoading(false);
+        fetchStaff(centerId, query, page);
+        return true;
       } else {
         toast.error(res.message || "Validation failed");
+        throw res;
       }
     } catch (error) {
-      toast.error("Failed to save staff");
-      console.error(error);
+      const res = error?.response?.data || error;
+      toast.error(res.message || "Failed to save staff");
+      throw res;
     }
   };
 
@@ -192,7 +216,7 @@ export default function StaffSettingsPage() {
       const res = await staffService.deleteStaff(confirm.id);
       if (res.status) {
         toast.success(res.message || "Staff deleted successfully");
-        setStaff((arr) => arr.filter((s) => s.id !== confirm.id));
+        fetchStaff(centerId, query, page);
       } else {
         toast.error(res.message || "Failed to delete staff");
       }
@@ -237,7 +261,7 @@ export default function StaffSettingsPage() {
                 {storeCenters.map((c) => (
                   <DropdownMenuItem
                     key={c.id}
-                    onClick={() => setCenterId(c.id)}
+                    onClick={() => handleCenterChange(c.id)}
                     className="flex items-center justify-between gap-2 py-2.5 cursor-pointer font-medium"
                   >
                     {c.name}
@@ -262,8 +286,8 @@ export default function StaffSettingsPage() {
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
           <Input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter by name"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search staff…"
             className="h-11 rounded-2xl border-border/60 bg-card/60 pl-10 backdrop-blur shadow-sm focus-visible:ring-primary/20 transition-all font-medium"
           />
         </div>
@@ -271,7 +295,7 @@ export default function StaffSettingsPage() {
 
       {loading ? (
         <PageLoader label="Loading staff…" />
-      ) : filtered.length === 0 ? (
+      ) : staff.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/60 bg-card/40 py-24 text-center backdrop-blur">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
             <Users className="h-8 w-8" />
@@ -284,7 +308,7 @@ export default function StaffSettingsPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {paginatedStaff.map((s) => {
+            {staff.map((s) => {
               const hasAccess = !!s.accessExpiresAt && new Date(s.accessExpiresAt) > new Date();
               const isAdmin = s.admin === "1";
               
@@ -429,9 +453,9 @@ export default function StaffSettingsPage() {
           </div>
 
           <Pagination
-            currentPage={page}
+            currentPage={pagination.current_page}
             totalPages={totalPages}
-            onPageChange={setPage}
+            onPageChange={handlePageChange}
             className="mt-6"
           />
         </>

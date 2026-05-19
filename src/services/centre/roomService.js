@@ -72,17 +72,19 @@ export const roomService = {
   },
 
   /**
-   * Replace educators assigned to a room.
-   * POST /rooms/manage-educators  body (formData):
-   *   center_id, room_id, educators[]
+   * Replace educators assigned to a room using /room/assign-staff.
+   * POST /room/assign-staff body (formData):
+   *   room_id, staff_ids[], removed_staff_id
    */
-  async manageEducators({ centerId, roomId, educatorIds }) {
+  async assignStaff({ roomId, staffIds, removedStaffId }) {
     const formData = new FormData();
-    formData.append("center_id", String(centerId));
     formData.append("room_id", String(roomId));
-    educatorIds.forEach((id) => formData.append("educators[]", String(id)));
+    if (staffIds && staffIds.length > 0) {
+      staffIds.forEach((id) => formData.append("staff_ids[]", String(id)));
+    }
+    formData.append("removed_staff_id", removedStaffId || "");
 
-    const res = await api.post("/rooms/manage-educators", formData, {
+    const res = await api.post("/room/assign-staff", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data;

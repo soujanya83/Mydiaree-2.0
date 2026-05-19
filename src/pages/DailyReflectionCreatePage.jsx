@@ -84,13 +84,17 @@ export default function DailyReflectionCreatePage() {
       try {
         const [roomsData, staffData] = await Promise.all([
           reflectionService.getRoomsAndStaff(activeCentreId),
-          staffService.getStaffSettings(activeCentreId),
+          staffService.getStaffSettings({
+            center_id: activeCentreId,
+            per_page: 10,
+          }),
         ]);
         if (roomsData.status) {
           setAvailableRooms(roomsData.rooms || roomsData.data?.rooms || []);
         }
         if (staffData.status) {
-          setAvailableStaff((staffData.data?.staff || []).filter((s) => s.status === "ACTIVE"));
+          const staff = staffData.data?.staff?.data || staffData.data?.staff || [];
+          setAvailableStaff(staff.filter((s) => s.status === "ACTIVE"));
         }
       } catch (error) {
         console.error("Failed to load rooms and staff:", error);
@@ -137,9 +141,13 @@ export default function DailyReflectionCreatePage() {
       setIsChildrenLoading(true);
       try {
         const results = await Promise.all(
-          rooms.map((roomId) => childrenService.filterChildren({ room: roomId, center_id: activeCentreId })),
+          rooms.map((roomId) =>
+            childrenService.filterChildren({ room: roomId, center_id: activeCentreId }),
+          ),
         );
-        const merged = results.flatMap((res) => res.children || res.data || []);
+        const merged = results.flatMap((res) => {
+          return Array.isArray(res.data) ? res.data : (res.data?.data || res.children || []);
+        });
         const unique = Array.from(new Map(merged.map((c) => [c.id, c])).values());
         setAvailableChildren(unique);
       } catch (error) {
@@ -152,8 +160,10 @@ export default function DailyReflectionCreatePage() {
   }, [rooms]);
 
   const handleSave = async () => {
-    if (!title.trim() || !rooms.length || !children.length) {
-      toast.error("Please fill in all required fields (Rooms, Children, Title)");
+    if (!title.trim() || !rooms.length || !children.length || !staff.length || !media.length) {
+      toast.error(
+        "Please fill in all required fields (Rooms, Children, Title, Staff, and at least one Media)",
+      );
       return;
     }
     setIsSaving(true);
@@ -304,6 +314,7 @@ export default function DailyReflectionCreatePage() {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             <PremiumPickerField
               label="Rooms"
+              required
               icon={DoorOpen}
               colour="emerald"
               selectedItems={rooms.map((id) => ({
@@ -316,6 +327,7 @@ export default function DailyReflectionCreatePage() {
             />
             <PremiumPickerField
               label="Children"
+              required
               icon={User}
               colour="sky"
               selectedItems={children.map((id) => ({
@@ -328,6 +340,7 @@ export default function DailyReflectionCreatePage() {
             />
             <PremiumPickerField
               label="Staff"
+              required
               icon={User}
               colour="rose"
               selectedItems={staff.map((id) => ({
@@ -353,7 +366,7 @@ export default function DailyReflectionCreatePage() {
               </div>
 
               <div className="space-y-6">
-                <FormGroup label="Title" info="Descriptive title for the day's reflection">
+                <FormGroup label="Title" info="Descriptive title for the day's reflection" required>
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
@@ -373,7 +386,6 @@ export default function DailyReflectionCreatePage() {
                     placeholder="Today we explored textures and colors in our new art corner..."
                     className="border-none bg-muted/30 focus-visible:ring-sky-500/50 resize-none"
                   />
-                  <RefineButton />
                 </FormGroup>
               </div>
             </section>
@@ -430,7 +442,7 @@ export default function DailyReflectionCreatePage() {
             <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                  Media
+                  Media <span className="text-destructive font-bold ml-0.5">*</span>
                 </h3>
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">
                   {media.length}/10 Files
@@ -581,6 +593,7 @@ function PremiumPickerField({
   onRemove,
   onClick,
   placeholder,
+  required,
 }) {
   const colours = {
     emerald: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
@@ -592,6 +605,7 @@ function PremiumPickerField({
     <div className="flex flex-col gap-2">
       <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
         {label}
+        {required && <span className="text-destructive font-bold ml-0.5">*</span>}
       </label>
       <div
         onClick={onClick}
@@ -628,11 +642,14 @@ function PremiumPickerField({
   );
 }
 
-function FormGroup({ label, children, info }) {
+function FormGroup({ label, children, info, required }) {
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between px-1">
-        <label className="text-sm font-bold text-foreground">{label}</label>
+        <label className="text-sm font-bold text-foreground">
+          {label}
+          {required && <span className="text-destructive font-bold ml-0.5">*</span>}
+        </label>
         {info && (
           <div className="group relative">
             <Info className="h-4 w-4 text-muted-foreground/50 cursor-help" />
@@ -643,21 +660,6 @@ function FormGroup({ label, children, info }) {
         )}
       </div>
       {children}
-    </div>
-  );
-}
-
-function RefineButton() {
-  return (
-    <div className="mt-3 flex justify-end">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 rounded-full bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary-foreground font-bold text-[10px] uppercase tracking-wider"
-        onClick={() => toast.info("AI refinement coming soon")}
-      >
-        <Wand2 className="mr-1.5 h-3 w-3" /> Refine with Ai
-      </Button>
     </div>
   );
 }
@@ -673,13 +675,26 @@ function MultiPickerModal({
   emptyMessage,
 }) {
   const [local, setLocal] = useState(selected || []);
+  const [searchQuery, setSearchQuery] = useState("");
+
   useEffect(() => {
-    if (open) setLocal(selected || []);
+    if (open) {
+      setLocal(selected || []);
+      setSearchQuery("");
+    }
   }, [open, selected]);
+
+  const filteredItems = useMemo(() => {
+    if (!searchQuery) return items;
+    return items.filter((it) => it.label.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [items, searchQuery]);
+
   if (!open) return null;
+
   const toggle = (id) => {
     setLocal((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-200">
@@ -692,20 +707,36 @@ function MultiPickerModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Search Input */}
+        <div className="border-b border-border px-6 py-3 bg-muted/10">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={`Search ${title.toLowerCase()}...`}
+              className="h-10 pl-9 border-none bg-background focus-visible:ring-primary/50"
+            />
+          </div>
+        </div>
+
         <div className="max-h-96 overflow-y-auto px-6 py-4">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="mt-2 text-sm font-medium">Fetching children list...</p>
+              <p className="mt-2 text-sm font-medium">Fetching list...</p>
             </div>
-          ) : items.length === 0 ? (
+          ) : filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
               <Info className="h-10 w-10 opacity-20 mb-3" />
-              <p className="text-sm px-10 font-medium">{emptyMessage || "No items available"}</p>
+              <p className="text-sm px-10 font-medium">
+                {searchQuery ? "No results found" : emptyMessage || "No items available"}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2">
-              {items.map((it) => (
+              {filteredItems.map((it) => (
                 <label
                   key={it.id}
                   className={`flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors ${local.includes(it.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}

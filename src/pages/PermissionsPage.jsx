@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2,
@@ -42,10 +42,12 @@ import {
   ShieldAlert,
   Box,
   Activity,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,6 +89,21 @@ export default function PermissionsPage() {
   const [selectedRole, setSelectedRole] = useState(null);
   const [staffUsers, setStaffUsers] = useState([]);
   const [isStaffLoading, setIsStaffLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const observer = useRef();
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setPage(1);
+      setStaffUsers([]);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (activeCentreId) {
@@ -107,9 +124,18 @@ export default function PermissionsPage() {
 
       setIsStaffLoading(true);
       try {
-        const response = await staffService.getStaffSettings(activeCentreId);
-        const staff = response?.data?.staff || [];
-        setStaffUsers(staff.filter((staffMember) => staffMember.status === "ACTIVE"));
+        const response = await staffService.getStaffSettings({
+          center_id: activeCentreId,
+          search: debouncedSearchQuery,
+          page,
+          per_page: 10,
+        });
+        const staff = response?.data?.staff?.data || response?.data?.staff || [];
+        const activeStaff = staff.filter((staffMember) => staffMember.status === "ACTIVE");
+
+        setStaffUsers((prev) => (page === 1 ? activeStaff : [...prev, ...activeStaff]));
+        const pagination = response?.pagination || response?.data?.staff || {};
+        setHasMore(pagination.current_page < pagination.last_page);
       } catch (error) {
         console.error("Failed to load staff for permissions:", error);
         toast.error(error?.response?.data?.message || error?.message || "Failed to load staff");
@@ -120,7 +146,21 @@ export default function PermissionsPage() {
     };
 
     loadStaff();
-  }, [activeCentreId]);
+  }, [activeCentreId, debouncedSearchQuery, page]);
+
+  const lastStaffElementRef = useCallback(
+    (node) => {
+      if (isStaffLoading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setPage((prev) => prev + 1);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isStaffLoading, hasMore],
+  );
 
   // Sidebar Order & Icon Mapping
   const getModuleMetadata = (moduleName) => {
@@ -394,9 +434,19 @@ export default function PermissionsPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-[300px]">
-                  {isStaffLoading ? (
+                  <div className="p-2 border-b">
+                    <Input
+                      placeholder="Search staff..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="h-8 text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                  {isStaffLoading && staffUsers.length === 0 ? (
                     <div className="px-3 py-6 text-center text-xs italic text-muted-foreground">
-                      <div className="mx-auto mb-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      <Loader2 className="mx-auto mb-2 h-4 w-4 animate-spin text-primary" />
                       Loading staff members...
                     </div>
                   ) : (
@@ -439,24 +489,33 @@ export default function PermissionsPage() {
                             No more users available
                           </div>
                         ) : (
-                          availableUsers.map((u) => (
-                            <DropdownMenuItem
-                              key={u.id}
-                              onSelect={(e) => {
-                                e.preventDefault();
-                                addUser(u);
-                              }}
-                              className="flex cursor-pointer items-center justify-between gap-3 rounded-lg py-2"
-                            >
-                              <div className="flex flex-col">
-                                <span className="font-medium">{u.name}</span>
-                                <span className="text-[10px] uppercase text-muted-foreground">
-                                  {u.userType || u.role}
-                                </span>
-                              </div>
-                              <Plus className="h-4 w-4 text-muted-foreground/40" />
-                            </DropdownMenuItem>
-                          ))
+                          availableUsers.map((u, index) => {
+                            const isLast = availableUsers.length === index + 1;
+                            return (
+                              <DropdownMenuItem
+                                key={u.id}
+                                ref={isLast ? lastStaffElementRef : null}
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  addUser(u);
+                                }}
+                                className="flex cursor-pointer items-center justify-between gap-3 rounded-lg py-2"
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{u.name}</span>
+                                  <span className="text-[10px] uppercase text-muted-foreground">
+                                    {u.userType || u.role}
+                                  </span>
+                                </div>
+                                <Plus className="h-4 w-4 text-muted-foreground/40" />
+                              </DropdownMenuItem>
+                            );
+                          })
+                        )}
+                        {isStaffLoading && (
+                          <div className="flex justify-center py-2">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          </div>
                         )}
                       </div>
                     </>

@@ -6,6 +6,12 @@ export const usePermissionStore = create((set) => ({
   roles: [],
   permissionColumns: [],
   assignedUsers: [],
+  assignedPagination: {
+    current_page: 1,
+    last_page: 1,
+    total: 0,
+    per_page: 10,
+  },
   singleUserPermission: null,
   selectedRoleDetails: null,
   modulePermissions: [],
@@ -40,13 +46,27 @@ export const usePermissionStore = create((set) => ({
     }
   },
 
-  fetchAssignedPermissions: async (centerId) => {
+  fetchAssignedPermissions: async (centerId, params = {}) => {
     if (!centerId) return;
     set({ isFetchingAssigned: true, error: null });
     try {
-      const data = await permissionService.getAssignedPermissions(centerId);
+      const response = await permissionService.getAssignedPermissions({
+        center_id: centerId,
+        ...params,
+      });
+      const dataObj = response.data || {};
+      const assignedUsersData = dataObj.assigned_users || {};
+      const assignedUsersList = assignedUsersData.data || (Array.isArray(assignedUsersData) ? assignedUsersData : []);
+      const pagination = response.pagination || {
+        current_page: assignedUsersData.current_page || 1,
+        last_page: assignedUsersData.last_page || 1,
+        total: assignedUsersData.total || 0,
+        per_page: assignedUsersData.per_page || 10,
+      };
+
       set({
-        assignedUsers: data.assigned_users || [],
+        assignedUsers: assignedUsersList,
+        assignedPagination: pagination,
         isFetchingAssigned: false,
       });
     } catch (error) {

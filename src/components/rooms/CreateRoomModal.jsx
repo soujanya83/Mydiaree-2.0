@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,6 +10,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useRoomStore } from "@/stores/roomStore";
+import { useCentreStore } from "@/stores/centreStore";
+import { staffService } from "@/services/admin/staffService";
 
 const empty = {
   name: "",
@@ -22,8 +24,65 @@ const empty = {
 };
 
 export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
-  const { roomStaffs, isSubmitting } = useRoomStore();
+  const { isSubmitting } = useRoomStore();
+  const { activeCentreId } = useCentreStore();
   const [form, setForm] = useState(empty);
+
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [staffList, setStaffList] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const observer = useRef();
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1); // Reset page on new search
+      setStaffList([]);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Fetch staff
+  useEffect(() => {
+    if (!open || !activeCentreId) return;
+    const fetchStaff = async () => {
+      setIsLoading(true);
+      try {
+        const response = await staffService.getStaffSettings({
+          center_id: activeCentreId,
+          search: debouncedQuery,
+          page,
+          per_page: 20,
+        });
+        const items = response.data?.staff?.data || [];
+        const activeItems = items.filter(s => s.status === "ACTIVE");
+        
+        setStaffList(prev => page === 1 ? activeItems : [...prev, ...activeItems]);
+        const pagination = response.pagination || response.data?.staff || {};
+        setHasMore(pagination.current_page < pagination.last_page);
+      } catch (error) {
+        console.error("Failed to fetch staff", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStaff();
+  }, [open, activeCentreId, debouncedQuery, page]);
+
+  const lastElementRef = useCallback(node => {
+    if (isLoading) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        setPage(prev => prev + 1);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [isLoading, hasMore]);
 
   useEffect(() => {
     if (open) {
@@ -89,14 +148,14 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
         </div>
 
         <div className="grid gap-5 overflow-y-auto px-6 py-5 sm:grid-cols-2" style={{ maxHeight: "70vh" }}>
-          <Field label="Name">
+          <Field label="Name" required>
             <Input
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
               placeholder="e.g Adventures"
             />
           </Field>
-          <Field label="Capacity">
+          <Field label="Capacity" required>
             <Input
               type="number"
               min={0}
@@ -105,7 +164,7 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
               placeholder="e.g 20"
             />
           </Field>
-          <Field label="From Age">
+          <Field label="From Age" required>
             <Input
               type="number"
               min={0}
@@ -114,7 +173,7 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
               placeholder="e.g 0"
             />
           </Field>
-          <Field label="To Age">
+          <Field label="To Age" required>
             <Input
               type="number"
               min={0}
@@ -123,7 +182,7 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
               placeholder="e.g 5"
             />
           </Field>
-          <Field label="Status">
+          <Field label="Status" required>
             <Select value={form.status} onValueChange={(v) => set("status", v)}>
               <SelectTrigger>
                 <SelectValue />
@@ -134,7 +193,7 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Room Color">
+          <Field label="Room Color" required>
              <div className="flex items-center gap-3">
                <input 
                 type="color" 
@@ -150,28 +209,44 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
                />
              </div>
           </Field>
-          <Field label="Educators" className="sm:col-span-2">
+          <Field label="Educators (Optional)" className="sm:col-span-2">
+            <div className="mb-2">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search educators..."
+                className="h-8 text-sm"
+              />
+            </div>
             <div className="max-h-44 space-y-1.5 overflow-y-auto rounded-md border border-input bg-background p-2">
-              {roomStaffs.length === 0 ? (
+              {staffList.length === 0 && !isLoading ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">No educators found for this center.</p>
               ) : (
-                roomStaffs.map((ed) => {
-                  const checked = form.educatorIds.includes(String(ed.staffid));
+                staffList.map((ed, index) => {
+                  const idStr = String(ed.staffid || ed.id || ed.userid);
+                  const checked = form.educatorIds.includes(idStr);
+                  const isLastElement = staffList.length === index + 1;
                   return (
                     <label
-                      key={ed.staffid}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-muted"
+                      key={idStr}
+                      ref={isLastElement ? lastElementRef : null}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
                     >
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggleEd(ed.staffid)}
+                        onChange={() => toggleEd(idStr)}
                         className="h-4 w-4 accent-primary"
                       />
                       <span className="text-sm text-foreground">{ed.name}</span>
                     </label>
                   );
                 })
+              )}
+              {isLoading && (
+                <div className="flex justify-center py-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
               )}
             </div>
           </Field>
@@ -190,11 +265,12 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
   );
 }
 
-function Field({ label, children, className }) {
+function Field({ label, children, className, required }) {
   return (
     <div className={className}>
       <label className="mb-1.5 block text-sm font-semibold text-foreground">
         {label}
+        {required && <span className="ml-1 text-red-500">*</span>}
       </label>
       {children}
     </div>

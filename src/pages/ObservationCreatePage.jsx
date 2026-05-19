@@ -113,14 +113,17 @@ export default function ObservationCreatePage() {
   const [showChildrenPicker, setShowChildrenPicker] = useState(false);
   const [showEducatorsPicker, setShowEducatorsPicker] = useState(false);
 
-  // 1. Fetch Staff on Centre Change
   useEffect(() => {
     const loadStaff = async () => {
       if (!activeCentreId) return;
       try {
-        const response = await staffService.getStaffSettings(activeCentreId);
+        const response = await staffService.getStaffSettings({
+          center_id: activeCentreId,
+          per_page: 10,
+        });
         if (response.status) {
-          setAvailableEducators((response.data?.staff || []).filter((s) => s.status === "ACTIVE"));
+          const staff = response.data?.staff?.data || response.data?.staff || [];
+          setAvailableEducators(staff.filter((s) => s.status === "ACTIVE"));
         }
       } catch (error) {
         console.error("Failed to load staff:", error);
@@ -139,9 +142,13 @@ export default function ObservationCreatePage() {
       setIsChildrenLoading(true);
       try {
         const results = await Promise.all(
-          rooms.map((roomId) => childrenService.filterChildren({ room: roomId, center_id: activeCentreId })),
+          rooms.map((roomId) =>
+            childrenService.filterChildren({ room: roomId, center_id: activeCentreId }),
+          ),
         );
-        const merged = results.flatMap((res) => res.children || res.data || []);
+        const merged = results.flatMap((res) => {
+          return Array.isArray(res.data) ? res.data : (res.data?.data || res.children || []);
+        });
         // Unique by ID
         const unique = Array.from(new Map(merged.map((c) => [c.id, c])).values());
         setAvailableChildren(unique);

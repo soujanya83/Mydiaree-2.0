@@ -48,6 +48,23 @@ export const programPlanService = {
     return res.data;
   },
 
+  async filterProgramPlans({ center_id, room = "", created_by = "", status = "", month = "", year = "", page = 1, per_page = 10 }) {
+    const formData = new FormData();
+    formData.append("center_id", center_id);
+    if (room) formData.append("room", room);
+    if (created_by) formData.append("created_by", created_by);
+    if (status) formData.append("status", status);
+    if (month) formData.append("month", month);
+    if (year) formData.append("year", year);
+    formData.append("page", page);
+    formData.append("per_page", per_page);
+
+    const res = await api.post("/LessonPlanList/filter-program-plans", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
+
   async getRoomsAndStaff(centerId) {
     const formData = new FormData();
     formData.append("user_center_id", centerId);

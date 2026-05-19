@@ -46,12 +46,15 @@ export default function SettingsPage() {
       if (res.status) {
         toast.success(res.message || `Center ${data.id ? "updated" : "created"} successfully.`);
         fetchCentres();
+        return true;
       } else {
         toast.error(res.message || "Failed to save center.");
+        throw res;
       }
     } catch (error) {
-      toast.error("An error occurred while saving the center.");
-      console.error(error);
+      const res = error?.response?.data || error;
+      toast.error(res.message || "An error occurred while saving the center.");
+      throw res;
     }
   };
 

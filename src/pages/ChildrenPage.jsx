@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
+import { Pagination } from "@/components/common/Pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -88,14 +90,18 @@ const textOrDash = (value) => value || "—";
 export default function ChildrenPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { children, isLoading, fetchChildren, deleteChildren, addChild, updateChild } =
+  const { children, pagination, isLoading, fetchChildren, deleteChildren, addChild, updateChild } =
     useChildrenStore();
   const { can } = usePermissions();
   const perms = ACTION_PERMISSIONS.children;
 
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [genderFilter, setGenderFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sort, setSort] = useState("asc");
+  const [page, setPage] = useState(1);
+  const searchTimerRef = useRef(null);
 
   const [selectRoomOpen, setSelectRoomOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -104,9 +110,8 @@ export default function ChildrenPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [selectedChildDetails, setSelectedChildDetails] = useState(null);
-  const [isDetailsLoading, setIsDetailsLoading] = useState(false);
+  const [selectedChildren, setSelectedChildren] = useState([]);
+  const navigate = useNavigate();
 
   const currentFilters = useMemo(
     () => ({
@@ -114,15 +119,18 @@ export default function ChildrenPage() {
       room_id: activeRoomId,
       gender:
         genderFilter === "all"
-          ? undefined
+          ? "All"
           : genderFilter.charAt(0).toUpperCase() + genderFilter.slice(1),
       status:
         statusFilter === "all"
-          ? undefined
+          ? "All"
           : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1),
       search: search || undefined,
+      sort: sort,
+      page: page,
+      per_page: 10,
     }),
-    [activeCentreId, activeRoomId, genderFilter, statusFilter, search],
+    [activeCentreId, activeRoomId, genderFilter, statusFilter, search, sort, page],
   );
 
   useEffect(() => {
@@ -130,6 +138,20 @@ export default function ChildrenPage() {
       fetchChildren(currentFilters);
     }
   }, [currentFilters, fetchChildren, activeCentreId]);
+
+  useEffect(() => {
+    setPage(1);
+    setSelectedChildren([]);
+  }, [activeRoomId, genderFilter, statusFilter, sort]);
+
+  const handleSearchChange = (val) => {
+    setSearchInput(val);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setSearch(val);
+      setPage(1);
+    }, 500);
+  };
 
   const handleNewChild = () => setSelectRoomOpen(true);
 
@@ -147,36 +169,30 @@ export default function ChildrenPage() {
     setAddOpen(true);
   };
 
-  const handleView = async (child) => {
-    setDetailsOpen(true);
-    setSelectedChildDetails(null);
-    setIsDetailsLoading(true);
-
-    try {
-      const response = await childrenService.getChildDetails(child.id);
-      setSelectedChildDetails(response.data || response);
-    } catch (error) {
-      toast.error(
-        error?.response?.data?.message || error?.message || "Failed to load child details",
-      );
-      setDetailsOpen(false);
-    } finally {
-      setIsDetailsLoading(false);
-    }
+  const handleView = (child) => {
+    navigate(`/children/${child.id}`);
   };
 
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId && selectedChildren.length === 0) return;
     setIsDeleting(true);
     try {
-      await deleteChildren([deleteId], currentFilters);
-      toast.success("Child deleted successfully");
+      const idsToDelete = deleteId ? [deleteId] : selectedChildren;
+      await deleteChildren(idsToDelete, currentFilters);
+      toast.success(idsToDelete.length > 1 ? "Selected children deleted successfully" : "Child deleted successfully");
+      setSelectedChildren([]);
     } catch (error) {
-      toast.error(error?.message || "Failed to delete child");
+      toast.error(error?.message || "Failed to delete");
     } finally {
       setIsDeleting(false);
       setDeleteId(null);
     }
+  };
+
+  const handleSelectChild = (id) => {
+    setSelectedChildren(prev => 
+      prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]
+    );
   };
 
   const handleSubmit = async (data) => {
@@ -221,70 +237,111 @@ export default function ChildrenPage() {
         description="Manage enrolled children profiles"
         breadcrumbs={[{ label: "Children" }]}
         actions={
-          can(perms.add) ? (
-            <Button onClick={handleNewChild} className="gap-2">
-              <Plus className="h-4 w-4" /> Add New Child
-            </Button>
-          ) : null
+          <div className="flex items-center gap-2">
+            {can(perms.delete) && selectedChildren.length > 0 && (
+              <Button 
+                variant="destructive" 
+                onClick={() => setDeleteId(null)} // Trigger alert dialog for bulk delete
+                className="gap-2"
+                onClickCapture={() => {
+                  // Small hack to open the dialog for bulk delete
+                  setDeleteId(null);
+                  document.getElementById("bulk-delete-trigger")?.click();
+                }}
+              >
+                <Trash2 className="h-4 w-4" /> Delete Selected ({selectedChildren.length})
+              </Button>
+            )}
+            {can(perms.add) && (
+              <Button onClick={handleNewChild} className="gap-2">
+                <Plus className="h-4 w-4" /> Add New Child
+              </Button>
+            )}
+            {can(perms.delete) && selectedChildren.length > 0 && (
+              <button 
+                id="bulk-delete-trigger" 
+                className="hidden" 
+                onClick={() => setDeleteId("bulk")} 
+              />
+            )}
+          </div>
         }
       />
 
-      <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <div className="relative xl:col-span-2">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name or ID..."
-            className="pl-9"
-          />
+      <div className="mb-6 space-y-4">
+        {/* Top Row: Center and Room */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:max-w-xl">
+          <Select value={activeCentreId} onValueChange={setActiveCentre}>
+            <SelectTrigger className="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              {centres.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={activeRoomId} onValueChange={setActiveRoom}>
+            <SelectTrigger className="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm">
+              <SelectValue placeholder="Select Room" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              {rooms.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={activeCentreId} onValueChange={setActiveCentre}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {centres.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={activeRoomId} onValueChange={setActiveRoom}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select Room" />
-          </SelectTrigger>
-          <SelectContent>
-            {rooms.map((r) => (
-              <SelectItem key={r.id} value={r.id}>
-                {r.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="grid grid-cols-2 gap-3">
-          <Select value={genderFilter} onValueChange={setGenderFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Gender" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Genders</SelectItem>
-              <SelectItem value="male">Male</SelectItem>
-              <SelectItem value="female">Female</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
+
+        {/* Bottom Row: Search and Filters */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <div className="relative flex-1 max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
+            <Input
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search by name or ID..."
+              className="h-11 pl-9 rounded-xl bg-card/60 backdrop-blur shadow-sm border-border/60 transition-all focus-visible:ring-primary/20"
+            />
+          </div>
+          
+          <div className="grid grid-cols-3 gap-3 w-full md:w-auto">
+            <Select value={genderFilter} onValueChange={setGenderFilter}>
+              <SelectTrigger className="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm min-w-[120px]">
+                <SelectValue placeholder="Gender" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all">All Genders</SelectItem>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm min-w-[120px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="enrolled">Enrolled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sort} onValueChange={setSort}>
+              <SelectTrigger className="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm min-w-[120px]">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="asc">Oldest</SelectItem>
+                <SelectItem value="desc">Newest</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -299,20 +356,32 @@ export default function ChildrenPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {children.map((child) => (
-            <ChildCard
-              key={child.id}
-              child={child}
-              rooms={rooms}
-              onView={() => handleView(child)}
-              onEdit={() => handleEdit(child)}
-              onDelete={() => setDeleteId(child.id)}
-              canEdit={can(perms.edit)}
-              canDelete={false}
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {children.map((child) => (
+              <ChildCard
+                key={child.id}
+                child={child}
+                rooms={rooms}
+                onView={() => handleView(child)}
+                onEdit={() => handleEdit(child)}
+                onDelete={() => setDeleteId(child.id)}
+                isSelected={selectedChildren.includes(child.id)}
+                onSelectToggle={() => handleSelectChild(child.id)}
+                canEdit={can(perms.edit)}
+                canDelete={can(perms.delete)}
+              />
+            ))}
+          </div>
+          {pagination && pagination.last_page > 1 && (
+            <Pagination
+              currentPage={pagination.current_page || 1}
+              totalPages={pagination.last_page || 1}
+              onPageChange={setPage}
+              className="mt-6"
             />
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       <SelectRoomModal
@@ -335,20 +404,27 @@ export default function ChildrenPage() {
         isSaving={isSaving}
       />
 
-      <ChildDetailsModal
-        open={detailsOpen}
-        onOpenChange={setDetailsOpen}
-        child={selectedChildDetails}
-        isLoading={isDetailsLoading}
+      <AddChildModal
+        open={addOpen}
+        onClose={() => {
+          setAddOpen(false);
+          setEditing(null);
+          setChosenRoom(null);
+        }}
+        room={chosenRoom}
+        initial={editing}
+        onSubmit={handleSubmit}
+        isSaving={isSaving}
       />
 
-      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+      <AlertDialog open={!!deleteId || deleteId === "bulk"} onOpenChange={(o) => !o && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Child Profile?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteId === "bulk" ? "Delete Selected Children?" : "Delete Child Profile?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the child's profile and documentation records. This
-              action cannot be undone.
+              This will permanently delete the {deleteId === "bulk" ? "selected children's profiles" : "child's profile"} and documentation records. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -372,7 +448,7 @@ export default function ChildrenPage() {
   );
 }
 
-function ChildCard({ child, rooms, onView, onEdit, onDelete, canEdit = true, canDelete = true }) {
+function ChildCard({ child, rooms, onView, onEdit, onDelete, isSelected, onSelectToggle, canEdit = true, canDelete = true }) {
   const isActive = child.status?.toLowerCase() === "active";
   const genderLabel = child.gender ? child.gender.toUpperCase() : "—";
   const roomName = rooms.find((r) => r.id == child.room)?.name || child.room || "—";
@@ -382,17 +458,33 @@ function ChildCard({ child, rooms, onView, onEdit, onDelete, canEdit = true, can
     <div
       role="button"
       tabIndex={0}
-      onClick={onView}
+      onClick={onSelectToggle}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          onView();
+          onSelectToggle();
         }
       }}
-      className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2"
+      className={`group flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 ${
+        isSelected ? "border-primary ring-2 ring-primary/20" : "border-border hover:shadow-md hover:border-primary/40"
+      }`}
     >
       {/* 1. Image Container (Top) */}
       <div className="relative h-44 w-full shrink-0 overflow-hidden bg-muted/40">
+        <div 
+          className="absolute top-3 right-3 z-10"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectToggle();
+          }}
+        >
+          <div className={`flex h-6 w-6 items-center justify-center rounded-md border-2 transition-colors ${isSelected ? 'bg-primary border-primary text-primary-foreground' : 'bg-background/80 border-border/80 text-transparent hover:border-primary/50 backdrop-blur'}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+        </div>
+        
         {child.imageUrl ? (
           <img
             src={imageUrl}
@@ -493,188 +585,4 @@ function ChildCard({ child, rooms, onView, onEdit, onDelete, canEdit = true, can
   );
 }
 
-function ChildDetailsModal({ open, onOpenChange, child, isLoading }) {
-  const fullName = child ? `${child.name || ""} ${child.lastname || ""}`.trim() : "";
-  const imageUrl = resolveImageUrl(child?.imageUrl);
-  const isActive = child?.status?.toLowerCase() === "active";
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-3xl rounded-3xl border-border/60 bg-card/95 backdrop-blur shadow-2xl">
-        <div className="absolute top-0 right-0 h-40 w-40 -translate-y-1/2 translate-x-1/3 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-        
-        <DialogHeader className="px-6 pb-2 pt-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
-              <Baby className="h-5 w-5" />
-            </div>
-            <div>
-              <DialogTitle className="text-xl font-bold tracking-tight text-foreground pr-8">
-                Child Profile Details
-              </DialogTitle>
-              <p className="text-sm font-medium text-muted-foreground mt-0.5">
-                Complete profile information and family contacts
-              </p>
-            </div>
-          </div>
-        </DialogHeader>
-
-        {isLoading ? (
-          <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin text-primary/60" />
-            <p className="text-sm font-medium">Loading child details...</p>
-          </div>
-        ) : child ? (
-          <div className="max-h-[calc(90vh-96px)] overflow-y-auto px-6 py-5">
-            <div className="flex flex-col gap-6 sm:flex-row">
-              <div className="flex flex-col items-center relative shrink-0">
-                <div className="relative mb-2">
-                  <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-primary/40 to-indigo-500/40 opacity-70 blur-md"></div>
-                  <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full border-2 border-background bg-muted shadow-md">
-                    {imageUrl ? (
-                      <img src={imageUrl} alt={fullName} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-muted/50">
-                        <Users className="h-10 w-10 text-muted-foreground/40" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <span
-                  className={`mt-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wide shadow-sm ${
-                    isActive
-                      ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
-                      : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
-                  }`}
-                >
-                  {child.status || "Inactive"}
-                </span>
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="mb-4">
-                  <h3 className="text-3xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
-                    {textOrDash(fullName)}
-                  </h3>
-                  <p className="mt-1 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <IdCard className="h-4 w-4" /> ID: {child.id}
-                  </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <DetailItem icon={Calendar} label="Date of Birth" value={fmtDate(child.dob)} />
-                  <DetailItem icon={Calendar} label="Start Date" value={fmtDate(child.startDate)} />
-                  <DetailItem icon={DoorOpen} label="Room" value={child.room} />
-                  <DetailItem icon={UserRound} label="Gender" value={child.gender} />
-                </div>
-              </div>
-            </div>
-
-            {(child.address || child.other_details) && (
-               <div className="mt-6 grid gap-5 lg:grid-cols-2">
-                 {child.address && (
-                   <DetailSection title="Contact Details">
-                     <DetailItem icon={Home} label="Address" value={child.address} />
-                   </DetailSection>
-                 )}
- 
-                 {child.other_details && (
-                   <DetailSection title="Other Details">
-                     <p className="text-sm font-medium leading-6 text-muted-foreground">{child.other_details}</p>
-                   </DetailSection>
-                 )}
-               </div>
-            )}
-
-            {child.parents?.length ? (
-              <DetailSection title="Parents / Guardians" className="mt-6">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {child.parents.map((parent) => (
-                    <div key={parent.id} className="group relative overflow-hidden rounded-2xl border border-border/60 bg-background/50 p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-                      <div className="absolute top-0 right-0 p-3 opacity-10">
-                        <Users className="h-10 w-10" />
-                      </div>
-                      <div className="relative z-10">
-                        <div className="flex items-start justify-between">
-                          <p className="text-base font-bold text-foreground">{textOrDash(parent.name)}</p>
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-                            {textOrDash(parent.relation)}
-                          </span>
-                        </div>
-                        
-                        <div className="mt-3 flex flex-col gap-2.5 text-sm font-medium text-muted-foreground">
-                          {parent.email && (
-                            <div className="flex items-center gap-2.5 rounded-lg bg-muted/40 px-2.5 py-1.5 transition-colors group-hover:bg-muted/60">
-                              <Mail className="h-4 w-4 shrink-0 text-primary/60" />
-                              <span className="break-all">{textOrDash(parent.email)}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2.5 rounded-lg bg-muted/40 px-2.5 py-1.5 transition-colors group-hover:bg-muted/60">
-                            <Phone className="h-4 w-4 shrink-0 text-primary/60" />
-                            <span>{textOrDash(parent.phone || parent.contactNo)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </DetailSection>
-            ) : null}
-
-            {child.siblings?.length ? (
-              <DetailSection title="Siblings" className="mt-6">
-                <div className="flex flex-wrap gap-2.5">
-                  {child.siblings.map((sibling) => (
-                    <div
-                      key={sibling.id || sibling.childname || sibling.name}
-                      className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/30 px-3 py-1.5 shadow-sm transition-colors hover:bg-muted/50"
-                    >
-                      <UserRound className="h-4 w-4 text-muted-foreground/70" />
-                      <span className="text-sm font-semibold text-foreground">
-                        {sibling.childname ||
-                          sibling.name ||
-                          `${sibling.firstname || ""} ${sibling.lastname || ""}`.trim()}
-                        {sibling.lastname ? ` ${sibling.lastname}` : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </DetailSection>
-            ) : null}
-          </div>
-        ) : (
-          <div className="p-10 text-center text-sm font-medium text-muted-foreground">No child details available.</div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function DetailSection({ title, children, className = "" }) {
-  return (
-    <section className={`rounded-2xl border border-border/60 bg-muted/10 p-5 shadow-sm ${className}`}>
-      <h4 className="mb-4 text-sm font-bold uppercase tracking-wider text-muted-foreground opacity-90">
-        {title}
-      </h4>
-      {children}
-    </section>
-  );
-}
-
-function DetailItem({ icon: Icon, label, value }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl bg-background/60 border border-border/40 p-3 shadow-sm transition-colors hover:bg-background/80">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="truncate text-sm font-bold text-foreground">{textOrDash(value)}</p>
-      </div>
-    </div>
-  );
-}
-
-function EmptyDetail({ children }) {
-  return <p className="text-sm text-muted-foreground">{children}</p>;
-}

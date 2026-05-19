@@ -177,10 +177,9 @@ export default function MenuPage() {
         recipeIds: recipeIds,
       });
       toast.success("Menu updated");
-      setModal((m) => ({ ...m, open: false }));
     } catch (error) {
-
       toast.error(error?.message || "Failed to update menu");
+      throw error;
     }
   };
 
@@ -201,13 +200,44 @@ export default function MenuPage() {
 
   const grouped = useMemo(() => {
     const map = {}; // { mealId: { dayId: items[] } }
-    menuData.forEach((item) => {
-      const mealId = item.mealType?.toLowerCase();
-      const dayId = item.day?.toLowerCase().slice(0, 3); // Tuesday -> tue
-      if (!map[mealId]) map[mealId] = {};
-      if (!map[mealId][dayId]) map[mealId][dayId] = [];
-      map[mealId][dayId].push(item);
+    
+    // Initialize map structure to prevent empty key errors
+    MEAL_TIMES.forEach(m => {
+      map[m.id] = {};
+      WEEKDAYS.forEach(d => {
+        map[m.id][d.id] = [];
+      });
     });
+
+    if (Array.isArray(menuData)) {
+      menuData.forEach((mealGroup) => {
+        // e.g. "Breakfast" -> "breakfast", "Morning Tea" -> "morning_tea"
+        const mealId = mealGroup.mealType?.toLowerCase().replace(/\s+/g, "_");
+        if (!map[mealId]) {
+          map[mealId] = {};
+        }
+
+        if (Array.isArray(mealGroup.days)) {
+          mealGroup.days.forEach((dayGroup) => {
+            const dayId = dayGroup.day?.toLowerCase().slice(0, 3); // Monday -> mon
+            if (!map[mealId][dayId]) {
+              map[mealId][dayId] = [];
+            }
+            if (Array.isArray(dayGroup.items)) {
+              dayGroup.items.forEach((item) => {
+                map[mealId][dayId].push({
+                  id: item.id,
+                  name: item.name,
+                  note: item.note || "",
+                  mealType: item.mealType,
+                  mediaUrl: item.mediaUrl,
+                });
+              });
+            }
+          });
+        }
+      });
+    }
     return map;
   }, [menuData]);
 
@@ -365,33 +395,35 @@ export default function MenuPage() {
                         </div>
                       ) : (
                         <div className="space-y-3">
-                          {items.map((it) => (
-                            <div
-                              key={it.id}
-                              className="group relative flex flex-col gap-1 rounded-xl border border-border/60 bg-background p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="text-sm font-bold text-foreground leading-snug">
-                                  {it.name}
+                          <div className="max-h-[142px] overflow-y-auto pr-1 space-y-2 scrollbar-thin">
+                            {items.map((it) => (
+                              <div
+                                key={it.id}
+                                className="group relative flex flex-col gap-1 rounded-xl border border-border/60 bg-background p-3 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:border-primary/30"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="text-sm font-bold text-foreground leading-snug">
+                                    {it.name}
+                                  </div>
+                                  {can(perms.delete) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmDelete(it)}
+                                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive opacity-0 transition-all hover:bg-destructive hover:text-white group-hover:opacity-100"
+                                      aria-label="Remove"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
                                 </div>
-                                {can(perms.delete) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setConfirmDelete(it)}
-                                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive opacity-0 transition-all hover:bg-destructive hover:text-white group-hover:opacity-100"
-                                    aria-label="Remove"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
+                                {it.note && (
+                                  <div className="text-xs font-medium text-muted-foreground">
+                                    {it.note}
+                                  </div>
                                 )}
                               </div>
-                              {it.note && (
-                                <div className="text-xs font-medium text-muted-foreground">
-                                  {it.note}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                           {can(perms.add) && (
                             <div className="pt-1">
                               <button
@@ -464,7 +496,11 @@ export default function MenuPage() {
         mealId={modal.mealId}
         mealLabel={activeMeal?.label || ""}
         dayLabel={activeDay?.label || ""}
-        recipes={allRecipes.filter(r => r.type?.toLowerCase() === modal.mealId || r.type === activeMeal?.label.toUpperCase())}
+        recipes={allRecipes.filter(r => {
+          const rType = (r.type || r.mealType || "").toLowerCase().replace(/\s+/g, '_');
+          const targetType = (modal.mealId || "").toLowerCase().replace(/\s+/g, '_');
+          return rType === targetType;
+        })}
         onSave={handleSave}
       />
 

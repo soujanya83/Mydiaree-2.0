@@ -16,7 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Users, Loader2 } from "lucide-react";
+import { Users, Loader2, Eye, EyeOff } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const empty = {
   name: "",
@@ -30,25 +32,39 @@ const empty = {
 export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
   const [form, setForm] = useState(empty);
   const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
   const fileRef = useRef(null);
   const isEdit = !!initial?.id;
 
   useEffect(() => {
     if (!open) return;
+    setShowPassword(false);
     if (initial) {
+      const normalizedGender = initial.gender
+        ? initial.gender.charAt(0).toUpperCase() + initial.gender.slice(1).toLowerCase()
+        : "";
       setForm({
         ...empty,
         ...initial,
-        gender: initial.gender?.toUpperCase() || "",
+        gender: normalizedGender,
         password: "",
       });
     } else {
       setForm(empty);
     }
     setIsSaving(false);
+    setErrors({});
   }, [open, initial]);
 
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    if (k === "name") setErrors((prev) => ({ ...prev, name: null }));
+    if (k === "email") setErrors((prev) => ({ ...prev, email: null }));
+    if (k === "password") setErrors((prev) => ({ ...prev, password: null }));
+    if (k === "contact") setErrors((prev) => ({ ...prev, contactNo: null }));
+    if (k === "gender") setErrors((prev) => ({ ...prev, gender: null }));
+  };
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -61,7 +77,30 @@ export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || isSaving) return;
+    setErrors({});
+    
+    let localErrors = {};
+    if (!form.name.trim()) {
+      localErrors.name = ["The name field is required."];
+    }
+    if (!form.email.trim()) {
+      localErrors.email = ["The email field is required."];
+    }
+    if (!form.password && !isEdit) {
+      localErrors.password = ["The password field is required."];
+    }
+    if (!form.contact.trim()) {
+      localErrors.contactNo = ["The contact no field is required."];
+    }
+    if (!form.gender) {
+      localErrors.gender = ["The gender field is required."];
+    }
+
+    if (Object.keys(localErrors).length > 0) {
+      setErrors(localErrors);
+      toast.error("Validation failed.");
+      return;
+    }
     
     setIsSaving(true);
     try {
@@ -75,6 +114,11 @@ export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
         avatar: form.avatar,
         avatarFile: form.avatarFile,
       });
+      onOpenChange(false);
+    } catch (err) {
+      if (err && err.errors) {
+        setErrors(err.errors);
+      }
     } finally {
       setIsSaving(false);
     }
@@ -109,64 +153,126 @@ export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <Label className="text-sm font-bold text-foreground">{isEdit ? "Full Name" : "Staff Name *"}</Label>
+                  <Label className="text-sm font-bold text-foreground">
+                    Staff Name <span className="text-destructive font-bold ml-0.5">*</span>
+                  </Label>
                   <Input
                     value={form.name}
                     onChange={(e) => set("name", e.target.value)}
                     placeholder="e.g., Jane Doe"
-                    required
-                    className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.name && "border-destructive focus-visible:ring-destructive/20"
+                    )}
                   />
+                  {errors.name && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.name[0]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-bold text-foreground">Email Address *</Label>
+                  <Label className="text-sm font-bold text-foreground">
+                    Email Address <span className="text-destructive font-bold ml-0.5">*</span>
+                  </Label>
                   <Input
                     type="email"
                     value={form.email}
                     onChange={(e) => set("email", e.target.value)}
                     placeholder="jane@example.com"
-                    required
-                    className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.email && "border-destructive focus-visible:ring-destructive/20"
+                    )}
                   />
+                  {errors.email && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.email[0]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-bold text-foreground flex items-center justify-between">
-                    <span>Password</span>
+                    <span>
+                      Password {!isEdit && <span className="text-destructive font-bold ml-0.5">*</span>}
+                    </span>
                     {isEdit && (
                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
                         (Leave blank to keep current)
                       </span>
                     )}
                   </Label>
-                  <Input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => set("password", e.target.value)}
-                    placeholder="••••••••"
-                    className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
+                      onChange={(e) => set("password", e.target.value)}
+                      placeholder="••••••••"
+                      className={cn(
+                        "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium pr-10",
+                        errors.password && "border-destructive focus-visible:ring-destructive/20"
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.password[0]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-bold text-foreground">Contact Number</Label>
+                  <Label className="text-sm font-bold text-foreground">
+                    Contact Number <span className="text-destructive font-bold ml-0.5">*</span>
+                  </Label>
                   <Input
                     value={form.contact}
                     onChange={(e) => set("contact", e.target.value)}
                     placeholder="e.g., 0412 345 678"
-                    className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.contactNo && "border-destructive focus-visible:ring-destructive/20"
+                    )}
                   />
+                  {errors.contactNo && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.contactNo[0]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-bold text-foreground">Gender</Label>
+                  <Label className="text-sm font-bold text-foreground">
+                    Gender <span className="text-destructive font-bold ml-0.5">*</span>
+                  </Label>
                   <Select value={form.gender} onValueChange={(v) => set("gender", v)}>
-                    <SelectTrigger className="h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium">
+                    <SelectTrigger className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.gender && "border-destructive"
+                    )}>
                       <SelectValue placeholder="Select Gender" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
-                      <SelectItem value="MALE">Male</SelectItem>
-                      <SelectItem value="FEMALE">Female</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
+                  {errors.gender && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.gender[0]}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2 sm:col-span-2 mt-2">
                   <Label className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -225,7 +331,7 @@ export function AddStaffModal({ open, onOpenChange, initial, onSave }) {
             </Button>
             <Button 
               type="submit"
-              disabled={isSaving || !form.name.trim() || !form.email.trim()}
+              disabled={isSaving}
               className="rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30"
             >
               {isSaving ? (

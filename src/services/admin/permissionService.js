@@ -34,13 +34,13 @@ export const permissionService = {
   },
 
   // 2. List of assigned user permissions by center
-  getAssignedPermissions: async (centerId) => {
+  getAssignedPermissions: async ({ center_id, page = 1, per_page = 10, search = "" }) => {
     try {
       const response = await api.get("/settings/permissions-assigned", {
-        params: { center_id: centerId },
+        params: { center_id, page, per_page, search },
       });
       if (response.data && response.data.status) {
-        return response.data.data; // returns { center_id, total, assigned_users: [] }
+        return response.data; // returns the full response object containing data, pagination, filters
       }
       throw new Error(response.data?.message || "Failed to fetch assigned permissions");
     } catch (error) {

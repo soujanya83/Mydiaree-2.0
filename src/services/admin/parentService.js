@@ -1,14 +1,24 @@
 import api from "../../api/api";
 
 export const parentService = {
-  async getParentSettings(centerId) {
+  async getParentSettings({ center_id, search = "", page = 1, per_page = 10 }) {
     try {
       const res = await api.get(`/settings/parent_settings`, {
-        params: { center_id: centerId },
+        params: { center_id, search, page, per_page },
       });
       return res.data;
     } catch (error) {
       console.error("Error fetching parent settings:", error);
+      throw error;
+    }
+  },
+
+  async getParentDetails(id) {
+    try {
+      const res = await api.get(`/settings/parent/${id}/get`);
+      return res.data;
+    } catch (error) {
+      console.error("Error fetching parent details:", error);
       throw error;
     }
   },

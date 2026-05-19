@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search, Pencil, Trash2, Filter, Users, ChevronDown, Check, Mail, Phone, User } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -46,59 +47,110 @@ export default function ParentSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const itemsPerPage = 8;
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    last_page: 1,
+    total: 0,
+    from: null,
+    to: null,
+    per_page: 10,
+  });
+  const searchTimerRef = useRef(null);
+  const navigate = useNavigate();
   const [modal, setModal] = useState({ open: false, initial: null });
   const [confirm, setConfirm] = useState({ open: false, id: null });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        let currentCenterId = centerId;
-        if (!currentCenterId && storeCenters.length > 0) {
-          currentCenterId = storeCenters[0].id;
-          setCenterId(currentCenterId);
-        }
+  const mapParents = (parentsArray) =>
+    (parentsArray || []).map((p) => ({
+      ...p,
+      gender: p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1).toLowerCase()) : "",
+      avatar: p.imageUrl
+        ? p.imageUrl.startsWith("http")
+          ? p.imageUrl
+          : `https://mydiaree.com.au/${p.imageUrl}`
+        : "",
+      contact: p.contactNo || "",
+      children: (p.children || []).map((c) => ({
+        childId: String(c.id || c.pivot?.childid || ""),
+        relation: c.pivot?.relation || "",
+        name: c.name || "",
+        lastname: c.lastname || "",
+      })),
+    }));
 
-        if (currentCenterId) {
-          const res = await parentService.getParentSettings(currentCenterId);
-          if (res.status !== "error" && res.data) {
-            const fetchedChildren = res.data.children || [];
-            setAvailableChildren(fetchedChildren);
+  const fetchParents = useCallback(async (cId, search = "", pg = 1) => {
+    if (!cId) return;
+    setLoading(true);
+    try {
+      const res = await parentService.getParentSettings({
+        center_id: cId,
+        search,
+        page: pg,
+        per_page: 10,
+      });
+      if (res.status !== "error" && res.data) {
+        const fetchedChildren = res.data.children || [];
+        setAvailableChildren(fetchedChildren);
 
-            const mappedParents = (res.data.parents || []).map((p) => ({
-              ...p,
-              gender: p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1).toLowerCase()) : "",
-              avatar: p.imageUrl
-                ? p.imageUrl.startsWith("http")
-                  ? p.imageUrl
-                  : `https://mydiaree.com.au/${p.imageUrl}`
-                : "",
-              contact: p.contactNo || "",
-              children: (p.children || []).map((c) => ({
-                childId: String(c.id || c.pivot?.childid || ""),
-                relation: c.pivot?.relation || "",
-              })),
-            }));
-            setParents(mappedParents);
-          } else {
-            toast.error(res.message || "Failed to load parents");
-          }
-        }
-      } catch (error) {
-        toast.error("An error occurred while loading settings");
-        console.error(error);
-      } finally {
-        setLoading(false);
+        const parentData = res.data.parents;
+        const parentList = parentData?.data || parentData || [];
+        setParents(mapParents(parentList));
+
+        setPagination(res.pagination || {
+          current_page: parentData?.current_page || 1,
+          last_page: parentData?.last_page || 1,
+          total: parentData?.total || 0,
+          from: parentData?.from,
+          to: parentData?.to,
+          per_page: parentData?.per_page || 10,
+        });
+      } else {
+        setParents([]);
+        toast.error(res.message || "Failed to load parents");
       }
-    };
+    } catch (error) {
+      toast.error("An error occurred while loading settings");
+      console.error(error);
+      setParents([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-    if (storeCenters.length > 0) {
-      fetchData();
+  // Set default center on mount
+  useEffect(() => {
+    if (!centerId && storeCenters.length > 0) {
+      setCenterId(storeCenters[0].id);
+    }
+  }, [storeCenters, centerId]);
+
+  // Fetch when center or page changes
+  useEffect(() => {
+    if (centerId) {
+      fetchParents(centerId, query, page);
     } else {
       setLoading(false);
     }
-  }, [centerId, storeCenters]);
+  }, [centerId, page, fetchParents]);
+
+  const handleSearchChange = (value) => {
+    setQuery(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setPage(1);
+      fetchParents(centerId, value, 1);
+    }, 500);
+  };
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+  };
+
+  const handleCenterChange = (newCenterId) => {
+    setCenterId(newCenterId);
+    setQuery("");
+    setPage(1);
+  };
 
   const activeCenter = storeCenters.find((c) => c.id === centerId);
 
@@ -107,21 +159,8 @@ export default function ParentSettingsPage() {
     return child ? `${child.name} ${child.lastname || ""}`.trim() : "Unknown";
   }, [availableChildren]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return parents.filter((p) => {
-      if (!q) return true;
-      if (p.name.toLowerCase().includes(q)) return true;
-      return p.children.some((c) => childName(c.childId).toLowerCase().includes(q));
-    });
-  }, [parents, query, childName]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [query, centerId]);
-
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const paginatedParents = filtered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = pagination.last_page || 1;
+  const totalRecords = pagination.total || 0;
 
   const handleSave = async (data) => {
     try {
@@ -146,38 +185,19 @@ export default function ParentSettingsPage() {
         ? await parentService.updateParent(formData)
         : await parentService.createParent(formData);
 
-      if (res.status === "success" || res.success) {
+      if (res.status === "success" || res.success || res.status === true) {
         toast.success(res.message || `Parent ${data.id ? "updated" : "added"} successfully`);
         setModal({ open: false, initial: null });
-        setLoading(true);
-        const refetch = await parentService.getParentSettings(centerId);
-        if (refetch.status !== "error" && refetch.data) {
-          const fetchedChildren = refetch.data.children || [];
-          setAvailableChildren(fetchedChildren);
-
-          const mappedParents = (refetch.data.parents || []).map((p) => ({
-            ...p,
-            gender: p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1).toLowerCase()) : "",
-            avatar: p.imageUrl
-              ? p.imageUrl.startsWith("http")
-                ? p.imageUrl
-                : `https://mydiaree.com.au/${p.imageUrl}`
-              : "",
-            contact: p.contactNo || "",
-            children: (p.children || []).map((c) => ({
-              childId: String(c.id || c.pivot?.childid || ""),
-              relation: c.pivot?.relation || "",
-            })),
-          }));
-          setParents(mappedParents);
-        }
-        setLoading(false);
+        fetchParents(centerId, query, page);
+        return true;
       } else {
-        toast.error(res.message || res.errors?.email?.[0] || "Validation failed");
+        toast.error(res.message || "Validation failed");
+        throw res;
       }
     } catch (error) {
-      toast.error("Failed to save parent");
-      console.error(error);
+      const res = error?.response?.data || error;
+      toast.error(res.message || "Failed to save parent");
+      throw res;
     }
   };
 
@@ -187,7 +207,7 @@ export default function ParentSettingsPage() {
       const res = await parentService.deleteParent(confirm.id);
       if (res.status === "success" || res.success) {
         toast.success(res.message || "Parent deleted successfully");
-        setParents((arr) => arr.filter((p) => p.id !== confirm.id));
+        fetchParents(centerId, query, page);
       } else {
         toast.error(res.message || "Failed to delete parent");
       }
@@ -222,7 +242,7 @@ export default function ParentSettingsPage() {
                 {storeCenters.map((c) => (
                   <DropdownMenuItem
                     key={c.id}
-                    onClick={() => setCenterId(c.id)}
+                    onClick={() => handleCenterChange(c.id)}
                     className="flex items-center justify-between gap-2 py-2.5 cursor-pointer font-medium"
                   >
                     {c.name}
@@ -247,8 +267,8 @@ export default function ParentSettingsPage() {
           <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
           <Input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter by Parent or Child"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search parents…"
             className="h-11 rounded-2xl border-border/60 bg-card/60 pl-10 backdrop-blur shadow-sm focus-visible:ring-primary/20 transition-all font-medium"
           />
         </div>
@@ -256,7 +276,7 @@ export default function ParentSettingsPage() {
 
       {loading ? (
         <PageLoader label="Loading parents…" />
-      ) : filtered.length === 0 ? (
+      ) : parents.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/60 bg-card/40 py-24 text-center backdrop-blur">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20">
             <Users className="h-8 w-8" />
@@ -269,10 +289,11 @@ export default function ParentSettingsPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {paginatedParents.map((p) => (
+            {parents.map((p) => (
               <div
                 key={p.id}
-                className="group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/60 p-6 shadow-sm backdrop-blur transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/30 h-full"
+                onClick={() => navigate(`/parent-settings/${p.id}`)}
+                className="group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/60 p-6 shadow-sm backdrop-blur transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/30 h-full cursor-pointer"
               >
                 <div
                   className="absolute inset-0 -z-10 opacity-60"
@@ -319,7 +340,12 @@ export default function ParentSettingsPage() {
                     ) : (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full justify-between rounded-xl h-9 text-xs font-semibold bg-background/60 hover:bg-background shadow-sm border-border/80">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full justify-between rounded-xl h-9 text-xs font-semibold bg-background/60 hover:bg-background shadow-sm border-border/80"
+                          >
                             Linked Children ({p.children.length})
                             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                           </Button>
@@ -331,7 +357,7 @@ export default function ParentSettingsPage() {
                           {p.children.map((c, i) => (
                             <DropdownMenuItem key={i} className="flex justify-between items-center py-2 px-2.5 rounded-lg focus:bg-primary/5 cursor-default">
                               <span className="text-sm font-medium text-foreground truncate max-w-[120px]">
-                                {childName(c.childId)}
+                                {c.name ? `${c.name} ${c.lastname}`.trim() : childName(c.childId)}
                               </span>
                               <span className="text-xs font-bold text-primary/80 bg-primary/10 px-2 py-0.5 rounded-md">
                                 {c.relation}
@@ -347,7 +373,10 @@ export default function ParentSettingsPage() {
                 <div className="mt-6 flex items-center justify-center gap-2 border-t border-border/50 pt-4 relative z-10">
                   <button
                     type="button"
-                    onClick={() => setModal({ open: true, initial: p })}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModal({ open: true, initial: p });
+                    }}
                     className="flex flex-1 h-9 items-center justify-center gap-1.5 rounded-xl bg-primary/10 text-xs font-bold text-primary transition-colors hover:bg-primary/20 active:scale-95"
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -355,7 +384,10 @@ export default function ParentSettingsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setConfirm({ open: true, id: p.id })}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirm({ open: true, id: p.id });
+                    }}
                     title="Delete Parent"
                     className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700 active:scale-95 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-900/40"
                   >
@@ -367,9 +399,9 @@ export default function ParentSettingsPage() {
           </div>
 
           <Pagination
-            currentPage={page}
+            currentPage={pagination.current_page}
             totalPages={totalPages}
-            onPageChange={setPage}
+            onPageChange={handlePageChange}
             className="mt-6"
           />
         </>
@@ -381,6 +413,7 @@ export default function ParentSettingsPage() {
         initial={modal.initial}
         onSave={handleSave}
         availableChildren={availableChildren}
+        centerId={centerId}
       />
 
       <AlertDialog open={confirm.open} onOpenChange={(o) => setConfirm((c) => ({ ...c, open: o }))}>
