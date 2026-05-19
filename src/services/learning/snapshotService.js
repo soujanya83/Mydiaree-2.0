@@ -2,7 +2,7 @@ import api from "../../api/api";
 
 export const snapshotService = {
   async getAllSnapshots(centerId) {
-    const res = await api.get("/snapshot/index", {
+    const res = await api.get("/snapshot/mernindex", {
       params: { centerid: centerId },
     });
 

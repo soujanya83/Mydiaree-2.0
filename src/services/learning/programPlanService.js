@@ -42,7 +42,7 @@ const monthToNumber = (month) => {
 
 export const programPlanService = {
   async getProgramPlans(centerId) {
-    const res = await api.get("/programPlanList", {
+    const res = await api.get("/mernprogramPlanList", {
       params: { centerid: centerId },
     });
     return res.data;
