@@ -48,7 +48,28 @@ export const programPlanService = {
     return res.data;
   },
 
-  async filterProgramPlans({ center_id, room = "", created_by = "", status = "", month = "", year = "", page = 1, per_page = 10 }) {
+  async getProgramPlanDetails(planId) {
+    const res = await api.get(`/programPlan/${planId}`);
+    return res.data;
+  },
+
+  async printProgramPlan(planId) {
+    const res = await api.get(`/program-plan/pdf/${planId}`, {
+      responseType: "blob",
+    });
+    return res.data;
+  },
+
+  async filterProgramPlans({
+    center_id,
+    room = "",
+    created_by = "",
+    status = "",
+    month = "",
+    year = "",
+    page = 1,
+    per_page = 10,
+  }) {
     const formData = new FormData();
     formData.append("center_id", center_id);
     if (room) formData.append("room", room);

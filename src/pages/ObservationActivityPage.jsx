@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { ChevronRight, Plus, PlusCircle, Building2, DoorOpen, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import {
+  ChevronRight,
+  Plus,
+  PlusCircle,
+  Building2,
+  DoorOpen,
+  ArrowLeft,
+  Sparkles,
+  Loader2,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { observationService } from "@/services/learning/observationService";
@@ -21,37 +42,44 @@ const PATTERN_BG =
 
 export default function ObservationActivityPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { rooms, activeRoomId, setActiveRoom, fetchRooms } = useRoomStore();
 
-  // Data state
   const [subjects, setSubjects] = useState([]);
   const [activities, setActivities] = useState([]);
   const [subActivities, setSubActivities] = useState([]);
-  
+
   const [loadingSubjects, setLoadingSubjects] = useState(false);
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [loadingSubActivities, setLoadingSubActivities] = useState(false);
 
-  // Drill-down state
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [selectedActivityId, setSelectedActivityId] = useState(null);
 
-  // Modals
   const [addActivityOpen, setAddActivityOpen] = useState(false);
-  const [addSubActivityOpen, setAddSubActivityOpen] = useState(false);
+  const [editingActivity, setEditingActivity] = useState(null);
 
-  // Fetch subjects on mount
+  const [addSubActivityOpen, setAddSubActivityOpen] = useState(false);
+  const [editingSubActivity, setEditingSubActivity] = useState(null);
+
+  const [deleteActivityId, setDeleteActivityId] = useState(null);
+  const [deleteSubActivityId, setDeleteSubActivityId] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (activeCentreId) fetchRooms(activeCentreId);
+  }, [activeCentreId, fetchRooms]);
+
   useEffect(() => {
     const fetchSubjects = async () => {
       setLoadingSubjects(true);
       try {
         const response = await observationService.getSubjects();
         if (response.status) {
-          setSubjects(response.data);
+          setSubjects(response.data || []);
         } else {
           toast.error(response.message || "Failed to fetch subjects");
         }
-      } catch (error) {
+      } catch {
         toast.error("Error fetching subjects");
       } finally {
         setLoadingSubjects(false);
@@ -60,102 +88,155 @@ export default function ObservationActivityPage() {
     fetchSubjects();
   }, []);
 
-  // Fetch activities when subject changes
+  const refetchActivities = useCallback(async () => {
+    if (!selectedSubjectId) return;
+    setLoadingActivities(true);
+    try {
+      const response = await observationService.getActivitiesBySubject(selectedSubjectId);
+      if (response.status) {
+        setActivities(Array.isArray(response.data) ? response.data : []);
+      }
+    } catch {
+      toast.error("Error fetching activities");
+    } finally {
+      setLoadingActivities(false);
+    }
+  }, [selectedSubjectId]);
+
+  const refetchSubActivities = useCallback(async () => {
+    if (!selectedActivityId) return;
+    setLoadingSubActivities(true);
+    try {
+      const response = await observationService.getSubactivities(selectedActivityId);
+      if (response.status) {
+        const raw = response.data;
+        setSubActivities(Array.isArray(raw) ? raw : raw?.data || []);
+      }
+    } catch {
+      toast.error("Error fetching sub-activities");
+    } finally {
+      setLoadingSubActivities(false);
+    }
+  }, [selectedActivityId]);
+
   useEffect(() => {
     if (!selectedSubjectId) {
       setActivities([]);
       return;
     }
+    refetchActivities();
+  }, [selectedSubjectId, refetchActivities]);
 
-    const fetchActivities = async () => {
-      setLoadingActivities(true);
-      try {
-        const response = await observationService.getActivitiesBySubject(selectedSubjectId);
-        if (response.status) {
-          setActivities(response.data);
-        } else {
-          toast.error(response.message || "Failed to fetch activities");
-        }
-      } catch (error) {
-        toast.error("Error fetching activities");
-      } finally {
-        setLoadingActivities(false);
-      }
-    };
-    fetchActivities();
-  }, [selectedSubjectId]);
-
-  // Fetch sub-activities when activity changes
   useEffect(() => {
     if (!selectedActivityId) {
       setSubActivities([]);
       return;
     }
-
-    const fetchSubActivities = async () => {
-      setLoadingSubActivities(true);
-      try {
-        const response = await observationService.getSubactivities(selectedActivityId);
-        if (response.status) {
-          setSubActivities(response.data);
-        } else {
-          toast.error(response.message || "Failed to fetch sub-activities");
-        }
-      } catch (error) {
-        toast.error("Error fetching sub-activities");
-      } finally {
-        setLoadingSubActivities(false);
-      }
-    };
-    fetchSubActivities();
-  }, [selectedActivityId]);
+    refetchSubActivities();
+  }, [selectedActivityId, refetchSubActivities]);
 
   const breadcrumbs = useMemo(() => {
     const crumbs = [
       { label: "Observation", to: "/observation" },
       { label: "Activities", to: selectedSubjectId ? "/observation/activity" : null },
     ];
-    
+
     if (selectedSubjectId) {
-      const subject = subjects.find(s => s.idSubject === selectedSubjectId);
+      const subject = subjects.find((s) => String(s.idSubject) === String(selectedSubjectId));
       crumbs.push({
         label: subject ? subject.name : "Subject",
         to: null,
         onClick: () => {
           setSelectedSubjectId(selectedSubjectId);
           setSelectedActivityId(null);
-        }
+        },
       });
     }
-    
+
     if (selectedActivityId) {
-      const activity = activities.find(a => a.idActivity === selectedActivityId);
+      const activity = activities.find((a) => String(a.idActivity) === String(selectedActivityId));
       crumbs.push({
         label: activity ? activity.title : "Activity",
-        to: null
+        to: null,
       });
     }
     return crumbs;
   }, [selectedSubjectId, selectedActivityId, subjects, activities]);
 
-  const handleAddActivity = ({ subject, title }) => {
-    // For now, just a placeholder as we don't have the save API integrated yet
-    toast.success(`Activity "${title}" added to subject ID ${subject}`);
-    setAddActivityOpen(false);
-    // Ideally refetch activities if selectedSubjectId === subject
+  const openAddActivity = () => {
+    setEditingActivity(null);
+    setAddActivityOpen(true);
   };
 
-  const handleAddSubActivity = ({ subject, activity, title }) => {
-    // For now, just a placeholder
-    toast.success(`Sub-activity "${title}" added to activity ID ${activity}`);
-    setAddSubActivityOpen(false);
-    // Ideally refetch sub-activities if selectedActivityId === activity
+  const openEditActivity = (a) => {
+    setEditingActivity({
+      idActivity: a.idActivity,
+      title: a.title,
+      idSubject: selectedSubjectId,
+    });
+    setAddActivityOpen(true);
   };
 
-  // ===== Render helpers =====
+  const openAddSubActivity = () => {
+    setEditingSubActivity(null);
+    setAddSubActivityOpen(true);
+  };
+
+  const openEditSubActivity = (sub) => {
+    const parentTitle = activities.find((a) => String(a.idActivity) === String(selectedActivityId))?.title;
+    setEditingSubActivity({
+      idSubActivity: sub.idSubActivity,
+      title: sub.title,
+      idActivity: selectedActivityId,
+      parentActivityTitle: parentTitle,
+    });
+    setAddSubActivityOpen(true);
+  };
+
+  const handleDeleteActivity = async () => {
+    if (!deleteActivityId) return;
+    setIsDeleting(true);
+    try {
+      const res = await observationService.deleteActivity(deleteActivityId);
+      if (res.status === true || res.status === "true") {
+        toast.success(res.message || "Activity deleted");
+        if (String(deleteActivityId) === String(selectedActivityId)) {
+          setSelectedActivityId(null);
+        }
+        await refetchActivities();
+      } else {
+        toast.error(res.message || "Delete failed");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Delete failed");
+    } finally {
+      setIsDeleting(false);
+      setDeleteActivityId(null);
+    }
+  };
+
+  const handleDeleteSubActivity = async () => {
+    if (!deleteSubActivityId) return;
+    setIsDeleting(true);
+    try {
+      const res = await observationService.deleteSubActivity(deleteSubActivityId);
+      if (res.status === true || res.status === "true") {
+        toast.success(res.message || "Sub-activity deleted");
+        await refetchSubActivities();
+      } else {
+        toast.error(res.message || "Delete failed");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Delete failed");
+    } finally {
+      setIsDeleting(false);
+      setDeleteSubActivityId(null);
+    }
+  };
 
   const Tile = ({ label, onClick, accent = "primary" }) => (
     <button
+      type="button"
       onClick={onClick}
       className={`group relative flex h-24 w-full items-center justify-center overflow-hidden rounded-xl border border-border bg-gradient-to-br from-amber-50/60 to-amber-100/40 px-6 text-center shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:from-amber-950/20 dark:to-amber-900/10 ${PATTERN_BG}`}
     >
@@ -178,7 +259,14 @@ export default function ObservationActivityPage() {
         </div>
       ) : (
         subjects.map((subject) => (
-          <Tile key={subject.idSubject} label={subject.name} onClick={() => { setSelectedSubjectId(subject.idSubject); setSelectedActivityId(null); }} />
+          <Tile
+            key={subject.idSubject}
+            label={subject.name}
+            onClick={() => {
+              setSelectedSubjectId(subject.idSubject);
+              setSelectedActivityId(null);
+            }}
+          />
         ))
       )}
     </div>
@@ -201,7 +289,41 @@ export default function ObservationActivityPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {activities.map((a) => (
-            <Tile key={a.idActivity} label={a.title} onClick={() => setSelectedActivityId(a.idActivity)} />
+            <div
+              key={a.idActivity}
+              className="flex overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+            >
+              <button
+                type="button"
+                className={`flex min-h-24 flex-1 items-center justify-center px-4 text-center transition hover:bg-muted/40 ${PATTERN_BG}`}
+                onClick={() => setSelectedActivityId(a.idActivity)}
+              >
+                <span className="text-base font-bold text-primary">{a.title}</span>
+                <ChevronRight className="ml-2 h-5 w-5 shrink-0 text-muted-foreground/60" />
+              </button>
+              <div className="flex shrink-0 flex-col border-l border-border bg-muted/20">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-12 w-12 rounded-none"
+                  title="Edit activity"
+                  onClick={() => openEditActivity(a)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-12 w-12 rounded-none text-destructive hover:text-destructive"
+                  title="Delete activity"
+                  onClick={() => setDeleteActivityId(a.idActivity)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -214,9 +336,7 @@ export default function ObservationActivityPage() {
         <Button variant="ghost" size="sm" onClick={() => setSelectedActivityId(null)}>
           <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to activities
         </Button>
-        <span className="text-sm text-muted-foreground">
-          {subActivities.length} sub-activities
-        </span>
+        <span className="text-sm text-muted-foreground">{subActivities.length} sub-activities</span>
       </div>
       {loadingSubActivities ? (
         <div className="flex h-32 items-center justify-center">
@@ -227,7 +347,38 @@ export default function ObservationActivityPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {subActivities.map((sub) => (
-            <Tile key={sub.idSubActivity} label={sub.title} accent="success" onClick={() => {}} />
+            <div
+              key={sub.idSubActivity}
+              className="flex overflow-hidden rounded-xl border border-border bg-card shadow-sm"
+            >
+              <div
+                className={`flex min-h-24 flex-1 items-center justify-center px-4 text-center ${PATTERN_BG}`}
+              >
+                <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">{sub.title}</span>
+              </div>
+              <div className="flex shrink-0 flex-col border-l border-border bg-muted/20">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-12 w-12 rounded-none"
+                  title="Edit sub-activity"
+                  onClick={() => openEditSubActivity(sub)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-12 w-12 rounded-none text-destructive hover:text-destructive"
+                  title="Delete sub-activity"
+                  onClick={() => setDeleteSubActivityId(sub.idSubActivity)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -241,6 +392,18 @@ export default function ObservationActivityPage() {
     </div>
   );
 
+  const activityModalOpen = addActivityOpen;
+  const closeActivityModal = () => {
+    setAddActivityOpen(false);
+    setEditingActivity(null);
+  };
+
+  const subActivityModalOpen = addSubActivityOpen;
+  const closeSubActivityModal = () => {
+    setAddSubActivityOpen(false);
+    setEditingSubActivity(null);
+  };
+
   return (
     <div>
       <PageHeader
@@ -249,63 +412,117 @@ export default function ObservationActivityPage() {
         breadcrumbs={breadcrumbs}
         actions={
           <>
-            <Button variant="outline" onClick={() => setAddActivityOpen(true)}>
+            <Button variant="outline" onClick={openAddActivity}>
               <PlusCircle className="mr-1.5 h-4 w-4 text-emerald-500" /> Add Activity
             </Button>
-            <Button onClick={() => setAddSubActivityOpen(true)}>
+            <Button onClick={openAddSubActivity}>
               <Plus className="mr-1.5 h-4 w-4" /> Add Sub-Activity
             </Button>
           </>
         }
       />
 
-      {/* Filter bar */}
       <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
         <div className="flex items-center gap-2">
           <Building2 className="h-4 w-4 text-muted-foreground" />
-          <Select value={activeCentreId} onValueChange={setActiveCentre}>
-            <SelectTrigger className="h-9 w-[260px]"><SelectValue /></SelectTrigger>
+          <Select value={String(activeCentreId || "")} onValueChange={setActiveCentre}>
+            <SelectTrigger className="h-9 w-[260px]">
+              <SelectValue placeholder="Centre" />
+            </SelectTrigger>
             <SelectContent>
               {centres.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="flex items-center gap-2">
           <DoorOpen className="h-4 w-4 text-muted-foreground" />
-          <Select value={activeRoomId} onValueChange={setActiveRoom}>
-            <SelectTrigger className="h-9 w-[200px]"><SelectValue /></SelectTrigger>
+          <Select value={activeRoomId != null ? String(activeRoomId) : ""} onValueChange={setActiveRoom}>
+            <SelectTrigger className="h-9 w-[200px]">
+              <SelectValue placeholder="Room" />
+            </SelectTrigger>
             <SelectContent>
               {rooms.map((r) => (
-                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                <SelectItem key={r.id} value={String(r.id)}>
+                  {r.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
-      {/* Body */}
       {!selectedSubjectId && <SubjectGrid />}
       {selectedSubjectId && !selectedActivityId && <ActivityGrid />}
       {selectedSubjectId && selectedActivityId && <SubActivityGrid />}
 
       <AddActivityModal
-        open={addActivityOpen}
+        open={activityModalOpen}
         subjects={subjects}
         defaultSubjectId={selectedSubjectId}
-        onClose={() => setAddActivityOpen(false)}
-        onSave={handleAddActivity}
+        centerId={activeCentreId}
+        editingActivity={editingActivity}
+        onClose={closeActivityModal}
+        onSuccess={() => {
+          refetchActivities();
+        }}
       />
+
       <AddSubActivityModal
-        open={addSubActivityOpen}
+        open={subActivityModalOpen}
         subjects={subjects}
-        activities={activities}
         defaultSubjectId={selectedSubjectId}
         defaultActivityId={selectedActivityId}
-        onClose={() => setAddSubActivityOpen(false)}
-        onSave={handleAddSubActivity}
+        centerId={activeCentreId}
+        editingSubActivity={editingSubActivity}
+        onClose={closeSubActivityModal}
+        onSuccess={() => {
+          refetchSubActivities();
+        }}
       />
+
+      <AlertDialog open={!!deleteActivityId} onOpenChange={(o) => !o && !isDeleting && setDeleteActivityId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this activity?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the activity and its related sub-activities. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteActivity}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteSubActivityId} onOpenChange={(o) => !o && !isDeleting && setDeleteSubActivityId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this sub-activity?</AlertDialogTitle>
+            <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSubActivity}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

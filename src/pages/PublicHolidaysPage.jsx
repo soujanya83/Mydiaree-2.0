@@ -20,17 +20,35 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { months, formatDate } from "@/components/events/eventsData";
 import { holidayService } from "@/services/centre/holidayService";
+import { useCentreStore } from "@/stores/centreStore";
 
 export default function PublicHolidaysPage() {
   const navigate = useNavigate();
+  const { activeCentreId } = useCentreStore();
   const [holidays, setHolidays] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [month, setMonth] = useState("All Months");
   const [deleteId, setDeleteId] = useState(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [selected, setSelected] = useState([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
+  const [editingHoliday, setEditingHoliday] = useState(null);
+  const [isSavingHoliday, setIsSavingHoliday] = useState(false);
+  const [holidayForm, setHolidayForm] = useState({
+    date: "",
+    state: "",
+    occasion: "",
+    status: "1",
+  });
+  const [holidayErrors, setHolidayErrors] = useState({});
 
   const fetchHolidays = useCallback(async () => {
     setIsLoading(true);
@@ -60,8 +78,92 @@ export default function PublicHolidaysPage() {
     setSelected((arr) => (checked ? [...arr, id] : arr.filter((x) => x !== id)));
   };
 
-  const openAdd = () => navigate("/events/create?type=Public Holiday");
-  const openEdit = (row) => navigate(`/events/${row.id}/edit?type=Public Holiday`);
+  const openAdd = () => {
+    setEditingHoliday(null);
+    setHolidayErrors({});
+    setHolidayForm({
+      date: "",
+      state: "",
+      occasion: "",
+      status: "1",
+    });
+    setIsHolidayModalOpen(true);
+  };
+
+  const openEdit = (row) => {
+    const baseDate = row.Holiday_date ? new Date(row.Holiday_date) : new Date(new Date().getFullYear(), row.month - 1, row.date);
+    const iso = Number.isNaN(baseDate.getTime()) ? "" : `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, "0")}-${String(baseDate.getDate()).padStart(2, "0")}`;
+    setEditingHoliday(row);
+    setHolidayErrors({});
+    setHolidayForm({
+      date: iso,
+      state: row.state || "",
+      occasion: row.occasion || "",
+      status: String(row.status ?? 1),
+    });
+    setIsHolidayModalOpen(true);
+  };
+
+  const clearFieldError = (key) => {
+    if (holidayErrors[key]) {
+      setHolidayErrors((prev) => ({ ...prev, [key]: null }));
+    }
+  };
+
+  const handleSaveHoliday = async () => {
+    if (!activeCentreId) {
+      toast.error("Please select a centre first");
+      return;
+    }
+    setIsSavingHoliday(true);
+    setHolidayErrors({});
+    try {
+      const payload = {
+        centerid: String(activeCentreId),
+        date: holidayForm.date,
+        state: holidayForm.state.trim(),
+        occasion: holidayForm.occasion.trim(),
+        status: holidayForm.status,
+      };
+      if (editingHoliday?.id) {
+        payload.id = editingHoliday.id;
+      }
+      const res = await holidayService.saveHoliday(payload);
+      if (res.status === "error" && res.errors) {
+        setHolidayErrors({
+          date: res.errors.date?.[0],
+          state: res.errors.state?.[0],
+          occasion: res.errors.occasion?.[0],
+          centerid: res.errors.centerid?.[0],
+        });
+        toast.error("Validation failed. Please correct highlighted fields.");
+        return;
+      }
+      if (res.status === false) {
+        toast.error(res.message || "Failed to save holiday");
+        return;
+      }
+      toast.success(editingHoliday ? "Holiday updated successfully" : "Holiday created successfully");
+      setIsHolidayModalOpen(false);
+      setEditingHoliday(null);
+      await fetchHolidays();
+    } catch (error) {
+      const apiErrors = error?.response?.data?.errors;
+      if (apiErrors) {
+        setHolidayErrors({
+          date: apiErrors.date?.[0],
+          state: apiErrors.state?.[0],
+          occasion: apiErrors.occasion?.[0],
+          centerid: apiErrors.centerid?.[0],
+        });
+        toast.error("Validation failed. Please correct highlighted fields.");
+      } else {
+        toast.error(error?.response?.data?.message || "Failed to save holiday");
+      }
+    } finally {
+      setIsSavingHoliday(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -85,7 +187,6 @@ export default function PublicHolidaysPage() {
 
   const handleBulkDelete = async () => {
     if (selected.length === 0) return;
-    if (!window.confirm(`Are you sure you want to delete ${selected.length} holidays?`)) return;
 
     setIsDeleting(true);
     try {
@@ -101,6 +202,7 @@ export default function PublicHolidaysPage() {
       toast.error("Error performing bulk delete");
     } finally {
       setIsDeleting(false);
+      setBulkDeleteOpen(false);
     }
   };
 
@@ -199,7 +301,7 @@ export default function PublicHolidaysPage() {
             {selected.length} selected
           </span>
           <div className="flex gap-2">
-            <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={isDeleting}>
+            <Button size="sm" variant="destructive" onClick={() => setBulkDeleteOpen(true)} disabled={isDeleting}>
               {isDeleting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
               Delete Selected
             </Button>
@@ -344,6 +446,119 @@ export default function PublicHolidaysPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete selected holidays?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {selected.length} selected holiday{selected.length === 1 ? "" : "s"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog
+        open={isHolidayModalOpen}
+        onOpenChange={(open) => {
+          setIsHolidayModalOpen(open);
+          if (!open) {
+            setEditingHoliday(null);
+            setHolidayErrors({});
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingHoliday ? "Edit Holiday" : "Add New Holiday"}</DialogTitle>
+            <DialogDescription>
+              Fill all required fields marked with <span className="text-red-600">*</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="holiday-date">
+                Date <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                id="holiday-date"
+                type="date"
+                value={holidayForm.date}
+                onChange={(e) => {
+                  setHolidayForm((prev) => ({ ...prev, date: e.target.value }));
+                  clearFieldError("date");
+                }}
+              />
+              {holidayErrors.date && <p className="text-sm text-destructive">{holidayErrors.date}</p>}
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="holiday-state">
+                State <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                id="holiday-state"
+                value={holidayForm.state}
+                onChange={(e) => {
+                  setHolidayForm((prev) => ({ ...prev, state: e.target.value }));
+                  clearFieldError("state");
+                }}
+                placeholder="Enter state"
+              />
+              {holidayErrors.state && <p className="text-sm text-destructive">{holidayErrors.state}</p>}
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="holiday-occasion">
+                Occasion <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                id="holiday-occasion"
+                value={holidayForm.occasion}
+                onChange={(e) => {
+                  setHolidayForm((prev) => ({ ...prev, occasion: e.target.value }));
+                  clearFieldError("occasion");
+                }}
+                placeholder="Enter occasion"
+              />
+              {holidayErrors.occasion && <p className="text-sm text-destructive">{holidayErrors.occasion}</p>}
+            </div>
+
+            <div className="space-y-1">
+              <Label>Status</Label>
+              <Select
+                value={holidayForm.status}
+                onValueChange={(value) => setHolidayForm((prev) => ({ ...prev, status: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Active</SelectItem>
+                  <SelectItem value="0">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {holidayErrors.centerid && <p className="text-sm text-destructive">{holidayErrors.centerid}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsHolidayModalOpen(false)} disabled={isSavingHoliday}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveHoliday} disabled={isSavingHoliday}>
+              {isSavingHoliday ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {editingHoliday ? "Update Holiday" : "Create Holiday"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

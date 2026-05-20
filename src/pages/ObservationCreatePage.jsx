@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Eye,
@@ -11,11 +11,10 @@ import {
   Image as ImageIcon,
   Plus,
   X,
-  ChevronDown,
+  Search,
   Wand2,
   ClipboardList,
   Layers,
-  Trash2,
   Upload,
   ArrowLeft,
   Info,
@@ -32,13 +31,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useRoomStore } from "@/stores/roomStore";
-import { useChildrenStore } from "@/stores/childrenStore";
 import { useCentreStore } from "@/stores/centreStore";
-import { mockObservations } from "@/components/observation/observationsData";
 import { OBSERVATION_TREE } from "@/components/observation/data";
 import { observationService } from "@/services/learning/observationService";
 import { childrenService } from "@/services/centre/childrenService";
-import { programPlanService } from "@/services/learning/programPlanService";
 import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
 
@@ -56,6 +52,23 @@ const ASSESS_TABS = [
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.15)_1px,transparent_0)] [background-size:16px_16px]";
+const IMG_BASE = "https://mydiaree.com.au/";
+
+const avatarUrl = (url) => {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${IMG_BASE}${url.replace(/^\/+/, "")}`;
+};
+
+const fullName = (person, fallback = "Unknown") =>
+  [person?.name, person?.lastname].filter(Boolean).join(" ").trim() || person?.name || fallback;
+
+const mergeById = (current, next) => {
+  const map = new Map(current.map((item) => [String(item.id), item]));
+  next.forEach((item) => {
+    if (item?.id !== undefined && item?.id !== null) map.set(String(item.id), item);
+  });
+  return Array.from(map.values());
+};
 
 export default function ObservationCreatePage() {
   const navigate = useNavigate();
@@ -82,7 +95,16 @@ export default function ObservationCreatePage() {
 
   const [availableEducators, setAvailableEducators] = useState([]);
   const [availableChildren, setAvailableChildren] = useState([]);
+  const [childrenList, setChildrenList] = useState([]);
+  const [childrenSearch, setChildrenSearch] = useState("");
+  const [childrenPage, setChildrenPage] = useState(1);
+  const [childrenTotalPages, setChildrenTotalPages] = useState(1);
   const [isChildrenLoading, setIsChildrenLoading] = useState(false);
+  const [educatorsList, setEducatorsList] = useState([]);
+  const [educatorsSearch, setEducatorsSearch] = useState("");
+  const [educatorsPage, setEducatorsPage] = useState(1);
+  const [educatorsTotalPages, setEducatorsTotalPages] = useState(1);
+  const [isEducatorsLoading, setIsEducatorsLoading] = useState(false);
 
   const [title, setTitle] = useState(initialTitle);
   const [observation, setObservation] = useState("");
@@ -113,53 +135,105 @@ export default function ObservationCreatePage() {
   const [showChildrenPicker, setShowChildrenPicker] = useState(false);
   const [showEducatorsPicker, setShowEducatorsPicker] = useState(false);
 
-  useEffect(() => {
-    const loadStaff = async () => {
-      if (!activeCentreId) return;
+  const fetchEducators = useCallback(
+    async (pageNumber, searchQuery) => {
+      if (!activeCentreId) {
+        setEducatorsList([]);
+        setEducatorsTotalPages(1);
+        return;
+      }
+      setIsEducatorsLoading(true);
       try {
         const response = await staffService.getStaffSettings({
           center_id: activeCentreId,
+          search: searchQuery,
+          page: pageNumber,
           per_page: 10,
         });
         if (response.status) {
-          const staff = response.data?.staff?.data || response.data?.staff || [];
-          setAvailableEducators(staff.filter((s) => s.status === "ACTIVE"));
+          const pageData = response.data?.staff?.data || response.data?.staff || [];
+          const activeStaff = pageData.filter((item) => item.status === "ACTIVE");
+          const lastPage = response.data?.staff?.last_page || response.pagination?.last_page || 1;
+          setEducatorsList((prev) =>
+            pageNumber === 1 ? activeStaff : mergeById(prev, activeStaff),
+          );
+          setAvailableEducators((prev) => mergeById(prev, activeStaff));
+          setEducatorsTotalPages(lastPage);
         }
       } catch (error) {
-        console.error("Failed to load staff:", error);
+        console.error("Failed to load educators:", error);
+      } finally {
+        setIsEducatorsLoading(false);
       }
-    };
-    loadStaff();
-  }, [activeCentreId]);
+    },
+    [activeCentreId],
+  );
 
-  // 2. Fetch Children when selected Rooms change
-  useEffect(() => {
-    const loadChildren = async () => {
-      if (rooms.length === 0) {
-        setAvailableChildren([]);
+  const fetchChildren = useCallback(
+    async (pageNumber, searchQuery, roomIds) => {
+      if (!activeCentreId || roomIds.length === 0) {
+        setChildrenList([]);
+        setChildrenTotalPages(1);
         return;
       }
       setIsChildrenLoading(true);
       try {
-        const results = await Promise.all(
-          rooms.map((roomId) =>
-            childrenService.filterChildren({ room: roomId, center_id: activeCentreId }),
+        const responses = await Promise.all(
+          roomIds.map((roomId) =>
+            childrenService.filterChildren({
+              room_id: roomId,
+              center_id: activeCentreId,
+              search: searchQuery,
+              page: pageNumber,
+              per_page: 10,
+            }),
           ),
         );
-        const merged = results.flatMap((res) => {
-          return Array.isArray(res.data) ? res.data : (res.data?.data || res.children || []);
-        });
-        // Unique by ID
-        const unique = Array.from(new Map(merged.map((c) => [c.id, c])).values());
-        setAvailableChildren(unique);
+        const pageData = responses.flatMap(
+          (response) => response.data?.data || response.data || [],
+        );
+        const lastPage = Math.max(
+          1,
+          ...responses.map(
+            (response) => response.pagination?.last_page || response.data?.last_page || 1,
+          ),
+        );
+        const unique = mergeById([], pageData);
+        setChildrenList((prev) => (pageNumber === 1 ? unique : mergeById(prev, unique)));
+        setAvailableChildren((prev) => mergeById(prev, unique));
+        setChildrenTotalPages(lastPage);
       } catch (error) {
         console.error("Failed to load children for selected rooms:", error);
       } finally {
         setIsChildrenLoading(false);
       }
-    };
-    loadChildren();
-  }, [rooms]);
+    },
+    [activeCentreId],
+  );
+
+  useEffect(() => {
+    setEducatorsPage(1);
+    fetchEducators(1, educatorsSearch);
+  }, [fetchEducators, educatorsSearch]);
+
+  useEffect(() => {
+    setChildrenPage(1);
+    fetchChildren(1, childrenSearch, rooms);
+  }, [fetchChildren, childrenSearch, rooms]);
+
+  const loadMoreEducators = () => {
+    if (isEducatorsLoading || educatorsPage >= educatorsTotalPages) return;
+    const nextPage = educatorsPage + 1;
+    setEducatorsPage(nextPage);
+    fetchEducators(nextPage, educatorsSearch);
+  };
+
+  const loadMoreChildren = () => {
+    if (isChildrenLoading || childrenPage >= childrenTotalPages) return;
+    const nextPage = childrenPage + 1;
+    setChildrenPage(nextPage);
+    fetchChildren(nextPage, childrenSearch, rooms);
+  };
 
   useEffect(() => {
     if (isEdit) {
@@ -178,6 +252,17 @@ export default function ObservationCreatePage() {
             setRooms(d.room ? d.room.split(",") : []);
             setChildren(d.child ? d.child.map((c) => String(c.childId)) : []);
             setEducators(d.tagged_staff ? d.tagged_staff.split(",") : []);
+            setAvailableChildren((prev) =>
+              mergeById(
+                prev,
+                (d.child || [])
+                  .map((tag) => {
+                    const child = tag.child || tag;
+                    return child?.id ? child : { ...child, id: child?.childId };
+                  })
+                  .filter((child) => child?.id || child?.childId),
+              ),
+            );
             setStatus(d.status?.toLowerCase() === "published" ? "published" : "draft");
             if (d.media) {
               setMedia(d.media.map((m) => ({ isExisting: true, url: m.mediaUrl, id: m.id })));
@@ -373,6 +458,8 @@ export default function ObservationCreatePage() {
                   label="Rooms"
                   icon={DoorOpen}
                   colour="emerald"
+                  required
+                  actionLabel={`Manage Rooms (${rooms.length})`}
                   selectedItems={rooms.map((id) => ({
                     id,
                     label: allRooms.find((r) => String(r.id) === String(id))?.name || id,
@@ -385,18 +472,31 @@ export default function ObservationCreatePage() {
                   label="Children"
                   icon={User}
                   colour="sky"
+                  required
+                  actionLabel={`Manage Children (${children.length})`}
                   selectedItems={children.map((id) => ({
                     id,
-                    label: availableChildren.find((c) => String(c.id) === String(id))?.name || id,
+                    label:
+                      fullName(
+                        availableChildren.find((c) => String(c.id) === String(id)),
+                        "",
+                      ) || id,
                   }))}
                   onRemove={(id) => setChildren((prev) => prev.filter((x) => x !== id))}
-                  onClick={() => setShowChildrenPicker(true)}
+                  onClick={() => {
+                    if (rooms.length === 0) {
+                      toast.error("Please select a room first.");
+                      return;
+                    }
+                    setShowChildrenPicker(true);
+                  }}
                   placeholder="Select children"
                 />
                 <PremiumPickerField
                   label="Educators"
                   icon={User}
                   colour="rose"
+                  actionLabel={`Manage Educators (${educators.length})`}
                   selectedItems={educators.map((id) => {
                     const found = availableEducators.find((e) => String(e.id) === String(id));
                     return { id, label: found ? found.name : id };
@@ -648,7 +748,7 @@ export default function ObservationCreatePage() {
       <MultiPickerModal
         open={showRoomsPicker}
         title="Select Rooms"
-        items={allRooms.map((r) => ({ id: r.id, label: r.name }))}
+        items={allRooms.map((r) => ({ id: String(r.id), label: r.name }))}
         selected={rooms}
         onClose={() => setShowRoomsPicker(false)}
         onSave={(v) => {
@@ -659,8 +759,23 @@ export default function ObservationCreatePage() {
       <MultiPickerModal
         open={showChildrenPicker}
         title="Select Children"
-        items={availableChildren.map((c) => ({ id: String(c.id), label: c.name }))}
+        items={childrenList.map((c) => ({
+          id: String(c.id),
+          label: fullName(c, `Child ${c.id}`),
+          imageUrl: c.imageUrl,
+          meta: c.room ? `Room ID: ${c.room}` : "Child",
+        }))}
         selected={children}
+        isLoading={isChildrenLoading}
+        searchQuery={childrenSearch}
+        onSearchChange={setChildrenSearch}
+        onLoadMore={loadMoreChildren}
+        hasMore={childrenPage < childrenTotalPages}
+        emptyMessage={
+          rooms.length === 0
+            ? "Please select a room first to see children"
+            : "No children found in selected rooms"
+        }
         onClose={() => setShowChildrenPicker(false)}
         onSave={(v) => {
           setChildren(v);
@@ -670,8 +785,18 @@ export default function ObservationCreatePage() {
       <MultiPickerModal
         open={showEducatorsPicker}
         title="Select Educators"
-        items={availableEducators.map((e) => ({ id: String(e.id), label: e.name }))}
+        items={educatorsList.map((e) => ({
+          id: String(e.id),
+          label: e.name || `Staff ${e.id}`,
+          imageUrl: e.imageUrl,
+          meta: e.title || e.userType || "Staff",
+        }))}
         selected={educators}
+        isLoading={isEducatorsLoading}
+        searchQuery={educatorsSearch}
+        onSearchChange={setEducatorsSearch}
+        onLoadMore={loadMoreEducators}
+        hasMore={educatorsPage < educatorsTotalPages}
         onClose={() => setShowEducatorsPicker(false)}
         onSave={(v) => {
           setEducators(v);
@@ -685,53 +810,69 @@ export default function ObservationCreatePage() {
 function PremiumPickerField({
   label,
   icon: Icon,
+  colour,
+  actionLabel,
   selectedItems,
   onRemove,
   onClick,
   placeholder,
-  colour,
+  required,
 }) {
   const colours = {
-    emerald: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20",
-    sky: "bg-sky-500/10 text-sky-600 border-sky-500/20 hover:bg-sky-500/20",
-    rose: "bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/20",
-  };
-
-  const tagColours = {
-    emerald: "bg-emerald-500 text-white shadow-emerald-500/20",
-    sky: "bg-sky-500 text-white shadow-sky-500/20",
-    rose: "bg-rose-500 text-white shadow-rose-500/20",
+    emerald: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+    sky: "text-sky-600 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
+    rose: "text-rose-600 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
 
   return (
-    <div className="space-y-3">
-      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </label>
-      <div className="flex flex-wrap gap-2">
-        {selectedItems?.map((item) => (
-          <div
-            key={item.id}
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold shadow-sm animate-in zoom-in-95 ${tagColours[colour]}`}
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2 px-1">
+        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          {label}
+          {required && <span className="text-destructive font-bold ml-0.5">*</span>}
+        </label>
+        {actionLabel && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onClick}
+            className="h-8 border-primary/30 px-3 text-xs font-semibold text-primary hover:bg-primary/10"
           >
-            {item.label}
-            <button
-              onClick={() => onRemove(item.id)}
-              className="rounded-full p-0.5 hover:bg-white/20 transition-colors"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        ))}
-        <button
-          onClick={onClick}
-          className={`flex items-center gap-2 rounded-xl border p-3.5 text-sm font-semibold transition-all ${colours[colour]} ${selectedItems?.length > 0 ? "h-auto py-2" : "w-full"}`}
-        >
-          <div className="flex items-center gap-2">
-            {Icon && <Icon className="h-4 w-4" />}
-            {selectedItems?.length === 0 ? placeholder : <Plus className="h-4 w-4" />}
-          </div>
-        </button>
+            {actionLabel}
+          </Button>
+        )}
+      </div>
+      <div
+        onClick={onClick}
+        className="min-h-[56px] w-full cursor-pointer rounded-2xl border border-border bg-muted/20 p-3 transition-all hover:border-primary/30 hover:bg-muted/30"
+      >
+        <div className="flex flex-wrap gap-2">
+          {selectedItems.length > 0 ? (
+            selectedItems.map((item) => (
+              <span
+                key={item.id}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold transition-all ${colours[colour]}`}
+              >
+                {item.label}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(item.id);
+                  }}
+                  className="rounded-full hover:bg-black/10 p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))
+          ) : (
+            <div className="flex items-center gap-2 text-muted-foreground/60 py-1 px-1">
+              <Icon className="h-4 w-4" />
+              <span className="text-sm font-medium">{placeholder}</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -817,16 +958,43 @@ function MultiPickerModal({
   onClose,
   onSave,
   isLoading,
+  searchQuery,
+  onSearchChange,
+  onLoadMore,
+  hasMore,
   emptyMessage,
 }) {
   const [local, setLocal] = useState(selected || []);
+  const [internalSearch, setInternalSearch] = useState("");
+  const activeSearch = searchQuery ?? internalSearch;
+
   useEffect(() => {
-    if (open) setLocal(selected || []);
-  }, [open, selected]);
+    if (open) {
+      setLocal(selected || []);
+      setInternalSearch("");
+      onSearchChange?.("");
+    }
+  }, [open, selected, onSearchChange]);
+
+  const filteredItems = useMemo(() => {
+    if (onSearchChange) return items;
+    if (!activeSearch) return items;
+    return items.filter((it) => it.label.toLowerCase().includes(activeSearch.toLowerCase()));
+  }, [items, activeSearch, onSearchChange]);
+
   if (!open) return null;
+
   const toggle = (id) => {
     setLocal((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
+
+  const handleScroll = (event) => {
+    const target = event.currentTarget;
+    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 16) {
+      onLoadMore?.();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-200">
@@ -839,33 +1007,81 @@ function MultiPickerModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="max-h-96 overflow-y-auto px-6 py-4">
-          {isLoading ? (
+
+        <div className="border-b border-border px-6 py-3 bg-muted/10">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={activeSearch}
+              onChange={(e) =>
+                onSearchChange ? onSearchChange(e.target.value) : setInternalSearch(e.target.value)
+              }
+              placeholder={`Search ${title.toLowerCase()}...`}
+              className="h-10 pl-9 border-none bg-background focus-visible:ring-primary/50"
+            />
+          </div>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto px-6 py-4" onScroll={handleScroll}>
+          {isLoading && filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="mt-2 text-sm font-medium">Fetching children list...</p>
+              <p className="mt-2 text-sm font-medium">Fetching list...</p>
             </div>
-          ) : items.length === 0 ? (
+          ) : filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
               <Info className="h-10 w-10 opacity-20 mb-3" />
-              <p className="text-sm px-10 font-medium">{emptyMessage || "No items available"}</p>
+              <p className="text-sm px-10 font-medium">
+                {activeSearch ? "No results found" : emptyMessage || "No items available"}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2">
-              {items.map((it) => (
-                <label
+              {filteredItems.map((it) => (
+                <button
                   key={it.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors ${local.includes(it.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
+                  type="button"
+                  onClick={() => toggle(it.id)}
+                  className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                    local.includes(it.id)
+                      ? "bg-primary/10 text-primary border-primary"
+                      : "border-transparent hover:bg-muted"
+                  }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={local.includes(it.id)}
-                    onChange={() => toggle(it.id)}
-                    className="h-5 w-5 rounded-md accent-primary"
-                  />
-                  <span className="text-sm font-semibold">{it.label}</span>
-                </label>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar name={it.label} imageUrl={it.imageUrl} />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{it.label}</div>
+                      {it.meta && (
+                        <div className="truncate text-xs text-muted-foreground">{it.meta}</div>
+                      )}
+                    </div>
+                  </div>
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                      local.includes(it.id)
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-muted-foreground/30"
+                    }`}
+                  >
+                    {local.includes(it.id) && <ListChecks className="h-3.5 w-3.5" />}
+                  </span>
+                </button>
               ))}
+              {isLoading && (
+                <div className="flex items-center justify-center py-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                </div>
+              )}
+              {!isLoading && hasMore && (
+                <button
+                  type="button"
+                  onClick={onLoadMore}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                >
+                  Load more
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -882,6 +1098,25 @@ function MultiPickerModal({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Avatar({ name, imageUrl }) {
+  const url = avatarUrl(imageUrl);
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/10 text-xs font-bold text-primary">
+      {url ? (
+        <img src={url} alt={name} className="h-full w-full object-cover" loading="lazy" />
+      ) : (
+        name
+          .split(/\s+/)
+          .map((part) => part[0])
+          .filter(Boolean)
+          .join("")
+          .toUpperCase()
+          .slice(0, 2)
+      )}
     </div>
   );
 }

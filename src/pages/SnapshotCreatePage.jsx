@@ -1,23 +1,19 @@
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Save,
   FileText,
   Sparkles,
-  Image as ImageIcon,
   X,
-  ArrowRight,
-  Camera,
+  Search,
   Upload,
   Loader2,
   Calendar,
-  Building2,
   DoorOpen,
   User,
-  Plus,
+  ListChecks,
   Info,
-  ChevronDown,
   Wand2,
 } from "lucide-react";
 import {
@@ -38,6 +34,31 @@ import { toast } from "sonner";
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.15)_1px,transparent_0)] [background-size:16px_16px]";
+const IMG_BASE = "https://mydiaree.com.au/";
+
+const avatarUrl = (url) => {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${IMG_BASE}${url.replace(/^\/+/, "")}`;
+};
+
+const mediaUrl = (url) => avatarUrl(url) || "";
+
+const isVideoMedia = (item) => {
+  const type = String(item?.file?.type || item?.mediaType || "").toLowerCase();
+  const url = String(item?.url || item?.preview || "").toLowerCase();
+  return type.startsWith("video/") || /\.(mp4|mov|webm|m4v|avi)(\?|#|$)/i.test(url);
+};
+
+const fullName = (person, fallback = "Unknown") =>
+  [person?.name, person?.lastname].filter(Boolean).join(" ").trim() || person?.name || fallback;
+
+const mergeById = (current, next) => {
+  const map = new Map(current.map((item) => [String(item.id), item]));
+  next.forEach((item) => {
+    if (item?.id !== undefined && item?.id !== null) map.set(String(item.id), item);
+  });
+  return Array.from(map.values());
+};
 
 export default function SnapshotCreatePage() {
   const navigate = useNavigate();
@@ -45,16 +66,25 @@ export default function SnapshotCreatePage() {
   const [search] = useSearchParams();
   const isEdit = Boolean(id);
   const fileInputRef = useRef(null);
+  const mediaPreviewUrlsRef = useRef(new Set());
 
   const { activeCentreId } = useCentreStore();
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(false);
-  const [isChildrenLoading, setIsChildrenLoading] = useState(false);
 
   const [availableRooms, setAvailableRooms] = useState([]);
   const [availableStaff, setAvailableStaff] = useState([]);
   const [availableChildren, setAvailableChildren] = useState([]);
+  const [childrenList, setChildrenList] = useState([]);
+  const [childrenSearch, setChildrenSearch] = useState("");
+  const [childrenPage, setChildrenPage] = useState(1);
+  const [childrenTotalPages, setChildrenTotalPages] = useState(1);
+  const [isChildrenLoading, setIsChildrenLoading] = useState(false);
+  const [staffList, setStaffList] = useState([]);
+  const [staffSearch, setStaffSearch] = useState("");
+  const [staffPage, setStaffPage] = useState(1);
+  const [staffTotalPages, setStaffTotalPages] = useState(1);
+  const [isStaffLoading, setIsStaffLoading] = useState(false);
 
   // Form state
   const [rooms, setRooms] = useState([]);
@@ -69,79 +99,147 @@ export default function SnapshotCreatePage() {
   const [showChildrenPicker, setShowChildrenPicker] = useState(false);
   const [showStaffPicker, setShowStaffPicker] = useState(false);
 
-  // 1. Fetch Rooms and Staff
+  // 1. Fetch Rooms
   useEffect(() => {
     const loadInitialData = async () => {
       if (!activeCentreId) return;
-      setIsInitialLoading(true);
       try {
-        const [roomsData, staffData] = await Promise.all([
-          snapshotService.getRoomsAndStaff(activeCentreId),
-          staffService.getStaffSettings({
-            center_id: activeCentreId,
-            per_page: 10,
-          }),
-        ]);
+        const roomsData = await snapshotService.getRoomsAndStaff(activeCentreId);
         if (roomsData.status) {
-          setAvailableRooms(roomsData.rooms || []);
-        }
-        if (staffData.status) {
-          const staff = staffData.data?.staff?.data || staffData.data?.staff || [];
-          setAvailableStaff(staff.filter((s) => s.status === "ACTIVE"));
+          setAvailableRooms(roomsData.rooms || roomsData.data?.rooms || []);
         }
       } catch (error) {
-        console.error("Failed to load rooms and staff:", error);
-      } finally {
-        setIsInitialLoading(false);
+        console.error("Failed to load rooms:", error);
       }
     };
     loadInitialData();
   }, [activeCentreId]);
 
-  // 2. Fetch Children when rooms change
-  useEffect(() => {
-    const loadChildren = async () => {
-      if (rooms.length === 0) {
-        setAvailableChildren([]);
+  const fetchStaff = useCallback(
+    async (pageNumber, searchQuery) => {
+      if (!activeCentreId) {
+        setStaffList([]);
+        setStaffTotalPages(1);
+        return;
+      }
+      setIsStaffLoading(true);
+      try {
+        const response = await staffService.getStaffSettings({
+          center_id: activeCentreId,
+          search: searchQuery,
+          page: pageNumber,
+          per_page: 10,
+        });
+        if (response.status) {
+          const pageData = response.data?.staff?.data || response.data?.staff || [];
+          const activeStaff = pageData.filter((item) => item.status === "ACTIVE");
+          const lastPage = response.data?.staff?.last_page || response.pagination?.last_page || 1;
+          setStaffList((prev) => (pageNumber === 1 ? activeStaff : mergeById(prev, activeStaff)));
+          setAvailableStaff((prev) => mergeById(prev, activeStaff));
+          setStaffTotalPages(lastPage);
+        }
+      } catch (error) {
+        console.error("Failed to load staff:", error);
+      } finally {
+        setIsStaffLoading(false);
+      }
+    },
+    [activeCentreId],
+  );
+
+  const fetchChildren = useCallback(
+    async (pageNumber, searchQuery, roomIds) => {
+      if (!activeCentreId || roomIds.length === 0) {
+        setChildrenList([]);
+        setChildrenTotalPages(1);
         return;
       }
       setIsChildrenLoading(true);
       try {
-        const results = await Promise.all(
-          rooms.map((roomId) =>
-            childrenService.filterChildren({ room: roomId, center_id: activeCentreId }),
+        const responses = await Promise.all(
+          roomIds.map((roomId) =>
+            childrenService.filterChildren({
+              room_id: roomId,
+              center_id: activeCentreId,
+              search: searchQuery,
+              page: pageNumber,
+              per_page: 10,
+            }),
           ),
         );
-        const merged = results.flatMap((res) => {
-          return Array.isArray(res.data) ? res.data : (res.data?.data || res.children || []);
-        });
-        const unique = Array.from(new Map(merged.map((c) => [c.id, c])).values());
-        setAvailableChildren(unique);
+        const pageData = responses.flatMap(
+          (response) => response.data?.data || response.data || [],
+        );
+        const lastPage = Math.max(
+          1,
+          ...responses.map(
+            (response) => response.pagination?.last_page || response.data?.last_page || 1,
+          ),
+        );
+        const unique = mergeById([], pageData);
+        setChildrenList((prev) => (pageNumber === 1 ? unique : mergeById(prev, unique)));
+        setAvailableChildren((prev) => mergeById(prev, unique));
+        setChildrenTotalPages(lastPage);
       } catch (error) {
         console.error("Failed to load children:", error);
       } finally {
         setIsChildrenLoading(false);
       }
-    };
-    loadChildren();
-  }, [rooms]);
+    },
+    [activeCentreId],
+  );
+
+  useEffect(() => {
+    setStaffPage(1);
+    fetchStaff(1, staffSearch);
+  }, [fetchStaff, staffSearch]);
+
+  useEffect(() => {
+    setChildrenPage(1);
+    fetchChildren(1, childrenSearch, rooms);
+  }, [fetchChildren, childrenSearch, rooms]);
+
+  const loadMoreStaff = () => {
+    if (isStaffLoading || staffPage >= staffTotalPages) return;
+    const nextPage = staffPage + 1;
+    setStaffPage(nextPage);
+    fetchStaff(nextPage, staffSearch);
+  };
+
+  const loadMoreChildren = () => {
+    if (isChildrenLoading || childrenPage >= childrenTotalPages) return;
+    const nextPage = childrenPage + 1;
+    setChildrenPage(nextPage);
+    fetchChildren(nextPage, childrenSearch, rooms);
+  };
 
   // 3. Fetch Snapshot in Edit Mode
   useEffect(() => {
     const loadSnapshot = async () => {
       if (!isEdit || !id || !activeCentreId) return;
       try {
-        const res = await snapshotService.getAllSnapshots(activeCentreId);
-        const item = res.snapshots?.find((s) => String(s.id) === String(id));
+        const res = await snapshotService.getAllSnapshots(activeCentreId, { perPage: 1000 });
+        const snapshots = Array.isArray(res.snapshots) ? res.snapshots : res.snapshots?.data || [];
+        const item = snapshots.find((s) => String(s.id) === String(id));
         if (item) {
           setTitle(item.title?.replace(/<[^>]*>/g, "") || "");
           setDetails(item.about?.replace(/<[^>]*>/g, "") || "");
           setRooms((item.rooms || []).map((r) => String(r.id)));
           setStaff((item.educators || "").split(",").filter(Boolean));
           setChildren((item.children || []).map((c) => String(c.childid)));
+          setAvailableChildren((prev) =>
+            mergeById(prev, (item.children || []).map((tag) => tag.child).filter(Boolean)),
+          );
           setStatus(item.status?.toLowerCase() === "published" ? "published" : "draft");
           if (item.media) {
-            setMedia(item.media.map((m) => ({ isExisting: true, url: m.mediaUrl, id: m.id })));
+            setMedia(
+              item.media.map((m) => ({
+                isExisting: true,
+                url: mediaUrl(m.mediaUrl || m.url),
+                id: m.id,
+                mediaType: m.mediaType,
+              })),
+            );
           }
         }
       } catch (error) {
@@ -151,7 +249,7 @@ export default function SnapshotCreatePage() {
     loadSnapshot();
   }, [isEdit, id, activeCentreId]);
 
-  const handleSave = async (status) => {
+  const handleSave = async (nextStatus = status) => {
     if (!title.trim() || !rooms.length || !children.length) {
       toast.error("Please fill in all required fields (Rooms, Children, Title)");
       return;
@@ -166,7 +264,19 @@ export default function SnapshotCreatePage() {
     formData.append("selected_children", children.join(","));
     formData.append("selected_staff", staff.join(","));
     formData.append("about", details);
-    formData.append("status", status === "published" ? "Published" : "Draft");
+    formData.append("status", nextStatus === "published" ? "Published" : "Draft");
+
+    const retainedMediaIds = media
+      .filter((m) => m.isExisting && m.id !== undefined && m.id !== null)
+      .map((m) => String(m.id));
+
+    if (isEdit && retainedMediaIds.length) {
+      formData.append("existing_media_ids", retainedMediaIds.join(","));
+      retainedMediaIds.forEach((mediaId) => {
+        formData.append("existing_media[]", mediaId);
+        formData.append("old_media[]", mediaId);
+      });
+    }
 
     media
       .filter((m) => !m.isExisting)
@@ -196,17 +306,37 @@ export default function SnapshotCreatePage() {
       toast.error("Maximum 10 files allowed");
       return;
     }
-    const newMedia = files.map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-      isExisting: false,
-    }));
+    const newMedia = files.map((file) => {
+      const preview = URL.createObjectURL(file);
+      mediaPreviewUrlsRef.current.add(preview);
+      return {
+        file,
+        preview,
+        isExisting: false,
+      };
+    });
     setMedia((prev) => [...prev, ...newMedia]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeMedia = (index) => {
-    setMedia((prev) => prev.filter((_, i) => i !== index));
+    setMedia((prev) => {
+      const removed = prev[index];
+      if (removed?.preview) {
+        URL.revokeObjectURL(removed.preview);
+        mediaPreviewUrlsRef.current.delete(removed.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
+
+  useEffect(() => {
+    const previewUrls = mediaPreviewUrlsRef.current;
+    return () => {
+      previewUrls.forEach((preview) => URL.revokeObjectURL(preview));
+      previewUrls.clear();
+    };
+  }, []);
 
   const today = new Date()
     .toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
@@ -304,8 +434,10 @@ export default function SnapshotCreatePage() {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             <PremiumPickerField
               label="Rooms"
+              required
               icon={DoorOpen}
               colour="emerald"
+              actionLabel={`Manage Rooms (${rooms.length})`}
               selectedItems={rooms.map((id) => ({
                 id,
                 label: availableRooms.find((r) => String(r.id) === String(id))?.name || id,
@@ -316,20 +448,33 @@ export default function SnapshotCreatePage() {
             />
             <PremiumPickerField
               label="Children"
+              required
               icon={User}
               colour="sky"
+              actionLabel={`Manage Children (${children.length})`}
               selectedItems={children.map((id) => ({
                 id,
-                label: availableChildren.find((c) => String(c.id) === String(id))?.name || id,
+                label:
+                  fullName(
+                    availableChildren.find((c) => String(c.id) === String(id)),
+                    "",
+                  ) || id,
               }))}
               onRemove={(id) => setChildren((prev) => prev.filter((x) => x !== id))}
-              onClick={() => setShowChildrenPicker(true)}
+              onClick={() => {
+                if (rooms.length === 0) {
+                  toast.error("Please select a room first.");
+                  return;
+                }
+                setShowChildrenPicker(true);
+              }}
               placeholder="Select children"
             />
             <PremiumPickerField
               label="Educators"
               icon={User}
               colour="rose"
+              actionLabel={`Manage Educators (${staff.length})`}
               selectedItems={staff.map((id) => ({
                 id,
                 label: availableStaff.find((s) => String(s.id) === String(id))?.name || id,
@@ -400,11 +545,21 @@ export default function SnapshotCreatePage() {
                     key={i}
                     className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted"
                   >
-                    <img
-                      src={m.isExisting ? `https://mydiaree.com.au/${m.url}` : m.preview}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      alt="preview"
-                    />
+                    {isVideoMedia(m) ? (
+                      <video
+                        src={m.isExisting ? m.url : m.preview}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={m.isExisting ? m.url : m.preview}
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        alt="preview"
+                      />
+                    )}
                     <button
                       onClick={() => removeMedia(i)}
                       className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
@@ -490,9 +645,18 @@ export default function SnapshotCreatePage() {
       <MultiPickerModal
         open={showChildrenPicker}
         title="Select Children"
-        items={availableChildren.map((c) => ({ id: String(c.id), label: c.name }))}
+        items={childrenList.map((c) => ({
+          id: String(c.id),
+          label: fullName(c, `Child ${c.id}`),
+          imageUrl: c.imageUrl,
+          meta: c.room ? `Room ID: ${c.room}` : "Child",
+        }))}
         selected={children}
         isLoading={isChildrenLoading}
+        searchQuery={childrenSearch}
+        onSearchChange={setChildrenSearch}
+        onLoadMore={loadMoreChildren}
+        hasMore={childrenPage < childrenTotalPages}
         emptyMessage={
           rooms.length === 0
             ? "Please select a room first to see children"
@@ -507,8 +671,18 @@ export default function SnapshotCreatePage() {
       <MultiPickerModal
         open={showStaffPicker}
         title="Select Educators"
-        items={availableStaff.map((s) => ({ id: String(s.id), label: s.name }))}
+        items={staffList.map((s) => ({
+          id: String(s.id),
+          label: s.name || `Staff ${s.id}`,
+          imageUrl: s.imageUrl,
+          meta: s.title || s.userType || "Staff",
+        }))}
         selected={staff}
+        isLoading={isStaffLoading}
+        searchQuery={staffSearch}
+        onSearchChange={setStaffSearch}
+        onLoadMore={loadMoreStaff}
+        hasMore={staffPage < staffTotalPages}
         onClose={() => setShowStaffPicker(false)}
         onSave={(v) => {
           setStaff(v);
@@ -523,10 +697,12 @@ function PremiumPickerField({
   label,
   icon: Icon,
   colour,
+  actionLabel,
   selectedItems,
   onRemove,
   onClick,
   placeholder,
+  required,
 }) {
   const colours = {
     emerald: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
@@ -536,9 +712,23 @@ function PremiumPickerField({
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-        {label}
-      </label>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          {label}
+          {required && <span className="text-destructive font-bold ml-0.5">*</span>}
+        </label>
+        {actionLabel && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onClick}
+            className="h-8 border-primary/30 px-3 text-xs font-semibold text-primary hover:bg-primary/10"
+          >
+            {actionLabel}
+          </Button>
+        )}
+      </div>
       <div
         onClick={onClick}
         className="min-h-[56px] w-full cursor-pointer rounded-2xl border border-border bg-muted/20 p-3 transition-all hover:border-primary/30 hover:bg-muted/30"
@@ -616,16 +806,43 @@ function MultiPickerModal({
   onClose,
   onSave,
   isLoading,
+  searchQuery,
+  onSearchChange,
+  onLoadMore,
+  hasMore,
   emptyMessage,
 }) {
   const [local, setLocal] = useState(selected || []);
+  const [internalSearch, setInternalSearch] = useState("");
+  const activeSearch = searchQuery ?? internalSearch;
+
   useEffect(() => {
-    if (open) setLocal(selected || []);
-  }, [open, selected]);
+    if (open) {
+      setLocal(selected || []);
+      setInternalSearch("");
+      onSearchChange?.("");
+    }
+  }, [open, selected, onSearchChange]);
+
+  const filteredItems = useMemo(() => {
+    if (onSearchChange) return items;
+    if (!activeSearch) return items;
+    return items.filter((it) => it.label.toLowerCase().includes(activeSearch.toLowerCase()));
+  }, [items, activeSearch, onSearchChange]);
+
   if (!open) return null;
+
   const toggle = (id) => {
     setLocal((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
+
+  const handleScroll = (event) => {
+    const target = event.currentTarget;
+    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 16) {
+      onLoadMore?.();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-200">
@@ -638,33 +855,81 @@ function MultiPickerModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="max-h-96 overflow-y-auto px-6 py-4">
-          {isLoading ? (
+
+        <div className="border-b border-border px-6 py-3 bg-muted/10">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={activeSearch}
+              onChange={(e) =>
+                onSearchChange ? onSearchChange(e.target.value) : setInternalSearch(e.target.value)
+              }
+              placeholder={`Search ${title.toLowerCase()}...`}
+              className="h-10 pl-9 border-none bg-background focus-visible:ring-primary/50"
+            />
+          </div>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto px-6 py-4" onScroll={handleScroll}>
+          {isLoading && filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="mt-2 text-sm font-medium">Fetching children list...</p>
+              <p className="mt-2 text-sm font-medium">Fetching list...</p>
             </div>
-          ) : items.length === 0 ? (
+          ) : filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
               <Info className="h-10 w-10 opacity-20 mb-3" />
-              <p className="text-sm px-10 font-medium">{emptyMessage || "No items available"}</p>
+              <p className="text-sm px-10 font-medium">
+                {activeSearch ? "No results found" : emptyMessage || "No items available"}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2">
-              {items.map((it) => (
-                <label
+              {filteredItems.map((it) => (
+                <button
                   key={it.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl px-4 py-3 transition-colors ${local.includes(it.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
+                  type="button"
+                  onClick={() => toggle(it.id)}
+                  className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+                    local.includes(it.id)
+                      ? "bg-primary/10 text-primary border-primary"
+                      : "border-transparent hover:bg-muted"
+                  }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={local.includes(it.id)}
-                    onChange={() => toggle(it.id)}
-                    className="h-5 w-5 rounded-md accent-primary"
-                  />
-                  <span className="text-sm font-semibold">{it.label}</span>
-                </label>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar name={it.label} imageUrl={it.imageUrl} />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold">{it.label}</div>
+                      {it.meta && (
+                        <div className="truncate text-xs text-muted-foreground">{it.meta}</div>
+                      )}
+                    </div>
+                  </div>
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                      local.includes(it.id)
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-muted-foreground/30"
+                    }`}
+                  >
+                    {local.includes(it.id) && <ListChecks className="h-3.5 w-3.5" />}
+                  </span>
+                </button>
               ))}
+              {isLoading && (
+                <div className="flex items-center justify-center py-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                </div>
+              )}
+              {!isLoading && hasMore && (
+                <button
+                  type="button"
+                  onClick={onLoadMore}
+                  className="rounded-xl border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                >
+                  Load more
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -681,6 +946,25 @@ function MultiPickerModal({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Avatar({ name, imageUrl }) {
+  const url = avatarUrl(imageUrl);
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/10 text-xs font-bold text-primary">
+      {url ? (
+        <img src={url} alt={name} className="h-full w-full object-cover" loading="lazy" />
+      ) : (
+        name
+          .split(/\s+/)
+          .map((part) => part[0])
+          .filter(Boolean)
+          .join("")
+          .toUpperCase()
+          .slice(0, 2)
+      )}
     </div>
   );
 }

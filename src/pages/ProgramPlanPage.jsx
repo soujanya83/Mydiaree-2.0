@@ -18,6 +18,7 @@ import {
   DoorOpen,
   CalendarDays,
   Inbox,
+  Printer,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -39,15 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
-import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/stores/authStore";
@@ -70,11 +63,18 @@ const CARD_PRIMARY_ACTION_STYLE = {
 };
 
 /* ---------- helpers (unchanged logic) ---------- */
-const stripHtml = (value = "") =>
-  String(value)
+const toBlankString = (value) => (value === null || value === undefined ? "" : String(value));
+
+const stripHtml = (value) =>
+  toBlankString(value)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s+/g, "\n")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 
 const toIdList = (value) =>
@@ -83,7 +83,14 @@ const toIdList = (value) =>
     .map((i) => i.trim())
     .filter(Boolean);
 
-const toMonthName = (month) => MONTHS[Number(month) - 1] || String(month || "—");
+const toNameList = (value) =>
+  toBlankString(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const toMonthName = (month, fallback = "—") =>
+  MONTHS[Number(month) - 1] || toBlankString(month) || fallback;
 
 const toIsoDateOnly = (value) => {
   if (!value) return "";
@@ -95,17 +102,59 @@ const toIsoDateOnly = (value) => {
 const parseActivityText = (value) => {
   const text = stripHtml(value);
   if (!text) return [];
-  const parts = text
-    .split(/(?:\r?\n|•)/)
-    .map((p) => p.replace(/\*/g, "").trim())
-    .filter(Boolean);
-  if (!parts.length) return [];
-  return [{ activity: parts[0].replace(/-\s*$/, "").trim(), items: parts.slice(1) }];
+
+  const groups = [];
+  let current = null;
+
+  const commit = () => {
+    if (!current) return;
+    if (current.activity || current.items.length) groups.push(current);
+    current = null;
+  };
+
+  text
+    .split(/\r?\n/)
+    .flatMap((line) => line.split(/(?=•)/))
+    .map((part) => part.replace(/\*/g, "").trim())
+    .filter(Boolean)
+    .forEach((part) => {
+      if (part.startsWith("•")) {
+        const item = part.replace(/^•\s*/, "").trim();
+        if (!item) return;
+        if (!current) current = { activity: "Activities", items: [] };
+        current.items.push(item);
+        return;
+      }
+
+      const headerMatch = part.match(/^(.+?)\s*-\s*(.*)$/);
+      if (headerMatch) {
+        commit();
+        current = { activity: headerMatch[1].trim(), items: [] };
+        const inlineItem = headerMatch[2].trim();
+        if (inlineItem) current.items.push(inlineItem.replace(/^•\s*/, ""));
+        return;
+      }
+
+      if (!current) {
+        current = { activity: part, items: [] };
+        return;
+      }
+
+      current.items.push(part.replace(/^•\s*/, ""));
+    });
+
+  commit();
+  return groups;
 };
 
 const normalizeProgramPlan = (plan) => {
   // Support both old (full detail) and new (list) response formats
-  const isListFormat = plan.month_name !== undefined;
+  const isFullDetail =
+    plan.focus_area !== undefined ||
+    plan.practical_life !== undefined ||
+    plan.children !== undefined ||
+    plan.educators !== undefined;
+  const isListFormat = !isFullDetail && plan.month_name !== undefined;
 
   if (isListFormat) {
     return {
@@ -119,6 +168,8 @@ const normalizeProgramPlan = (plan) => {
       year: Number(plan.years) || plan.years || "",
       educators: [],
       children: [],
+      educatorNames: toNameList(plan.educator_names),
+      childrenNames: toNameList(plan.children_names),
       focusArea: "",
       practicalLife: [],
       sensorial: [],
@@ -156,10 +207,12 @@ const normalizeProgramPlan = (plan) => {
     roomId: String(plan.room?.id || toIdList(plan.room_id)[0] || ""),
     roomName: plan.room?.name || toIdList(plan.room_id).join(", ") || "—",
     roomIds: toIdList(plan.room_id),
-    month: toMonthName(plan.months),
+    month: toMonthName(plan.months, ""),
     year: Number(plan.years) || plan.years || "",
     educators: toIdList(plan.educators),
     children: toIdList(plan.children),
+    educatorNames: toNameList(plan.educator_names),
+    childrenNames: toNameList(plan.children_names),
     focusArea: stripHtml(plan.focus_area),
     practicalLife: parseActivityText(plan.practical_life),
     sensorial: parseActivityText(plan.sensorial),
@@ -330,7 +383,14 @@ export default function ProgramPlanPage() {
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [isDeletingPlan, setIsDeletingPlan] = useState(false);
-  const [filters, setFilters] = useState({ room: "", createdBy: "", status: "", month: "", year: "" });
+  const [isPrintingId, setIsPrintingId] = useState(null);
+  const [filters, setFilters] = useState({
+    room: "",
+    createdBy: "",
+    status: "",
+    month: "",
+    year: "",
+  });
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     current_page: 1,
@@ -345,12 +405,11 @@ export default function ProgramPlanPage() {
   const editId = searchParams.get("id");
 
   const [confirmId, setConfirmId] = useState(null);
-  const [planModalOpen, setPlanModalOpen] = useState(false);
-  const [pending, setPending] = useState({
-    month: MONTHS[new Date().getMonth()],
-    year: new Date().getFullYear(),
-  });
   const [viewId, setViewId] = useState(null);
+  const [viewingRecord, setViewingRecord] = useState(null);
+  const [isLoadingViewRecord, setIsLoadingViewRecord] = useState(false);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [isLoadingEditRecord, setIsLoadingEditRecord] = useState(false);
 
   const loadProgramPlans = useCallback(async () => {
     if (!activeCentreId) return;
@@ -369,14 +428,16 @@ export default function ProgramPlanPage() {
         const programPlansData = response.data?.programPlans;
         const plans = programPlansData?.data || [];
         setRecords(plans.map(normalizeProgramPlan));
-        setPagination(response.data?.pagination || {
-          current_page: programPlansData?.current_page || 1,
-          last_page: programPlansData?.last_page || 1,
-          total: programPlansData?.total || 0,
-          from: programPlansData?.from,
-          to: programPlansData?.to,
-          per_page: programPlansData?.per_page || 10,
-        });
+        setPagination(
+          response.data?.pagination || {
+            current_page: programPlansData?.current_page || 1,
+            last_page: programPlansData?.last_page || 1,
+            total: programPlansData?.total || 0,
+            from: programPlansData?.from,
+            to: programPlansData?.to,
+            per_page: programPlansData?.per_page || 10,
+          },
+        );
       } else {
         setRecords([]);
         toast.error(response.message || "Failed to load program plans.");
@@ -394,6 +455,62 @@ export default function ProgramPlanPage() {
     loadProgramPlans();
   }, [loadProgramPlans]);
 
+  const goList = useCallback(() => setSearchParams({}), [setSearchParams]);
+
+  useEffect(() => {
+    if (action === "edit" && editId) {
+      const fetchDetails = async () => {
+        setIsLoadingEditRecord(true);
+        try {
+          const response = await programPlanService.getProgramPlanDetails(editId);
+          if (response.status && response.data) {
+            setEditingRecord(normalizeProgramPlan(response.data));
+          } else {
+            toast.error(response.message || "Failed to load program plan details.");
+            goList();
+          }
+        } catch (error) {
+          console.error("Failed to load program plan details:", error);
+          toast.error("Failed to load program plan details.");
+          goList();
+        } finally {
+          setIsLoadingEditRecord(false);
+        }
+      };
+      fetchDetails();
+    } else {
+      setEditingRecord(null);
+    }
+  }, [action, editId, goList]);
+
+  useEffect(() => {
+    if (!viewId) {
+      setViewingRecord(null);
+      return;
+    }
+
+    const fetchDetails = async () => {
+      setIsLoadingViewRecord(true);
+      try {
+        const response = await programPlanService.getProgramPlanDetails(viewId);
+        if (response.status && response.data) {
+          setViewingRecord(normalizeProgramPlan(response.data));
+        } else {
+          toast.error(response.message || "Failed to load program plan details.");
+          setViewId(null);
+        }
+      } catch (error) {
+        console.error("Failed to load program plan details:", error);
+        toast.error("Failed to load program plan details.");
+        setViewId(null);
+      } finally {
+        setIsLoadingViewRecord(false);
+      }
+    };
+
+    fetchDetails();
+  }, [viewId]);
+
   const handleFilterChange = (key, value) => {
     setFilters((p) => ({ ...p, [key]: value }));
     setPage(1);
@@ -403,10 +520,7 @@ export default function ProgramPlanPage() {
     setPage(newPage);
   };
 
-  const roomNames = useMemo(
-    () => rooms.map((r) => r.name).filter(Boolean),
-    [rooms],
-  );
+  const roomNames = useMemo(() => rooms.map((r) => r.name).filter(Boolean), [rooms]);
 
   const totalPages = pagination.last_page || 1;
   const safePage = pagination.current_page || 1;
@@ -424,7 +538,6 @@ export default function ProgramPlanPage() {
     setSearchParams(params);
   };
   const goEdit = (id) => setSearchParams(new URLSearchParams({ action: "edit", id }));
-  const goList = () => setSearchParams({});
 
   const handleCreate = async (data) => {
     setIsSavingPlan(true);
@@ -492,6 +605,20 @@ export default function ProgramPlanPage() {
     }
   };
 
+  const handlePrint = async (id) => {
+    setIsPrintingId(id);
+    try {
+      const blob = await programPlanService.printProgramPlan(id);
+      const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
+      window.open(url, "_blank");
+    } catch (error) {
+      console.error("Print error:", error);
+      toast.error("Failed to print program plan.");
+    } finally {
+      setIsPrintingId(null);
+    }
+  };
+
   /* Routing modes (unchanged) */
   if (action === "create") {
     const centerId = searchParams.get("centerid") || activeCentreId;
@@ -510,15 +637,17 @@ export default function ProgramPlanPage() {
     );
   }
   if (action === "edit") {
-    const record = records.find((r) => r.id === editId);
-    if (!record) {
-      goList();
-      return null;
+    if (isLoadingEditRecord || !editingRecord) {
+      return (
+        <div className="flex h-[400px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
     }
     return (
       <ProgramPlanForm
         mode="edit"
-        record={record}
+        record={editingRecord}
         onCancel={goList}
         onSubmit={handleUpdate}
         onSaveAsNew={handleSaveAsNew}
@@ -527,19 +656,23 @@ export default function ProgramPlanPage() {
     );
   }
   if (viewId) {
-    const record = records.find((r) => r.id === viewId);
-    if (record) {
+    if (isLoadingViewRecord || !viewingRecord) {
       return (
-        <ProgramPlanView
-          record={record}
-          onBack={() => setViewId(null)}
-          onEdit={() => {
-            setViewId(null);
-            goEdit(record.id);
-          }}
-        />
+        <div className="flex h-[400px] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
       );
     }
+    return (
+      <ProgramPlanView
+        record={viewingRecord}
+        onBack={() => setViewId(null)}
+        onEdit={() => {
+          setViewId(null);
+          goEdit(viewingRecord.id);
+        }}
+      />
+    );
   }
 
   const hasActiveFilters =
@@ -596,11 +729,11 @@ export default function ProgramPlanPage() {
 
               {can(perms.add) && (
                 <Button
-                  onClick={() => setPlanModalOpen(true)}
+                  onClick={() => goCreate(activeCentreId)}
                   className="group h-10 rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-primary-foreground shadow-md shadow-primary/20 transition-all hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5"
                 >
                   <Sparkles className="mr-2 h-4 w-4 transition-transform group-hover:rotate-12" />
-                  Add Program Plan
+                  Create Program Plan
                 </Button>
               )}
             </div>
@@ -689,7 +822,10 @@ export default function ProgramPlanPage() {
             variant="ghost"
             size="sm"
             className="h-9 rounded-xl text-muted-foreground hover:text-foreground"
-            onClick={() => { setFilters({ room: "", createdBy: "", status: "", month: "", year: "" }); setPage(1); }}
+            onClick={() => {
+              setFilters({ room: "", createdBy: "", status: "", month: "", year: "" });
+              setPage(1);
+            }}
           >
             <X className="mr-1 h-3.5 w-3.5" />
             Clear
@@ -710,11 +846,11 @@ export default function ProgramPlanPage() {
           </div>
           <h3 className="text-lg font-semibold text-foreground">No Program Plans yet</h3>
           <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
-            Get started by creating your first plan — pick a month and we'll set you up.
+            Get started by creating your first plan.
           </p>
           {can(perms.add) && (
             <Button
-              onClick={() => setPlanModalOpen(true)}
+              onClick={() => goCreate(activeCentreId)}
               className="mt-6 rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30"
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -790,6 +926,20 @@ export default function ProgramPlanPage() {
                   <div className="mt-5 flex items-center justify-end gap-1 border-t border-border/50 pt-3">
                     <button
                       type="button"
+                      onClick={() => handlePrint(r.id)}
+                      title="Print"
+                      disabled={isPrintingId === r.id}
+                      className={`${CARD_PRIMARY_ACTION_CLASSES} disabled:opacity-50`}
+                      style={CARD_PRIMARY_ACTION_STYLE}
+                    >
+                      {isPrintingId === r.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Printer className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setViewId(r.id)}
                       title="View"
                       className={CARD_PRIMARY_ACTION_CLASSES}
@@ -837,71 +987,6 @@ export default function ProgramPlanPage() {
           />
         </>
       )}
-
-      {/* Add Plan modal */}
-      <Dialog open={planModalOpen} onOpenChange={setPlanModalOpen}>
-        <DialogContent className="rounded-2xl sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-xl">New Program Plan</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-2">
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground">Select Month</Label>
-              <Select
-                value={pending.month}
-                onValueChange={(v) => setPending((p) => ({ ...p, month: v }))}
-              >
-                <SelectTrigger className="h-10 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground">Select Year</Label>
-              <Select
-                value={String(pending.year)}
-                onValueChange={(v) => setPending((p) => ({ ...p, year: Number(v) }))}
-              >
-                <SelectTrigger className="h-10 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {YEARS.map((y) => (
-                    <SelectItem key={y} value={String(y)}>
-                      {y}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="rounded-xl"
-              onClick={() => setPlanModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                setPlanModalOpen(false);
-                goCreate(activeCentreId, pending);
-              }}
-              className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30"
-            >
-              Continue
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog
         open={!!confirmId}

@@ -1,5 +1,18 @@
 import api from "../../api/api";
 
+const postObservationMultipart = async (url, fields) => {
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== "") {
+      formData.append(key, value);
+    }
+  });
+  const response = await api.post(url, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
+
 export const observationService = {
   getSubjects: async () => {
     const response = await api.get("/Observation/getSubjects");
@@ -19,6 +32,26 @@ export const observationService = {
     const response = await api.post("/LessonPlanList/subactivities", formData);
     return response.data;
   },
+
+  /** FormData: idSubject, title, center_id */
+  addActivity: async (payload) => postObservationMultipart("/Observation/addActivity", payload),
+
+  /** FormData: idActivity, title */
+  updateActivity: async (payload) => postObservationMultipart("/Observation/updateActivity", payload),
+
+  /** FormData: idActivity */
+  deleteActivity: async (idActivity) =>
+    postObservationMultipart("/Observation/deleteActivity", { idActivity }),
+
+  /** FormData: idActivity, title, center_id */
+  addSubActivity: async (payload) => postObservationMultipart("/Observation/addSubActivity", payload),
+
+  /** FormData: idSubActivity, title */
+  updateSubActivity: async (payload) => postObservationMultipart("/Observation/updateSubActivity", payload),
+
+  /** FormData: idSubActivity */
+  deleteSubActivity: async (idSubActivity) =>
+    postObservationMultipart("/Observation/deleteSubActivity", { idSubActivity }),
 
   // 1. List of the Observation
   getObservations: async (center_id, per_page = 13, page = 1, filters = {}) => {

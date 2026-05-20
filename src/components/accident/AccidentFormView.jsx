@@ -11,13 +11,13 @@ import {
   StickyNote,
   Save,
   X,
+  Info,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -29,112 +29,106 @@ import {
 } from "@/components/ui/select";
 import { useChildrenStore } from "@/stores/childrenStore";
 import { SignatureField } from "./SignaturePad";
+import { NATURE_OPTIONS } from "./accidentFormConstants";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const NATURE_LEFT = [
-  "Abrasion / Scrape",
-  "Allergic Reaction",
-  "Amputation",
-  "Anaphylaxis",
-  "Asthma / Respiratory",
-  "Bite Wound",
-  "Broken Bone / Fracture / Dislocation",
-  "Burn / Sunburn",
-  "Choking",
-  "Concussion",
-  "Crush / Jam",
-  "Cut / Open Wound",
-  "Drowning (Nonfatal)",
-  "Eye Injury",
-];
-
-const NATURE_RIGHT = [
-  "Electric Shock",
-  "High Temperature",
-  "Infectious Disease",
-  "Ingestion / Inhalation / Insertion",
-  "Internal Injury / Infection",
-  "Poisoning",
-  "Rash",
-  "Respiratory",
-  "Seizure / Unconscious / Convulsion",
-  "Sprain / Swelling",
-  "Stabbing / Piercing",
-  "Tooth",
-  "Venomous Bite / Sting",
-  "Other (Please specify)",
-];
-
-const ACK_TYPES = ["Incident", "Injury", "Trauma", "Illness"];
+const INPUT_CLASS = "h-11 rounded-lg border-border/80 bg-background/80 focus-visible:ring-primary/25";
+const TEXTAREA_CLASS = "min-h-[88px] resize-y rounded-lg border-border/80 bg-background/80 focus-visible:ring-primary/25";
 
 const empty = () => ({
-  // person
   recorderName: "",
   recorderPosition: "",
-  serviceName: "",
   recordDate: new Date().toISOString().slice(0, 10),
   recordTime: "",
   recorderSignature: "",
-  // child
   childId: "",
   childDob: "",
   childAge: "",
   childGender: "",
-  // incident
   incidentDate: new Date().toISOString().slice(0, 10),
   incidentTime: "",
-  serviceLocation: "",
-  incidentLocation: "",
+  location: "",
   witnessName: "",
   witnessDate: "",
   witnessSignature: "",
-  details: "",
-  circumstances: "",
+  generalActivity: "",
+  causeOfInjury: "",
+  circumstancesIllness: "",
   missingCircumstances: "",
   removedCircumstances: "",
-  // nature
   natures: [],
-  natureOther: "",
-  bodyDiagramNote: "",
-  // action
+  natureOtherRemarks: "",
   actionDetails: "",
   emergencyAttended: "no",
-  emergencyContactedTime: "",
-  emergencyArrivedTime: "",
   medicalSought: "no",
-  yesDetails: "",
-  preventionSteps: "",
-  // notifications
-  parentName: "",
-  parentDate: "",
-  parentTime: "",
-  directorName: "",
-  directorDate: "",
-  directorTime: "",
-  otherAgency: "",
+  medicalAttentionDetails: "",
+  preventionStep1: "",
+  preventionStep2: "",
+  parent1Name: "",
+  parent1Method: "",
+  parent1Date: "",
+  parent1Time: "",
+  parent1ContactMade: "",
+  parent1MessageLeft: "",
+  parent2Name: "",
+  parent2Method: "",
+  parent2Date: "",
+  parent2Time: "",
+  parent2ContactMade: "",
+  parent2MessageLeft: "",
+  responsiblePersonName: "",
+  responsiblePersonSignature: "",
+  responsiblePersonDate: "",
+  responsiblePersonTime: "",
+  nominatedSupervisorName: "",
+  nominatedSupervisorSignature: "",
+  nominatedSupervisorDate: "",
+  nominatedSupervisorTime: "",
   otherAgencyDate: "",
   otherAgencyTime: "",
-  regulatoryAuthority: "",
-  regDate: "",
-  regTime: "",
-  // acknowledgement
+  regulatoryAuthorityDate: "",
+  regulatoryAuthorityTime: "",
   ackName: "",
-  ackTypes: [],
   ackDate: "",
-  ackTime: "",
-  finalSignature: "",
-  // notes
   additionalNotes: "",
+  additionalNotesTime: "",
 });
+
+function normalizeInitial(initial) {
+  if (!initial) return {};
+  return {
+    ...initial,
+    location: initial.location ?? initial.serviceLocation ?? initial.incidentLocation ?? "",
+    generalActivity: initial.generalActivity ?? initial.details ?? "",
+    causeOfInjury: initial.causeOfInjury ?? initial.circumstances ?? "",
+    circumstancesIllness: initial.circumstancesIllness ?? "",
+    natureOtherRemarks: initial.natureOtherRemarks ?? initial.natureOther ?? "",
+    medicalAttentionDetails: initial.medicalAttentionDetails ?? initial.yesDetails ?? "",
+    preventionStep1: initial.preventionStep1 ?? initial.preventionSteps ?? "",
+    parent1Name: initial.parent1Name ?? initial.parentName ?? "",
+    parent1Date: initial.parent1Date ?? initial.parentDate ?? "",
+    parent1Time: initial.parent1Time ?? initial.parentTime ?? "",
+    responsiblePersonName: initial.responsiblePersonName ?? initial.directorName ?? "",
+    responsiblePersonDate: initial.responsiblePersonDate ?? initial.directorDate ?? "",
+    responsiblePersonTime: initial.responsiblePersonTime ?? initial.directorTime ?? "",
+    nominatedSupervisorName: initial.nominatedSupervisorName ?? "",
+    otherAgencyDate: initial.otherAgencyDate ?? "",
+    otherAgencyTime: initial.otherAgencyTime ?? "",
+    regulatoryAuthorityDate: initial.regulatoryAuthorityDate ?? initial.regDate ?? "",
+    regulatoryAuthorityTime: initial.regulatoryAuthorityTime ?? initial.regTime ?? "",
+    ackName: initial.ackName ?? "",
+    additionalNotesTime: initial.additionalNotesTime ?? initial.ackTime ?? "",
+  };
+}
 
 export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
   const isEdit = mode === "edit";
   const { children } = useChildrenStore();
-  const [data, setData] = useState(() => ({ ...empty(), ...(initial || {}) }));
+  const [data, setData] = useState(() => ({ ...empty(), ...normalizeInitial(initial) }));
 
   useEffect(() => {
-    if (initial) setData({ ...empty(), ...initial });
+    if (initial) setData({ ...empty(), ...normalizeInitial(initial) });
   }, [initial]);
 
   const set = (patch) => setData((p) => ({ ...p, ...patch }));
@@ -147,26 +141,20 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
     });
   };
 
-  const toggleAckType = (label, value) => {
-    set({
-      ackTypes: value
-        ? [...new Set([...data.ackTypes, label])]
-        : data.ackTypes.filter((t) => t !== label),
-    });
-  };
-
   const handleChildSelect = (id) => {
     const child = children.find((c) => String(c.id) === String(id));
     if (!child) return;
     set({
       childId: id,
-      childAge: child.age || "",
+      childDob: child.dob || data.childDob,
+      childAge: child.age || data.childAge,
+      childGender: child.gender || data.childGender,
     });
   };
 
   const handleSave = () => {
     if (!data.recorderName.trim()) {
-      toast.error("Please enter your name in 'Details of person completing this record'.");
+      toast.error("Please enter Name under Details of person completing this record.");
       return;
     }
     if (!data.childId) {
@@ -177,10 +165,10 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
   };
 
   return (
-    <div>
+    <div className="pb-28">
       <PageHeader
         title={isEdit ? "Edit Accident Form" : "New Accident Form"}
-        description="Incident, Injury, Trauma & Illness Record"
+        description="Complete all sections. Required fields are marked with *"
         breadcrumbs={[
           { label: "Accident Forms", to: "/accident-form" },
           { label: isEdit ? "Edit" : "Create" },
@@ -193,95 +181,106 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
         }
       />
 
-      <div className="space-y-5">
-        {/* Title strip */}
-        <div className="rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 p-5">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-primary/15 p-2.5 text-primary">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div className="overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/12 via-primary/5 to-transparent p-6 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
               <ClipboardList className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold tracking-tight">
-                Incident, Injury, Trauma & Illness Record
+              <p className="text-xs font-bold uppercase tracking-widest text-primary">Official record</p>
+              <h2 className="mt-1 text-xl font-bold tracking-tight text-foreground">
+                Incident, Injury, Trauma &amp; Illness Record
               </h2>
-              <p className="text-sm text-muted-foreground">
-                Complete every section. Fields marked with * are required.
+              <p className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary/70" />
+                Placeholders show examples only — labels stay as on the paper form. Fields with * are required.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Section 1: Person completing */}
-        <Section icon={User2} title="Details of person completing this record">
+        <Section icon={User2} title="Details of person completing this record" step={1}>
           <Grid2>
-            <FormField label="Name *">
+            <FormField label="Name" required placeholder="e.g. Sangeetha Srivatsan">
               <Input
+                className={INPUT_CLASS}
                 value={data.recorderName}
                 onChange={(e) => set({ recorderName: e.target.value })}
+                placeholder="Full name of person completing this form"
               />
             </FormField>
-            <FormField label="Position / Role">
+            <FormField label="Position Role" placeholder="e.g. Early Childhood Teacher">
               <Input
+                className={INPUT_CLASS}
                 value={data.recorderPosition}
                 onChange={(e) => set({ recorderPosition: e.target.value })}
+                placeholder="Your role at the service"
               />
             </FormField>
-            <FormField label="Service Name">
+            <FormField label="Date Record was made" hint="When this form was completed">
               <Input
-                value={data.serviceName}
-                onChange={(e) => set({ serviceName: e.target.value })}
-              />
-            </FormField>
-            <FormField label="Date Record was made">
-              <Input
+                className={INPUT_CLASS}
                 type="date"
                 value={data.recordDate}
                 onChange={(e) => set({ recordDate: e.target.value })}
               />
             </FormField>
-            <FormField label="Time Record was made">
+            <FormField label="Time" hint="Time the record was completed">
               <Input
+                className={INPUT_CLASS}
                 type="time"
                 value={data.recordTime}
                 onChange={(e) => set({ recordTime: e.target.value })}
               />
             </FormField>
-            <FormField label="Signature">
+            <FormField label="Signature" className="md:col-span-2" hint="Sign using the pad below">
               <SignatureField
                 value={data.recorderSignature}
                 onChange={(v) => set({ recorderSignature: v })}
-                label="Recorder Signature"
+                label="Recorder signature"
               />
             </FormField>
           </Grid2>
         </Section>
 
-        {/* Section 2: Child details */}
-        <Section icon={Baby} title="Child Details">
+        <Section icon={Baby} title="Child Details" step={2}>
           <Grid2>
-            <FormField label="Select Child *">
-              <Select value={data.childId} onValueChange={handleChildSelect}>
-                <SelectTrigger>
-                  <SelectValue placeholder="-- Select Children --" />
+            <FormField label="Child" required hint="Select the child involved in this incident">
+              <Select value={data.childId || undefined} onValueChange={handleChildSelect}>
+                <SelectTrigger className={INPUT_CLASS}>
+                  <SelectValue placeholder="Select child…" />
                 </SelectTrigger>
                 <SelectContent>
-                  {children.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name} · {c.room}
+                  {children.length === 0 ? (
+                    <SelectItem value="_none" disabled>
+                      No children loaded
                     </SelectItem>
-                  ))}
+                  ) : (
+                    children.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </FormField>
-            <FormField label="Date of Birth">
+            <FormField label="Date of Birth" hint="Auto-filled when child is selected">
               <Input
+                className={INPUT_CLASS}
                 type="date"
                 value={data.childDob}
                 onChange={(e) => set({ childDob: e.target.value })}
               />
             </FormField>
-            <FormField label="Age">
-              <Input value={data.childAge} onChange={(e) => set({ childAge: e.target.value })} />
+            <FormField label="Age" placeholder="e.g. 3">
+              <Input
+                className={INPUT_CLASS}
+                value={data.childAge}
+                onChange={(e) => set({ childAge: e.target.value })}
+                placeholder="Age in years"
+              />
             </FormField>
             <FormField label="Gender">
               <RadioGroup
@@ -293,8 +292,8 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
                   <label
                     key={g}
                     className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm transition",
-                      data.childGender === g && "border-primary bg-primary/10 text-primary",
+                      "flex cursor-pointer items-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm font-medium transition",
+                      data.childGender === g && "border-primary bg-primary/10 text-primary shadow-sm",
                     )}
                   >
                     <RadioGroupItem value={g} className="sr-only" />
@@ -306,44 +305,47 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
           </Grid2>
         </Section>
 
-        {/* Section 3: Incident details */}
-        <Section icon={AlertTriangle} title="Incident / Injury / Trauma / Illness Details">
+        <Section icon={AlertTriangle} title="Incident Details" step={3}>
           <Grid2>
-            <FormField label="Incident Date">
+            <FormField label="Incident Date" hint="Date the incident occurred">
               <Input
+                className={INPUT_CLASS}
                 type="date"
                 value={data.incidentDate}
                 onChange={(e) => set({ incidentDate: e.target.value })}
               />
             </FormField>
-            <FormField label="Incident Time">
+            <FormField label="Time" hint="Time the incident occurred">
               <Input
+                className={INPUT_CLASS}
                 type="time"
                 value={data.incidentTime}
                 onChange={(e) => set({ incidentTime: e.target.value })}
               />
             </FormField>
-            <FormField label="Location of service">
+            <FormField
+              label="Location"
+              className="md:col-span-2"
+              placeholder="e.g. 1 Capricorn Road, Truganina — outdoor playground"
+            >
               <Input
-                placeholder="E.g., Playground"
-                value={data.serviceLocation}
-                onChange={(e) => set({ serviceLocation: e.target.value })}
+                className={INPUT_CLASS}
+                value={data.location}
+                onChange={(e) => set({ location: e.target.value })}
+                placeholder="Address or area where incident occurred"
               />
             </FormField>
-            <FormField label="Location of incident / injury / trauma / illness">
+            <FormField label="Name of Witness" placeholder="e.g. N/A if no witness">
               <Input
-                value={data.incidentLocation}
-                onChange={(e) => set({ incidentLocation: e.target.value })}
-              />
-            </FormField>
-            <FormField label="Name of person who witnessed the incident">
-              <Input
+                className={INPUT_CLASS}
                 value={data.witnessName}
                 onChange={(e) => set({ witnessName: e.target.value })}
+                placeholder="Full name, or N/A"
               />
             </FormField>
-            <FormField label="Witness Date">
+            <FormField label="Date" hint="Witness signature date">
               <Input
+                className={INPUT_CLASS}
                 type="date"
                 value={data.witnessDate}
                 onChange={(e) => set({ witnessDate: e.target.value })}
@@ -353,261 +355,483 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
               <SignatureField
                 value={data.witnessSignature}
                 onChange={(v) => set({ witnessSignature: v })}
-                label="Witness Signature"
+                label="Witness signature"
               />
             </FormField>
           </Grid2>
 
-          <div className="mt-4 space-y-4">
-            <FormField label="Details of incident / injury / trauma / illness">
+          <div className="mt-5 space-y-4 rounded-xl border border-dashed border-border/80 bg-muted/20 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Circumstances &amp; description
+            </p>
+            <FormField
+              label="General activity at the time of incident/ injury/ trauma/ illness:"
+              placeholder="e.g. Outdoor play, group story time, lunch routine…"
+            >
               <Textarea
-                rows={3}
-                value={data.details}
-                onChange={(e) => set({ details: e.target.value })}
+                className={TEXTAREA_CLASS}
+                rows={2}
+                value={data.generalActivity}
+                onChange={(e) => set({ generalActivity: e.target.value })}
+                placeholder="What was the child doing when the incident happened?"
               />
             </FormField>
-            <FormField label="Circumstances leading to the incident, including any apparent symptoms">
+            <FormField
+              label="Cause of injury/ trauma:"
+              placeholder="Describe how the injury or trauma occurred"
+            >
               <Textarea
-                rows={3}
-                value={data.circumstances}
-                onChange={(e) => set({ circumstances: e.target.value })}
+                className={TEXTAREA_CLASS}
+                rows={2}
+                value={data.causeOfInjury}
+                onChange={(e) => set({ causeOfInjury: e.target.value })}
+                placeholder="e.g. Tripped on mat edge while running"
               />
             </FormField>
-            <FormField label="Circumstances if child appeared to be missing or otherwise unaccounted for (incl. duration, who found child, etc.)">
+            <FormField
+              label="Circumstances surrounding any illness, including apparent symptoms:"
+              placeholder="Leave blank if not applicable"
+            >
               <Textarea
+                className={TEXTAREA_CLASS}
+                rows={2}
+                value={data.circumstancesIllness}
+                onChange={(e) => set({ circumstancesIllness: e.target.value })}
+                placeholder="Symptoms observed, onset, duration…"
+              />
+            </FormField>
+            <FormField
+              label="Circumstances if child appeared to be missing or otherwise unaccounted for (incl duration, who found child etc.):"
+              placeholder="Leave blank if not applicable"
+            >
+              <Textarea
+                className={TEXTAREA_CLASS}
                 rows={2}
                 value={data.missingCircumstances}
                 onChange={(e) => set({ missingCircumstances: e.target.value })}
+                placeholder="Duration missing, who located the child, where found…"
               />
             </FormField>
-            <FormField label="Circumstances if child appeared to have been taken or removed from service or was locked in/out of service">
+            <FormField
+              label="Circumstances if child appeared to have been taken or removed from service or was locked in/out of service (incl who took the child, duration):"
+              placeholder="Leave blank if not applicable"
+            >
               <Textarea
+                className={TEXTAREA_CLASS}
                 rows={2}
                 value={data.removedCircumstances}
                 onChange={(e) => set({ removedCircumstances: e.target.value })}
+                placeholder="Who removed child, how long, how resolved…"
               />
             </FormField>
           </div>
         </Section>
 
-        {/* Section 4: Nature */}
-        <Section icon={Activity} title="Nature of Injury / Trauma / Illness">
-          <p className="mb-3 text-xs text-muted-foreground">
-            Toggle each that applies. Use “Other” to describe anything not listed.
+        <Section icon={Activity} title="Nature of Injury / Trauma / Illness" step={4}>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Toggle each type that applies. Select &quot;Other&quot; to add remarks below.
           </p>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <NatureColumn options={NATURE_LEFT} selected={data.natures} onToggle={toggleNature} />
-            <NatureColumn options={NATURE_RIGHT} selected={data.natures} onToggle={toggleNature} />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {NATURE_OPTIONS.map((opt) => {
+              const checked = data.natures.includes(opt);
+              return (
+                <label
+                  key={opt}
+                  className={cn(
+                    "flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3 py-3 text-sm transition",
+                    checked
+                      ? "border-primary/50 bg-primary/8 shadow-sm"
+                      : "border-border bg-background hover:border-primary/30 hover:bg-muted/30",
+                  )}
+                >
+                  <span className={cn("leading-snug", checked ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                    {opt}
+                  </span>
+                  <Switch checked={checked} onCheckedChange={() => toggleNature(opt)} />
+                </label>
+              );
+            })}
           </div>
-          {data.natures.includes("Other (Please specify)") && (
-            <div className="mt-4">
-              <FormField label="Please specify">
-                <Input
-                  value={data.natureOther}
-                  onChange={(e) => set({ natureOther: e.target.value })}
+          {data.natures.includes("Other (Please specify):") && (
+            <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+              <FormField
+                label="Remarks (Other)"
+                placeholder="Describe the nature of injury not listed above"
+              >
+                <Textarea
+                  className={TEXTAREA_CLASS}
+                  rows={2}
+                  value={data.natureOtherRemarks}
+                  onChange={(e) => set({ natureOtherRemarks: e.target.value })}
+                  placeholder="e.g. Small drop of blood on lip, no visible wound"
                 />
               </FormField>
             </div>
           )}
-          <div className="mt-4">
-            <FormField label="Indicate the part of the body affected">
-              <Textarea
-                rows={2}
-                placeholder="e.g., Right knee, lower back…"
-                value={data.bodyDiagramNote}
-                onChange={(e) => set({ bodyDiagramNote: e.target.value })}
-              />
-            </FormField>
-          </div>
         </Section>
 
-        {/* Section 5: Action taken */}
-        <Section icon={CheckCircle2} title="Action Taken">
+        <Section icon={CheckCircle2} title="Action Taken" step={5}>
           <div className="space-y-4">
-            <FormField label="Details of action taken (including first aid, administration of medication etc.)">
+            <FormField
+              label="Details of action taken:"
+              placeholder="First aid, comfort, medication, who assisted…"
+            >
               <Textarea
+                className={TEXTAREA_CLASS}
                 rows={3}
                 value={data.actionDetails}
                 onChange={(e) => set({ actionDetails: e.target.value })}
+                placeholder="e.g. Comforted child, offered water, monitored for 15 minutes…"
               />
             </FormField>
-
             <Grid2>
-              <FormField label="Did emergency services attend?">
-                <YesNo
-                  value={data.emergencyAttended}
-                  onChange={(v) => set({ emergencyAttended: v })}
-                />
+              <FormField label="Did emergency services attend:">
+                <YesNo value={data.emergencyAttended} onChange={(v) => set({ emergencyAttended: v })} />
               </FormField>
-              <FormField label="Time emergency services contacted">
-                <Input
-                  type="time"
-                  value={data.emergencyContactedTime}
-                  onChange={(e) => set({ emergencyContactedTime: e.target.value })}
-                />
-              </FormField>
-              <FormField label="Time emergency services arrived">
-                <Input
-                  type="time"
-                  value={data.emergencyArrivedTime}
-                  onChange={(e) => set({ emergencyArrivedTime: e.target.value })}
-                />
-              </FormField>
-              <FormField label="Was medical attention sought from a registered practitioner / hospital?">
+              <FormField label="Medical attention sought?">
                 <YesNo value={data.medicalSought} onChange={(v) => set({ medicalSought: v })} />
               </FormField>
             </Grid2>
-
-            <FormField label="If yes to either of the above, provide details">
+            <FormField
+              label="Medical attention details:"
+              placeholder="Practitioner, hospital, treatment — leave blank if N/A"
+            >
               <Textarea
+                className={TEXTAREA_CLASS}
                 rows={2}
-                value={data.yesDetails}
-                onChange={(e) => set({ yesDetails: e.target.value })}
+                value={data.medicalAttentionDetails}
+                onChange={(e) => set({ medicalAttentionDetails: e.target.value })}
+                placeholder="Details if medical attention was sought"
               />
             </FormField>
-
-            <FormField label="Have any steps been taken to prevent or minimise this type of incident in the future? If yes, provide details.">
+            <FormField
+              label="Step 1:"
+              placeholder="Steps taken to prevent recurrence (part 1)"
+            >
               <Textarea
+                className={TEXTAREA_CLASS}
                 rows={2}
-                value={data.preventionSteps}
-                onChange={(e) => set({ preventionSteps: e.target.value })}
+                value={data.preventionStep1}
+                onChange={(e) => set({ preventionStep1: e.target.value })}
+                placeholder="Prevention or follow-up step 1"
+              />
+            </FormField>
+            <FormField label="Step 2:" placeholder="Additional prevention steps">
+              <Textarea
+                className={TEXTAREA_CLASS}
+                rows={2}
+                value={data.preventionStep2}
+                onChange={(e) => set({ preventionStep2: e.target.value })}
+                placeholder="Prevention or follow-up step 2"
               />
             </FormField>
           </div>
         </Section>
 
-        {/* Section 6: Notifications */}
-        <Section
-          icon={Bell}
-          title="Parent / Guardian Notifications (including attempted notifications)"
-        >
-          <NotifyRow
-            label="Parent / Guardian / Carer"
-            name={data.parentName}
-            date={data.parentDate}
-            time={data.parentTime}
-            onName={(v) => set({ parentName: v })}
-            onDate={(v) => set({ parentDate: v })}
-            onTime={(v) => set({ parentTime: v })}
+        <Section icon={Bell} title="Step 3: Parent/Guardian Notifications" step={6}>
+          <ParentNotifyBlock
+            index={1}
+            data={data}
+            set={set}
+            fields={{
+              name: "parent1Name",
+              method: "parent1Method",
+              date: "parent1Date",
+              time: "parent1Time",
+              contactMade: "parent1ContactMade",
+              messageLeft: "parent1MessageLeft",
+            }}
           />
-          <NotifyRow
-            label="Director / Educator / Coordinator"
-            name={data.directorName}
-            date={data.directorDate}
-            time={data.directorTime}
-            onName={(v) => set({ directorName: v })}
-            onDate={(v) => set({ directorDate: v })}
-            onTime={(v) => set({ directorTime: v })}
-          />
-          <NotifyRow
-            label="Other agency (if applicable)"
-            name={data.otherAgency}
-            date={data.otherAgencyDate}
-            time={data.otherAgencyTime}
-            onName={(v) => set({ otherAgency: v })}
-            onDate={(v) => set({ otherAgencyDate: v })}
-            onTime={(v) => set({ otherAgencyTime: v })}
-          />
-          <NotifyRow
-            label="Regulatory authority (if applicable)"
-            name={data.regulatoryAuthority}
-            date={data.regDate}
-            time={data.regTime}
-            onName={(v) => set({ regulatoryAuthority: v })}
-            onDate={(v) => set({ regDate: v })}
-            onTime={(v) => set({ regTime: v })}
+          <ParentNotifyBlock
+            index={2}
+            data={data}
+            set={set}
+            fields={{
+              name: "parent2Name",
+              method: "parent2Method",
+              date: "parent2Date",
+              time: "parent2Time",
+              contactMade: "parent2ContactMade",
+              messageLeft: "parent2MessageLeft",
+            }}
             last
           />
         </Section>
 
-        {/* Section 7: Parental acknowledgement */}
-        <Section icon={CheckCircle2} title="Parental Acknowledgement">
-          <div className="space-y-4">
-            <FormField label="I,">
-              <Input
-                value={data.ackName}
-                onChange={(e) => set({ ackName: e.target.value })}
-                placeholder="Parent / guardian name"
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                (name of parent / guardian) have been notified of my child's incident / injury /
-                trauma / illness.
-              </p>
-            </FormField>
-
-            <div className="flex flex-wrap gap-4">
-              {ACK_TYPES.map((t) => {
-                const checked = data.ackTypes.includes(t);
-                return (
-                  <label key={t} className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={checked} onCheckedChange={(v) => toggleAckType(t, !!v)} />
-                    <span className="font-medium">{t}</span>
-                  </label>
-                );
-              })}
-            </div>
-
+        <Section icon={Bell} title="Internal Notifications" step={7}>
+          <SubSection title="Responsible person in charge">
             <Grid2>
+              <FormField label="Responsible Person in Charge Name:" placeholder="Full name">
+                <Input
+                  className={INPUT_CLASS}
+                  value={data.responsiblePersonName}
+                  onChange={(e) => set({ responsiblePersonName: e.target.value })}
+                  placeholder="Name of person in charge"
+                />
+              </FormField>
+              <FormField label="Signature:">
+                <SignatureField
+                  value={data.responsiblePersonSignature}
+                  onChange={(v) => set({ responsiblePersonSignature: v })}
+                  label="Signature"
+                />
+              </FormField>
               <FormField label="Date">
                 <Input
+                  className={INPUT_CLASS}
                   type="date"
-                  value={data.ackDate}
-                  onChange={(e) => set({ ackDate: e.target.value })}
+                  value={data.responsiblePersonDate}
+                  onChange={(e) => set({ responsiblePersonDate: e.target.value })}
                 />
               </FormField>
               <FormField label="Time">
                 <Input
+                  className={INPUT_CLASS}
                   type="time"
-                  value={data.ackTime}
-                  onChange={(e) => set({ ackTime: e.target.value })}
+                  value={data.responsiblePersonTime}
+                  onChange={(e) => set({ responsiblePersonTime: e.target.value })}
                 />
               </FormField>
             </Grid2>
+          </SubSection>
+          <SubSection title="Nominated Supervisor">
+            <Grid2>
+              <FormField label="Nominated Supervisor Name:" placeholder="Supervisor full name">
+                <Input
+                  className={INPUT_CLASS}
+                  value={data.nominatedSupervisorName}
+                  onChange={(e) => set({ nominatedSupervisorName: e.target.value })}
+                  placeholder="Nominated supervisor name"
+                />
+              </FormField>
+              <FormField label="Signature:">
+                <SignatureField
+                  value={data.nominatedSupervisorSignature}
+                  onChange={(v) => set({ nominatedSupervisorSignature: v })}
+                  label="Supervisor signature"
+                />
+              </FormField>
+              <FormField label="Date">
+                <Input
+                  className={INPUT_CLASS}
+                  type="date"
+                  value={data.nominatedSupervisorDate}
+                  onChange={(e) => set({ nominatedSupervisorDate: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Time">
+                <Input
+                  className={INPUT_CLASS}
+                  type="time"
+                  value={data.nominatedSupervisorTime}
+                  onChange={(e) => set({ nominatedSupervisorTime: e.target.value })}
+                />
+              </FormField>
+            </Grid2>
+          </SubSection>
+        </Section>
 
-            <FormField label="Final Signature">
-              <SignatureField
-                value={data.finalSignature}
-                onChange={(v) => set({ finalSignature: v })}
-                label="Final Signature"
+        <Section icon={Bell} title="External Notifications" step={8}>
+          <SubSection title="Other agency:">
+            <Grid2>
+              <FormField label="Date" hint="When other agency was notified">
+                <Input
+                  className={INPUT_CLASS}
+                  type="date"
+                  value={data.otherAgencyDate}
+                  onChange={(e) => set({ otherAgencyDate: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Time">
+                <Input
+                  className={INPUT_CLASS}
+                  type="time"
+                  value={data.otherAgencyTime}
+                  onChange={(e) => set({ otherAgencyTime: e.target.value })}
+                />
+              </FormField>
+            </Grid2>
+          </SubSection>
+          <SubSection title="Regulatory authority:">
+            <Grid2>
+              <FormField label="Date" hint="When regulatory authority was notified">
+                <Input
+                  className={INPUT_CLASS}
+                  type="date"
+                  value={data.regulatoryAuthorityDate}
+                  onChange={(e) => set({ regulatoryAuthorityDate: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Time">
+                <Input
+                  className={INPUT_CLASS}
+                  type="time"
+                  value={data.regulatoryAuthorityTime}
+                  onChange={(e) => set({ regulatoryAuthorityTime: e.target.value })}
+                />
+              </FormField>
+            </Grid2>
+          </SubSection>
+        </Section>
+
+        <Section icon={CheckCircle2} title="Parental acknowledgement" step={9}>
+          <div className="space-y-4 rounded-xl border border-border/80 bg-muted/15 p-4">
+            <FormField label="Parental acknowledgement" placeholder="Parent or guardian full name">
+              <Input
+                className={INPUT_CLASS}
+                value={data.ackName}
+                onChange={(e) => set({ ackName: e.target.value })}
+                placeholder="e.g. Huimin Goh"
+              />
+            </FormField>
+            <p className="text-sm italic leading-relaxed text-muted-foreground">
+              (name of parent / guardian) have been notified of my child&apos;s incident / injury / trauma /
+              illness.
+            </p>
+            <FormField label="Date" hint="Date of parental acknowledgement">
+              <Input
+                className={INPUT_CLASS}
+                type="date"
+                value={data.ackDate}
+                onChange={(e) => set({ ackDate: e.target.value })}
               />
             </FormField>
           </div>
         </Section>
 
-        {/* Section 8: Additional notes */}
-        <Section icon={StickyNote} title="Additional Notes">
-          <Textarea
-            rows={4}
-            value={data.additionalNotes}
-            onChange={(e) => set({ additionalNotes: e.target.value })}
-          />
+        <Section icon={StickyNote} title="Additional notes" step={10}>
+          <div className="space-y-4">
+            <FormField label="Additional notes" placeholder="Any extra information for this record">
+              <Textarea
+                className={TEXTAREA_CLASS}
+                rows={3}
+                value={data.additionalNotes}
+                onChange={(e) => set({ additionalNotes: e.target.value })}
+                placeholder="Optional notes not covered above"
+              />
+            </FormField>
+            <FormField label="Time" hint="Time notes were recorded">
+              <Input
+                className={INPUT_CLASS}
+                type="time"
+                value={data.additionalNotesTime}
+                onChange={(e) => set({ additionalNotesTime: e.target.value })}
+              />
+            </FormField>
+          </div>
         </Section>
 
-        {/* Footer */}
-        <div className="sticky bottom-0 -mx-4 flex flex-wrap items-center justify-end gap-2 border-t border-border bg-background/95 px-4 py-4 backdrop-blur sm:mx-0 sm:rounded-2xl sm:px-5">
-          <Button variant="outline" onClick={onCancel}>
-            <X className="mr-1.5 h-4 w-4" />
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            <Save className="mr-1.5 h-4 w-4" />
-            {isEdit ? "Save Changes" : "Save & Next"}
-          </Button>
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-4 backdrop-blur-md sm:mx-0 sm:rounded-2xl sm:px-6">
+          <p className="text-xs text-muted-foreground">
+            <span className="text-destructive">*</span> Required before saving
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onCancel}>
+              <X className="mr-1.5 h-4 w-4" />
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>
+              <Save className="mr-1.5 h-4 w-4" />
+              {isEdit ? "Save changes" : "Save record"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function Section({ title, icon: Icon, children }) {
+function ParentNotifyBlock({ index, data, set, fields, last }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-      <header className="flex items-center gap-2 bg-primary/10 px-5 py-3 text-primary">
-        {Icon && <Icon className="h-4 w-4" />}
-        <h3 className="text-sm font-bold uppercase tracking-wide">{title}</h3>
+    <div
+      className={cn(
+        "rounded-xl border border-border/80 bg-muted/10 p-4",
+        !last && "mb-4",
+      )}
+    >
+      <p className="mb-4 flex items-center gap-2 text-sm font-bold text-foreground">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-xs text-primary">
+          {index}
+        </span>
+        Parent/ Guardian
+      </p>
+      <Grid2>
+        <FormField label="Parent/ Guardian name:" placeholder="e.g. Huimin Goh">
+          <Input
+            className={INPUT_CLASS}
+            value={data[fields.name]}
+            onChange={(e) => set({ [fields.name]: e.target.value })}
+            placeholder="Full name of parent or guardian"
+          />
+        </FormField>
+        <FormField label="Method of Contact:" placeholder="e.g. Phone, Email, In person">
+          <Input
+            className={INPUT_CLASS}
+            value={data[fields.method]}
+            onChange={(e) => set({ [fields.method]: e.target.value })}
+            placeholder="How contact was attempted or made"
+          />
+        </FormField>
+        <FormField label="Date">
+          <Input
+            className={INPUT_CLASS}
+            type="date"
+            value={data[fields.date]}
+            onChange={(e) => set({ [fields.date]: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Time">
+          <Input
+            className={INPUT_CLASS}
+            type="time"
+            value={data[fields.time]}
+            onChange={(e) => set({ [fields.time]: e.target.value })}
+          />
+        </FormField>
+        <FormField label="Contact Made:" placeholder="e.g. Yes — spoke with mother">
+          <Input
+            className={INPUT_CLASS}
+            value={data[fields.contactMade]}
+            onChange={(e) => set({ [fields.contactMade]: e.target.value })}
+            placeholder="Was contact successfully made?"
+          />
+        </FormField>
+        <FormField label="Message Left:" placeholder="e.g. Voicemail left at 3:45pm">
+          <Input
+            className={INPUT_CLASS}
+            value={data[fields.messageLeft]}
+            onChange={(e) => set({ [fields.messageLeft]: e.target.value })}
+            placeholder="Message details if contact not made"
+          />
+        </FormField>
+      </Grid2>
+    </div>
+  );
+}
+
+function Section({ title, icon: Icon, children, step }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
+      <header className="flex items-center gap-3 border-b border-border/60 bg-muted/30 px-5 py-4">
+        {step != null && (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+            {step}
+          </span>
+        )}
+        {Icon && <Icon className="h-5 w-5 shrink-0 text-primary" />}
+        <h3 className="text-sm font-bold leading-snug text-foreground">{title}</h3>
       </header>
-      <div className="p-5">{children}</div>
+      <div className="p-5 sm:p-6">{children}</div>
     </section>
+  );
+}
+
+function SubSection({ title, children }) {
+  return (
+    <div className="space-y-4 border-b border-dashed border-border/70 py-5 first:pt-0 last:border-0 last:pb-0">
+      <p className="text-sm font-bold text-primary">{title}</p>
+      {children}
+    </div>
   );
 }
 
@@ -615,12 +839,14 @@ function Grid2({ children }) {
   return <div className="grid grid-cols-1 gap-4 md:grid-cols-2">{children}</div>;
 }
 
-function FormField({ label, children, className }) {
+function FormField({ label, children, className, required, hint, placeholder: _ph }) {
   return (
     <div className={cn("space-y-1.5", className)}>
-      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <Label className="text-sm font-semibold leading-snug text-foreground">
         {label}
+        {required && <span className="ml-0.5 text-destructive">*</span>}
       </Label>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {children}
     </div>
   );
@@ -628,62 +854,9 @@ function FormField({ label, children, className }) {
 
 function YesNo({ value, onChange }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex h-11 items-center gap-3 rounded-lg border border-border/80 bg-muted/20 px-4">
       <Switch checked={value === "yes"} onCheckedChange={(v) => onChange(v ? "yes" : "no")} />
-      <span className="text-sm font-medium">{value === "yes" ? "Yes" : "No"}</span>
-    </div>
-  );
-}
-
-function NatureColumn({ options, selected, onToggle }) {
-  return (
-    <div className="divide-y divide-border rounded-xl border border-border bg-muted/20">
-      {options.map((opt) => {
-        const checked = selected.includes(opt);
-        return (
-          <label
-            key={opt}
-            className="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm hover:bg-muted/40"
-          >
-            <span
-              className={cn("font-medium", checked ? "text-foreground" : "text-muted-foreground")}
-            >
-              {opt}
-            </span>
-            <Switch checked={checked} onCheckedChange={() => onToggle(opt)} />
-          </label>
-        );
-      })}
-    </div>
-  );
-}
-
-function NotifyRow({ label, name, date, time, onName, onDate, onTime, last }) {
-  return (
-    <div
-      className={cn(
-        "grid grid-cols-1 gap-3 py-3 md:grid-cols-3",
-        !last && "border-b border-dashed border-border",
-      )}
-    >
-      <div className="space-y-1.5">
-        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {label}
-        </Label>
-        <Input value={name} onChange={(e) => onName(e.target.value)} />
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Date
-        </Label>
-        <Input type="date" value={date} onChange={(e) => onDate(e.target.value)} />
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Time
-        </Label>
-        <Input type="time" value={time} onChange={(e) => onTime(e.target.value)} />
-      </div>
+      <span className="text-sm font-semibold">{value === "yes" ? "Yes" : "No"}</span>
     </div>
   );
 }

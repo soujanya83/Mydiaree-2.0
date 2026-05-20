@@ -29,6 +29,8 @@ const SUBJECT_MAP = {
 export function ProgramPlanView({ record, onBack, onEdit }) {
   const centres = useCentreStore((s) => s.centres);
   const centreName = centres.find((c) => String(c.id) === String(record.centreId))?.name || "—";
+  const educators = record.educatorNames?.length ? record.educatorNames : record.educators;
+  const children = record.childrenNames?.length ? record.childrenNames : record.children;
 
   return (
     <div>
@@ -60,8 +62,8 @@ export function ProgramPlanView({ record, onBack, onEdit }) {
 
         <Card title="Team & Children" icon={Users}>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <ChipList label="Educators" items={record.educators} />
-            <ChipList label="Children" items={record.children} />
+            <ChipList label="Educators" items={educators} />
+            <ChipList label="Children" items={children} />
           </div>
         </Card>
 

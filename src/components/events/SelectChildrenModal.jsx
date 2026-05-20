@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useChildrenStore } from "@/stores/childrenStore";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useRoomStore } from "@/stores/roomStore";
+import { useCentreStore } from "@/stores/centreStore";
+import { childrenService } from "@/services/centre/childrenService";
 
 function ageString(dob) {
   if (!dob) return "";
@@ -20,48 +27,64 @@ function ageString(dob) {
   return `${years} years ${months} months`;
 }
 
-const GROUPS = [
-  { id: "g1", name: "Toddler (0-2.6Yrs)", filter: (c) => yearsOf(c.dob) <= 2 },
-  { id: "g2", name: "Primary Montessori (2.6Yrs-6Yrs)", filter: (c) => yearsOf(c.dob) > 2 && yearsOf(c.dob) <= 6 },
-  { id: "g3", name: "Elementary (6Yrs-12Yrs)", filter: (c) => yearsOf(c.dob) > 6 && yearsOf(c.dob) <= 12 },
-];
-function yearsOf(dob) {
-  if (!dob) return 0;
-  return Math.floor((Date.now() - new Date(dob).getTime()) / (1000 * 60 * 60 * 24 * 365.25));
-}
+const IMG_BASE = "https://mydiaree.com.au/";
 
 export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit }) {
-  const { children: allStoreChildren } = useChildrenStore();
-  const { rooms: allStoreRooms } = useRoomStore();
+  const { activeCentreId } = useCentreStore();
+  const { rooms: allStoreRooms, fetchRooms } = useRoomStore();
 
-  const [tab, setTab] = useState("children");
   const [search, setSearch] = useState("");
+  const [roomId, setRoomId] = useState("all");
   const [picked, setPicked] = useState(new Set());
+  const [children, setChildren] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setPicked(new Set(initial));
       setSearch("");
-      setTab("children");
+      setRoomId("all");
     }
   }, [open, initial]);
 
-  const matchSearch = (c) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    const name = (c.name || "").toLowerCase();
-    return name.includes(q) || ageString(c.dob).toLowerCase().includes(q);
-  };
+  useEffect(() => {
+    if (!open || !activeCentreId) return;
+    if (allStoreRooms.length === 0) {
+      fetchRooms(activeCentreId);
+    }
+  }, [open, activeCentreId, allStoreRooms.length, fetchRooms]);
 
-  const filteredChildren = useMemo(
-    () => allStoreChildren.filter(matchSearch),
-    [allStoreChildren, search]
-  );
+  useEffect(() => {
+    if (!open || !activeCentreId) return;
+    const timer = setTimeout(async () => {
+      setIsLoading(true);
+      try {
+        const res = await childrenService.filterChildren({
+          center_id: activeCentreId,
+          room_id: roomId === "all" ? undefined : roomId,
+          search,
+        });
+        if (res.status) {
+          setChildren(res.data?.data || []);
+        } else {
+          setChildren([]);
+        }
+      } catch (error) {
+        setChildren([]);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [open, activeCentreId, roomId, search]);
+
+  const filteredChildren = useMemo(() => children, [children]);
 
   const toggle = (id) => {
+    const normalizedId = String(id);
     setPicked((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(normalizedId)) next.delete(normalizedId); else next.add(normalizedId);
       return next;
     });
   };
@@ -75,7 +98,7 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
     });
   };
 
-  const allChildrenIds = filteredChildren.map((c) => c.id);
+  const allChildrenIds = filteredChildren.map((c) => String(c.id));
   const allChecked = allChildrenIds.length > 0 && allChildrenIds.every((id) => picked.has(id));
 
   const submit = () => {
@@ -83,16 +106,24 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
     onOpenChange(false);
   };
 
-  const ChildRow = ({ c, indent = false }) => (
-    <label className={`flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50 ${indent ? "ml-7" : ""}`}>
-      <Checkbox checked={picked.has(c.id)} onCheckedChange={() => toggle(c.id)} />
+  const toImageUrl = (url) => {
+    if (!url) return "";
+    if (url.startsWith("http")) return url;
+    return `${IMG_BASE}${url.replace(/^\/+/, "")}`;
+  };
+
+  const fullName = (c) => [c.name, c.lastname].filter(Boolean).join(" ").trim() || "Child";
+
+  const ChildRow = ({ c }) => (
+    <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50">
+      <Checkbox checked={picked.has(String(c.id))} onCheckedChange={() => toggle(c.id)} />
       <img
-        src={c.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`}
-        alt={c.name}
+        src={toImageUrl(c.imageUrl) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fullName(c)}`}
+        alt={fullName(c)}
         className="h-7 w-7 rounded-full border object-cover"
       />
       <span className="text-sm font-medium text-primary">
-        {c.name} <span className="text-muted-foreground font-normal">- {ageString(c.dob)}</span>
+        {fullName(c)} <span className="text-muted-foreground font-normal">- {ageString(c.dob)}</span>
       </span>
     </label>
   );
@@ -105,99 +136,61 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
         </DialogHeader>
 
         <div className="space-y-4 px-5 py-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Enter child name or age to search"
-              className="h-10 pl-9"
-            />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Room</p>
+              <Select value={roomId} onValueChange={setRoomId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All rooms" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Rooms</SelectItem>
+                  {allStoreRooms.map((room) => (
+                    <SelectItem key={room.id} value={String(room.id)}>
+                      {room.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Search</p>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search child"
+                  className="h-10 pl-9"
+                />
+              </div>
+            </div>
           </div>
 
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="w-full justify-start gap-1 rounded-none border-b bg-transparent p-0">
-              {[
-                { v: "children", l: "Children" },
-                { v: "groups", l: "Groups" },
-                { v: "rooms", l: "Rooms" },
-              ].map((t) => (
-                <TabsTrigger
-                  key={t.v}
-                  value={t.v}
-                  className="rounded-md border border-transparent px-4 py-1.5 text-sm font-semibold data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
-                >
-                  {t.l}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {/* Children */}
-            <TabsContent value="children" className="mt-3 max-h-80 overflow-y-auto pr-1">
-              <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50">
-                <Checkbox
-                  checked={allChecked}
-                  onCheckedChange={(c) => toggleMany(allChildrenIds, !!c)}
-                />
-                <span className="text-sm font-semibold text-primary">Select All</span>
-              </label>
-              <div className="space-y-0.5">
-                {filteredChildren.map((c) => <ChildRow key={c.id} c={c} />)}
-                {filteredChildren.length === 0 && (
-                  <p className="py-6 text-center text-sm text-muted-foreground">No children found.</p>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Groups */}
-            <TabsContent value="groups" className="mt-3 max-h-80 overflow-y-auto pr-1">
-              <div className="space-y-3">
-                {GROUPS.map((g) => {
-                  const members = allStoreChildren.filter(g.filter).filter(matchSearch);
-                  const ids = members.map((c) => c.id);
-                  const groupChecked = ids.length > 0 && ids.every((id) => picked.has(id));
-                  return (
-                    <div key={g.id} className="space-y-0.5">
-                      <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50">
-                        <Checkbox
-                          checked={groupChecked}
-                          onCheckedChange={(c) => toggleMany(ids, !!c)}
-                        />
-                        <span className="text-sm font-semibold text-primary">{g.name}</span>
-                      </label>
-                      {members.map((c) => <ChildRow key={c.id} c={c} indent />)}
-                    </div>
-                  );
-                })}
-              </div>
-            </TabsContent>
-
-            {/* Rooms */}
-            <TabsContent value="rooms" className="mt-3 max-h-80 overflow-y-auto pr-1">
-              <div className="space-y-3">
-                {allStoreRooms.map((r) => {
-                  const members = allStoreChildren
-                    .filter((c) => c.room === r.name)
-                    .filter(matchSearch);
-                  const ids = members.map((c) => c.id);
-                  const roomChecked = ids.length > 0 && ids.every((id) => picked.has(id));
-                  return (
-                    <div key={r.id} className="space-y-0.5">
-                      <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50">
-                        <Checkbox
-                          checked={roomChecked}
-                          disabled={ids.length === 0}
-                          onCheckedChange={(c) => toggleMany(ids, !!c)}
-                        />
-                        <span className="text-sm font-semibold text-primary">{r.name}</span>
-                      </label>
-                      {members.map((c) => <ChildRow key={c.id} c={c} indent />)}
-                    </div>
-                  );
-                })}
-              </div>
-            </TabsContent>
-          </Tabs>
+          <div className="mt-1 max-h-80 overflow-y-auto pr-1">
+            <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50">
+              <Checkbox
+                checked={allChecked}
+                onCheckedChange={(c) => toggleMany(allChildrenIds, !!c)}
+              />
+              <span className="text-sm font-semibold text-primary">Select All</span>
+            </label>
+            <div className="space-y-0.5">
+              {isLoading ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                  <p className="mt-2">Loading children...</p>
+                </div>
+              ) : (
+                <>
+                  {filteredChildren.map((c) => <ChildRow key={c.id} c={c} />)}
+                  {filteredChildren.length === 0 && (
+                    <p className="py-6 text-center text-sm text-muted-foreground">No children found.</p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
 
           {picked.size > 0 && (
             <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">

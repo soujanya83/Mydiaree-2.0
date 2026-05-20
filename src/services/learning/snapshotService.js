@@ -1,9 +1,14 @@
 import api from "../../api/api";
 
 export const snapshotService = {
-  async getAllSnapshots(centerId) {
+  async getAllSnapshots(centerId, options = {}) {
+    const { page, perPage } = options;
     const res = await api.get("/snapshot/mernindex", {
-      params: { centerid: centerId },
+      params: {
+        centerid: centerId,
+        ...(page ? { page } : {}),
+        ...(perPage ? { per_page: perPage } : {}),
+      },
     });
 
     console.log("Snapshots response ", res);

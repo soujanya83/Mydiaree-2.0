@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   ArrowLeft,
   Save,
   X,
   Search,
   Calendar,
-  Building2,
   DoorOpen,
   Users,
   Sparkles,
@@ -13,6 +12,7 @@ import {
   BookOpen,
   Activity as ActivityIcon,
   Loader2,
+  Check,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   MONTHS,
   YEARS,
@@ -43,6 +44,12 @@ import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+const IMG_BASE = "https://mydiaree.com.au/";
+const avatarUrl = (url) => {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${IMG_BASE}${url}`;
+};
+
 const SUBJECT_MAP = {
   "practical-life": "Practical Life",
   math: "Maths",
@@ -51,23 +58,20 @@ const SUBJECT_MAP = {
   language: "Language",
 };
 
-const empty = (centreId, roomId) => ({
+const empty = (centreId) => ({
   centreId: centreId || "",
-  roomId: roomId || "",
+  roomIds: [],
   month: MONTHS[new Date().getMonth()],
   year: new Date().getFullYear(),
   educators: [],
   children: [],
   focusArea: "",
-  // activity-based subjects
   practicalLife: [],
   sensorial: [],
   math: [],
   language: [],
   culture: [],
-  // rich text subject
   artCraft: "",
-  // additional
   eylf: [],
   outdoor: "",
   inquiry: "",
@@ -91,28 +95,97 @@ const SUBJECT_FIELDS = {
   culture: "culture",
 };
 
+const textValue = (value) => value ?? "";
+
+const FORM_ARRAY_FIELDS = [
+  "roomIds",
+  "educators",
+  "children",
+  "practicalLife",
+  "sensorial",
+  "math",
+  "language",
+  "culture",
+  "eylf",
+];
+
+const FORM_TEXT_FIELDS = [
+  "centreId",
+  "roomId",
+  "focusArea",
+  "artCraft",
+  "outdoor",
+  "inquiry",
+  "sustainability",
+  "specialEvents",
+  "childrenVoices",
+  "familiesInput",
+  "groupExperience",
+  "spontaneous",
+  "mindfulness",
+  "whatIsWorking",
+  "whatIsNotWorking",
+  "status",
+];
+
+const normalizeFormData = (value, centreId) => {
+  const next = { ...empty(centreId), ...(value || {}) };
+
+  FORM_ARRAY_FIELDS.forEach((field) => {
+    next[field] = Array.isArray(next[field]) ? next[field] : [];
+  });
+
+  FORM_TEXT_FIELDS.forEach((field) => {
+    next[field] = textValue(next[field]);
+  });
+
+  next.month = textValue(next.month);
+  next.year = textValue(next.year);
+
+  return next;
+};
+
 export function ProgramPlanForm({
   mode = "create",
   initial,
+  record,
+  centerId,
+  defaultMonth,
+  defaultYear,
   onCancel,
   onSubmit,
   onSaveAsNew,
   defaults,
   isSaving = false,
+  isSubmitting,
 }) {
-  const centres = useCentreStore((s) => s.centres);
+  const finalInitial = initial || record;
+  const finalIsSaving = isSaving || isSubmitting;
 
-  const [data, setData] = useState(() =>
-    initial ? { ...empty(), ...initial } : empty(defaults?.centreId, defaults?.roomId),
-  );
+  const { activeCentreId } = useCentreStore();
+  const finalCentreId = centerId || defaults?.centreId || activeCentreId;
+
+  const [data, setData] = useState(() => normalizeFormData(finalInitial, finalCentreId));
 
   const [picker, setPicker] = useState(null); // subjectKey
   const [eylfOpen, setEylfOpen] = useState(false);
-  const [educatorQuery, setEducatorQuery] = useState("");
-  const [childQuery, setChildQuery] = useState("");
   const [availableRooms, setAvailableRooms] = useState([]);
   const [availableEducators, setAvailableEducators] = useState([]);
-  const [availableChildren, setAvailableChildren] = useState([]);
+
+  // Modals search and scroll pagination state
+  const [childrenModalOpen, setChildrenModalOpen] = useState(false);
+  const [childrenList, setChildrenList] = useState([]);
+  const [childrenSearch, setChildrenSearch] = useState("");
+  const [childrenPage, setChildrenPage] = useState(1);
+  const [childrenTotalPages, setChildrenTotalPages] = useState(1);
+  const [isLoadingChildren, setIsLoadingChildren] = useState(false);
+
+  const [educatorsModalOpen, setEducatorsModalOpen] = useState(false);
+  const [educatorsList, setEducatorsList] = useState([]);
+  const [educatorsSearch, setEducatorsSearch] = useState("");
+  const [educatorsPage, setEducatorsPage] = useState(1);
+  const [educatorsTotalPages, setEducatorsTotalPages] = useState(1);
+  const [isLoadingEducators, setIsLoadingEducators] = useState(false);
 
   const update = (k, v) => setData((p) => ({ ...p, [k]: v }));
 
@@ -127,77 +200,118 @@ export function ProgramPlanForm({
   };
 
   useEffect(() => {
-    const loadRoomsAndStaff = async () => {
-      if (!data.centreId) return;
+    setData(normalizeFormData(finalInitial, finalCentreId));
+  }, [finalInitial, finalCentreId]);
+
+  // Load Rooms
+  useEffect(() => {
+    const loadRooms = async () => {
+      if (!finalCentreId) return;
       try {
-        const [roomsResponse, staffResponse] = await Promise.all([
-          programPlanService.getRoomsAndStaff(data.centreId),
-          staffService.getStaffSettings({
-            center_id: data.centreId,
-            per_page: 10,
-          }),
-        ]);
+        const roomsResponse = await programPlanService.getRoomsAndStaff(finalCentreId);
         if (roomsResponse.status) {
           setAvailableRooms(roomsResponse.rooms || roomsResponse.data?.rooms || []);
         }
-        if (staffResponse.status) {
-          const staff = staffResponse.data?.staff?.data || staffResponse.data?.staff || [];
-          setAvailableEducators(staff.filter((s) => s.status === "ACTIVE"));
-        }
       } catch (error) {
-        console.error("Failed to load program plan rooms/staff:", error);
+        console.error("Failed to load program plan rooms:", error);
       }
     };
+    loadRooms();
+  }, [finalCentreId]);
 
-    loadRoomsAndStaff();
-  }, [data.centreId]);
+  // Fetch children
+  const fetchChildren = useCallback(async (page, search, roomId, centerId) => {
+    if (!centerId || !roomId) {
+      setChildrenList([]);
+      setChildrenTotalPages(1);
+      return;
+    }
+    setIsLoadingChildren(true);
+    try {
+      const response = await childrenService.filterChildren({
+        room_id: roomId,
+        center_id: centerId,
+        search: search,
+        page: page,
+        per_page: 10,
+      });
+      const pageData = response.data?.data || response.data || [];
+      const lastPage = response.pagination?.last_page || response.data?.last_page || 1;
+      setChildrenList((prev) => (page === 1 ? pageData : [...prev, ...pageData]));
+      setChildrenTotalPages(lastPage);
+    } catch (err) {
+      console.error("Failed to load children:", err);
+    } finally {
+      setIsLoadingChildren(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const loadChildren = async () => {
-      if (!data.roomId) {
-        setAvailableChildren([]);
-        return;
+    setChildrenPage(1);
+    fetchChildren(1, childrenSearch, data.roomId, finalCentreId);
+  }, [childrenSearch, data.roomId, finalCentreId, fetchChildren]);
+
+  const handleLoadMoreChildren = () => {
+    if (childrenPage < childrenTotalPages && !isLoadingChildren) {
+      const nextPage = childrenPage + 1;
+      setChildrenPage(nextPage);
+      fetchChildren(nextPage, childrenSearch, data.roomId, finalCentreId);
+    }
+  };
+
+  // Fetch educators
+  const fetchEducators = useCallback(async (page, search, centerId) => {
+    if (!centerId) {
+      setEducatorsList([]);
+      setEducatorsTotalPages(1);
+      return;
+    }
+    setIsLoadingEducators(true);
+    try {
+      const response = await staffService.getStaffSettings({
+        center_id: centerId,
+        search: search,
+        page: page,
+        per_page: 10,
+      });
+      if (response.status) {
+        const staffData = response.data?.staff?.data || response.data?.staff || [];
+        const lastPage = response.data?.staff?.last_page || response.pagination?.last_page || 1;
+        const activeStaff = staffData.filter((s) => s.status === "ACTIVE");
+
+        setEducatorsList((prev) => (page === 1 ? activeStaff : [...prev, ...activeStaff]));
+        setEducatorsTotalPages(lastPage);
       }
-      try {
-        const response = await childrenService.filterChildren({
-          room: data.roomId,
-          center_id: data.centreId,
-        });
-        const items = Array.isArray(response.data)
-          ? response.data
-          : response.data?.data || response.children || [];
-        setAvailableChildren(items);
-      } catch (error) {
-        console.error("Failed to load program plan children:", error);
-      }
-    };
+    } catch (error) {
+      console.error("Failed to load educators:", error);
+    } finally {
+      setIsLoadingEducators(false);
+    }
+  }, []);
 
-    loadChildren();
-  }, [data.roomId]);
+  useEffect(() => {
+    setEducatorsPage(1);
+    fetchEducators(1, educatorsSearch, finalCentreId);
+  }, [educatorsSearch, finalCentreId, fetchEducators]);
 
-  const roomOptions = availableRooms.map((room) => ({
-    value: String(room.id),
-    label: room.name,
-  }));
-  const educatorOptions = availableEducators.map((educator) => ({
-    value: String(educator.id),
-    label: educator.name,
-  }));
-  const childOptions = availableChildren.map((child) => ({
-    value: String(child.id),
-    label: child.name,
-  }));
+  const handleLoadMoreEducators = () => {
+    if (educatorsPage < educatorsTotalPages && !isLoadingEducators) {
+      const nextPage = educatorsPage + 1;
+      setEducatorsPage(nextPage);
+      fetchEducators(nextPage, educatorsSearch, finalCentreId);
+    }
+  };
 
-  const filteredEducatorOptions = educatorOptions.filter((educator) =>
-    educator.label.toLowerCase().includes(educatorQuery.toLowerCase()),
-  );
-  const filteredChildOptions = childOptions.filter((child) =>
-    child.label.toLowerCase().includes(childQuery.toLowerCase()),
-  );
+  const handleScroll = (e, onLoadMore) => {
+    const target = e.target;
+    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 10) {
+      onLoadMore();
+    }
+  };
 
   const handleSubmit = (status) => {
     if (!data.centreId || !data.roomId) {
-      toast.error("Please select a centre and room.");
+      toast.error("Please select a room.");
       return;
     }
     if (data.educators.length === 0) {
@@ -208,7 +322,10 @@ export function ProgramPlanForm({
       toast.error("Please select at least one child.");
       return;
     }
-    onSubmit({ ...data, status });
+    onSubmit({
+      ...data,
+      status,
+    });
   };
 
   return (
@@ -221,7 +338,7 @@ export function ProgramPlanForm({
           { label: mode === "edit" ? "Edit" : "Create" },
         ]}
         actions={
-          <Button variant="outline" onClick={onCancel} disabled={isSaving}>
+          <Button variant="outline" onClick={onCancel} disabled={finalIsSaving}>
             <ArrowLeft className="mr-1.5 h-4 w-4" />
             Back
           </Button>
@@ -234,66 +351,42 @@ export function ProgramPlanForm({
           className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl"
         />
 
-        {/* TOP: Centre / Room / Month / Year */}
+        {/* TOP: Room / Month / Year */}
         <Section icon={Calendar} title="Plan Details">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Field label="Centre" icon={Building2}>
-              <Select
-                value={data.centreId}
-                onValueChange={(v) => {
-                  setData((previous) => ({
-                    ...previous,
-                    centreId: v,
-                    roomId: "",
-                    educators: [],
-                    children: [],
-                  }));
-                }}
-              >
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select centre" />
-                </SelectTrigger>
-                <SelectContent>
-                  {centres.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <Field label="Room" icon={DoorOpen}>
               <Select
-                value={data.roomId}
-                onValueChange={(v) =>
+                value={data.roomId ? String(data.roomId) : ""}
+                onValueChange={(v) => {
                   setData((previous) => ({
                     ...previous,
                     roomId: v,
                     children: [],
-                  }))
-                }
+                  }));
+                }}
               >
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue placeholder="Select room" />
                 </SelectTrigger>
                 <SelectContent>
-                  {roomOptions.length === 0 ? (
+                  {availableRooms.length === 0 ? (
                     <SelectItem value="__none" disabled>
                       No rooms for this centre
                     </SelectItem>
                   ) : (
-                    roomOptions.map((room) => (
-                      <SelectItem key={room.value} value={room.value}>
-                        {room.label}
+                    availableRooms.map((room) => (
+                      <SelectItem key={room.id} value={String(room.id)}>
+                        {room.name}
                       </SelectItem>
                     ))
                   )}
                 </SelectContent>
               </Select>
             </Field>
+
             <Field label="Month" icon={Calendar}>
               <Select value={data.month} onValueChange={(v) => update("month", v)}>
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -305,9 +398,10 @@ export function ProgramPlanForm({
                 </SelectContent>
               </Select>
             </Field>
+
             <Field label="Year" icon={Calendar}>
               <Select value={String(data.year)} onValueChange={(v) => update("year", Number(v))}>
-                <SelectTrigger className="h-10">
+                <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -324,24 +418,126 @@ export function ProgramPlanForm({
 
         {/* Educators & Children */}
         <Section icon={Users} title="Team & Children">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <ChipPicker
-              label="Select Educators"
-              query={educatorQuery}
-              setQuery={setEducatorQuery}
-              options={filteredEducatorOptions}
-              selected={data.educators}
-              onToggle={(v) => toggleArr("educators", v)}
-            />
-            <ChipPicker
-              label="Select Children"
-              query={childQuery}
-              setQuery={setChildQuery}
-              options={filteredChildOptions}
-              selected={data.children}
-              onToggle={(v) => toggleArr("children", v)}
-              emptyHint="Pick a centre & room first"
-            />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* Educators */}
+            <div className="rounded-xl border border-border bg-background/60 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <Label className="text-sm font-semibold text-primary">Educators</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEducatorsModalOpen(true)}
+                  className="border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  Manage Educators ({data.educators.length})
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 min-h-[50px] p-2.5 rounded-lg border border-dashed border-border bg-muted/20">
+                {data.educators.length === 0 ? (
+                  <p className="text-xs text-muted-foreground self-center">
+                    No educators selected.
+                  </p>
+                ) : (
+                  data.educators.map((id) => {
+                    const staff =
+                      educatorsList.find((s) => String(s.id) === String(id)) ||
+                      availableEducators.find((s) => String(s.id) === String(id));
+                    const name = staff?.name || `Staff ${id}`;
+                    const img = avatarUrl(staff?.imageUrl);
+                    return (
+                      <div
+                        key={id}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border pl-1.5 pr-2.5 py-1 text-xs font-medium text-foreground shadow-sm"
+                      >
+                        {img ? (
+                          <img src={img} alt={name} className="h-5 w-5 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-5 w-5 rounded-full bg-primary/20 text-primary text-[9px] font-bold flex items-center justify-center">
+                            {name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()
+                              .slice(0, 2)}
+                          </div>
+                        )}
+                        <span>{name}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleArr("educators", id)}
+                          className="hover:text-destructive text-muted-foreground ml-1"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Children */}
+            <div className="rounded-xl border border-border bg-background/60 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <Label className="text-sm font-semibold text-primary">Children</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!data.roomId) {
+                      toast.error("Please select a room first.");
+                      return;
+                    }
+                    setChildrenModalOpen(true);
+                  }}
+                  className="border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  Manage Children ({data.children.length})
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2 min-h-[50px] p-2.5 rounded-lg border border-dashed border-border bg-muted/20">
+                {data.children.length === 0 ? (
+                  <p className="text-xs text-muted-foreground self-center">
+                    {!data.roomId ? "Select room first." : "No children selected."}
+                  </p>
+                ) : (
+                  data.children.map((id) => {
+                    const childObj = childrenList.find((c) => String(c.id) === String(id));
+                    const name = childObj ? `${childObj.name} ${childObj.lastname}` : `Child ${id}`;
+                    const img = avatarUrl(childObj?.imageUrl);
+                    return (
+                      <div
+                        key={id}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-background border border-border pl-1.5 pr-2.5 py-1 text-xs font-medium text-foreground shadow-sm"
+                      >
+                        {img ? (
+                          <img src={img} alt={name} className="h-5 w-5 rounded-full object-cover" />
+                        ) : (
+                          <div className="h-5 w-5 rounded-full bg-primary/20 text-primary text-[9px] font-bold flex items-center justify-center">
+                            {name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()
+                              .slice(0, 2)}
+                          </div>
+                        )}
+                        <span>{name}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleArr("children", id)}
+                          className="hover:text-destructive text-muted-foreground ml-1"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           </div>
         </Section>
 
@@ -349,7 +545,7 @@ export function ProgramPlanForm({
         <Section icon={Target} title="Focus">
           <Field label="Focus Areas">
             <Textarea
-              value={data.focusArea}
+              value={textValue(data.focusArea)}
               onChange={(e) => update("focusArea", e.target.value)}
               placeholder="Focus Area"
               rows={3}
@@ -427,7 +623,7 @@ export function ProgramPlanForm({
             {RICH_SUBJECTS.map((s) => (
               <Field key={s.key} label={s.label}>
                 <Textarea
-                  value={data[s.key]}
+                  value={textValue(data[s.key])}
                   onChange={(e) => update(s.key, e.target.value)}
                   placeholder={s.placeholder}
                   rows={3}
@@ -506,7 +702,7 @@ export function ProgramPlanForm({
             {ADDITIONAL_FIELDS.map((f) => (
               <Field key={f.key} label={f.label}>
                 <Textarea
-                  value={data[f.key]}
+                  value={textValue(data[f.key])}
                   onChange={(e) => update(f.key, e.target.value)}
                   placeholder={f.placeholder || ""}
                   rows={3}
@@ -546,23 +742,23 @@ export function ProgramPlanForm({
         <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-border pt-6">
           <Button
             onClick={() => handleSubmit(data.status)}
-            disabled={isSaving}
+            disabled={finalIsSaving}
             size="lg"
             className="h-12 rounded-xl bg-primary px-10 font-bold text-white shadow-xl shadow-primary/20 hover:bg-primary/90"
           >
-            {isSaving ? (
+            {finalIsSaving ? (
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
             ) : (
               <Save className="mr-1.5 h-4 w-4" />
             )}
-            {isSaving ? "Saving..." : mode === "edit" ? "Update Plan" : "Save Plan"}
+            {finalIsSaving ? "Saving..." : mode === "edit" ? "Update Plan" : "Save Plan"}
           </Button>
 
           {mode === "edit" && (
             <Button
               onClick={() => {
                 if (!data.centreId || !data.roomId) {
-                  toast.error("Please select a centre and room.");
+                  toast.error("Please select a room.");
                   return;
                 }
                 if (data.educators.length === 0) {
@@ -573,15 +769,18 @@ export function ProgramPlanForm({
                   toast.error("Please select at least one child.");
                   return;
                 }
-                onSaveAsNew?.({ ...data, status: data.status });
+                onSaveAsNew?.({
+                  ...data,
+                  status: data.status,
+                });
               }}
-              disabled={isSaving}
+              disabled={finalIsSaving}
               variant="default"
               size="lg"
               className="h-12 rounded-xl bg-emerald-600 px-8 font-bold hover:bg-emerald-700"
             >
               <Save className="mr-1.5 h-4 w-4" />
-              {isSaving ? "Saving..." : "Save as New"}
+              {finalIsSaving ? "Saving..." : "Save as New"}
             </Button>
           )}
 
@@ -590,7 +789,7 @@ export function ProgramPlanForm({
             size="lg"
             className="h-12 rounded-xl px-8"
             onClick={onCancel}
-            disabled={isSaving}
+            disabled={finalIsSaving}
           >
             <X className="mr-1.5 h-4 w-4" />
             Cancel
@@ -620,6 +819,209 @@ export function ProgramPlanForm({
           setEylfOpen(false);
         }}
       />
+
+      {/* Children Selection Modal */}
+      <Dialog open={childrenModalOpen} onOpenChange={setChildrenModalOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-lg p-0 overflow-hidden flex flex-col h-[80vh] max-h-[600px]">
+          <div className="p-6 pb-4 border-b border-border">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Select Children
+            </DialogTitle>
+            <div className="relative mt-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={childrenSearch}
+                onChange={(e) => setChildrenSearch(e.target.value)}
+                placeholder="Search by name..."
+                className="h-10 pl-9 pr-4 rounded-xl"
+              />
+            </div>
+          </div>
+
+          <div
+            className="flex-1 overflow-y-auto p-6 space-y-3"
+            onScroll={(e) => handleScroll(e, handleLoadMoreChildren)}
+          >
+            {childrenList.length === 0 && !isLoadingChildren ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No children found.</p>
+            ) : (
+              childrenList.map((child) => {
+                const childIdStr = String(child.id);
+                const isSelected = data.children.includes(childIdStr);
+                const img = avatarUrl(child.imageUrl);
+                const fullName = `${child.name} ${child.lastname}`;
+
+                return (
+                  <button
+                    key={child.id}
+                    type="button"
+                    onClick={() => toggleArr("children", childIdStr)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
+                      isSelected
+                        ? "bg-primary/5 border-primary"
+                        : "bg-card border-border hover:border-primary/50",
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      {img ? (
+                        <img
+                          src={img}
+                          alt={fullName}
+                          className="h-10 w-10 rounded-full object-cover border border-border"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center">
+                          {child.name?.[0]?.toUpperCase()}
+                          {child.lastname?.[0]?.toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-semibold text-sm text-foreground">{fullName}</div>
+                        <div className="text-xs text-muted-foreground capitalize">
+                          Room ID: {child.room}
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
+                        isSelected
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "border-muted-foreground/30",
+                      )}
+                    >
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+
+            {isLoadingChildren && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-muted/30 border-t border-border flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground">
+              {data.children.length} selected
+            </span>
+            <Button
+              onClick={() => setChildrenModalOpen(false)}
+              className="rounded-xl bg-primary text-primary-foreground px-6"
+            >
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Educators Selection Modal */}
+      <Dialog open={educatorsModalOpen} onOpenChange={setEducatorsModalOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-lg p-0 overflow-hidden flex flex-col h-[80vh] max-h-[600px]">
+          <div className="p-6 pb-4 border-b border-border">
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Select Educators
+            </DialogTitle>
+            <div className="relative mt-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={educatorsSearch}
+                onChange={(e) => setEducatorsSearch(e.target.value)}
+                placeholder="Search by name or email..."
+                className="h-10 pl-9 pr-4 rounded-xl"
+              />
+            </div>
+          </div>
+
+          <div
+            className="flex-1 overflow-y-auto p-6 space-y-3"
+            onScroll={(e) => handleScroll(e, handleLoadMoreEducators)}
+          >
+            {educatorsList.length === 0 && !isLoadingEducators ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No educators found.</p>
+            ) : (
+              educatorsList.map((staff) => {
+                const staffIdStr = String(staff.id);
+                const isSelected = data.educators.includes(staffIdStr);
+                const img = avatarUrl(staff.imageUrl);
+
+                return (
+                  <button
+                    key={staff.id}
+                    type="button"
+                    onClick={() => toggleArr("educators", staffIdStr)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left",
+                      isSelected
+                        ? "bg-primary/5 border-primary"
+                        : "bg-card border-border hover:border-primary/50",
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      {img ? (
+                        <img
+                          src={img}
+                          alt={staff.name}
+                          className="h-10 w-10 rounded-full object-cover border border-border"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center">
+                          {staff.name
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()
+                            .slice(0, 2)}
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-semibold text-sm text-foreground">{staff.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {staff.title || staff.userType || "Staff"}
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      className={cn(
+                        "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
+                        isSelected
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "border-muted-foreground/30",
+                      )}
+                    >
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+
+            {isLoadingEducators && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-muted/30 border-t border-border flex items-center justify-between">
+            <span className="text-xs font-semibold text-muted-foreground">
+              {data.educators.length} selected
+            </span>
+            <Button
+              onClick={() => setEducatorsModalOpen(false)}
+              className="rounded-xl bg-primary text-primary-foreground px-6"
+            >
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

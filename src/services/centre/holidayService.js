@@ -59,4 +59,12 @@ export const holidayService = {
       throw error;
     }
   },
+
+  createHoliday: async (data) => {
+    return holidayService.saveHoliday(data);
+  },
+
+  updateHoliday: async (id, data) => {
+    return holidayService.saveHoliday({ ...data, id });
+  },
 };

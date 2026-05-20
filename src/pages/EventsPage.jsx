@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, CalendarDays, Filter as FilterIcon, Trash2 } from "lucide-react";
+import { Plus, CalendarDays, Filter as FilterIcon, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -24,9 +24,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { eventTypes } from "@/components/events/eventsData";
 import { EventCard } from "@/components/events/EventCard";
 import { announcementService } from "@/services/centre/announcementService";
+import { holidayService } from "@/services/centre/holidayService";
 import { useCentreStore } from "@/stores/centreStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
@@ -44,6 +53,15 @@ export default function EventsPage() {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [deleteId, setDeleteId] = useState(null);
+  const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
+  const [isSavingHoliday, setIsSavingHoliday] = useState(false);
+  const [holidayErrors, setHolidayErrors] = useState({});
+  const [holidayForm, setHolidayForm] = useState({
+    date: "",
+    state: "",
+    occasion: "",
+    status: "1",
+  });
 
   const fetchEvents = useCallback(async () => {
     if (!activeCentreId) return;
@@ -99,6 +117,57 @@ export default function EventsPage() {
     setDeleteId(null);
   };
 
+  const handleHolidaySave = async () => {
+    if (!activeCentreId) {
+      toast.error("Please select a centre first");
+      return;
+    }
+    setIsSavingHoliday(true);
+    setHolidayErrors({});
+    try {
+      const res = await holidayService.saveHoliday({
+        centerid: String(activeCentreId),
+        date: holidayForm.date,
+        state: holidayForm.state.trim(),
+        occasion: holidayForm.occasion.trim(),
+        status: holidayForm.status,
+      });
+      if (res.status === "error" && res.errors) {
+        setHolidayErrors({
+          date: res.errors.date?.[0],
+          state: res.errors.state?.[0],
+          occasion: res.errors.occasion?.[0],
+          centerid: res.errors.centerid?.[0],
+        });
+        toast.error("Validation failed. Please correct highlighted fields.");
+        return;
+      }
+      if (res.status === false) {
+        toast.error(res.message || "Failed to create holiday");
+        return;
+      }
+      toast.success("Holiday created successfully");
+      setIsHolidayModalOpen(false);
+      setHolidayForm({ date: "", state: "", occasion: "", status: "1" });
+      setHolidayErrors({});
+    } catch (error) {
+      const apiErrors = error?.response?.data?.errors;
+      if (apiErrors) {
+        setHolidayErrors({
+          date: apiErrors.date?.[0],
+          state: apiErrors.state?.[0],
+          occasion: apiErrors.occasion?.[0],
+          centerid: apiErrors.centerid?.[0],
+        });
+        toast.error("Validation failed. Please correct highlighted fields.");
+      } else {
+        toast.error(error?.response?.data?.message || "Failed to create holiday");
+      }
+    } finally {
+      setIsSavingHoliday(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -111,6 +180,19 @@ export default function EventsPage() {
               <CalendarDays className="h-4 w-4" />
               Public Holiday
             </Button>
+            {can(perms.add) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setHolidayForm({ date: "", state: "", occasion: "", status: "1" });
+                  setHolidayErrors({});
+                  setIsHolidayModalOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Add Holiday
+              </Button>
+            )}
             {can(perms.add) && (
               <Button onClick={() => navigate("/events/create")}>
                 <Plus className="h-4 w-4" />
@@ -240,6 +322,87 @@ export default function EventsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isHolidayModalOpen} onOpenChange={setIsHolidayModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Holiday</DialogTitle>
+            <DialogDescription>
+              Fill all required fields marked with <span className="text-red-600">*</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="events-holiday-date">
+                Date <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                id="events-holiday-date"
+                type="date"
+                value={holidayForm.date}
+                onChange={(e) => {
+                  setHolidayForm((prev) => ({ ...prev, date: e.target.value }));
+                  if (holidayErrors.date) setHolidayErrors((prev) => ({ ...prev, date: null }));
+                }}
+              />
+              {holidayErrors.date && <p className="text-sm text-destructive">{holidayErrors.date}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="events-holiday-state">
+                State <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                id="events-holiday-state"
+                value={holidayForm.state}
+                onChange={(e) => {
+                  setHolidayForm((prev) => ({ ...prev, state: e.target.value }));
+                  if (holidayErrors.state) setHolidayErrors((prev) => ({ ...prev, state: null }));
+                }}
+              />
+              {holidayErrors.state && <p className="text-sm text-destructive">{holidayErrors.state}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="events-holiday-occasion">
+                Occasion <span className="text-red-600">*</span>
+              </Label>
+              <Input
+                id="events-holiday-occasion"
+                value={holidayForm.occasion}
+                onChange={(e) => {
+                  setHolidayForm((prev) => ({ ...prev, occasion: e.target.value }));
+                  if (holidayErrors.occasion) setHolidayErrors((prev) => ({ ...prev, occasion: null }));
+                }}
+              />
+              {holidayErrors.occasion && <p className="text-sm text-destructive">{holidayErrors.occasion}</p>}
+            </div>
+            <div className="space-y-1">
+              <Label>Status</Label>
+              <Select
+                value={holidayForm.status}
+                onValueChange={(value) => setHolidayForm((prev) => ({ ...prev, status: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Active</SelectItem>
+                  <SelectItem value="0">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {holidayErrors.centerid && <p className="text-sm text-destructive">{holidayErrors.centerid}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsHolidayModalOpen(false)} disabled={isSavingHoliday}>
+              Cancel
+            </Button>
+            <Button onClick={handleHolidaySave} disabled={isSavingHoliday}>
+              {isSavingHoliday ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Create Holiday
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

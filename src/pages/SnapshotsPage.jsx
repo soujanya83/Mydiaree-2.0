@@ -26,6 +26,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -33,26 +34,59 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CustomDateFilter } from "@/components/common/CustomDateFilter";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
 import { snapshotService } from "@/services/learning/snapshotService";
-import {
-  STATUS_FILTERS,
-  DATE_FILTERS,
-  AUTHORS,
-  inDateRange,
-} from "@/components/snapshots/snapshotsData";
+import { STATUS_FILTERS, DATE_FILTERS, inDateRange } from "@/components/snapshots/snapshotsData";
 import { NewSnapshotTitleModal } from "@/components/snapshots/NewSnapshotTitleModal";
 import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 import { Pagination } from "@/components/common/Pagination";
 
 const PAGE_SIZE = 12;
+const IMG_BASE = "https://mydiaree.com.au/";
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
   color: "var(--primary)",
+};
+
+const getMediaUrl = (url) => {
+  if (!url) return "";
+  return url.startsWith("http") ? url : `${IMG_BASE}${url.replace(/^\/+/, "")}`;
+};
+
+const getPersonName = (person, fallback = "Unknown") =>
+  [person?.name, person?.lastname].filter(Boolean).join(" ").trim() ||
+  person?.username ||
+  person?.email ||
+  fallback;
+
+const getInitials = (name = "") =>
+  name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "?";
+
+const getSnapshotItems = (response) => {
+  if (Array.isArray(response?.snapshots)) return response.snapshots;
+  if (Array.isArray(response?.snapshots?.data)) return response.snapshots.data;
+  return [];
+};
+
+const getSnapshotPagination = (response) => {
+  const source = response?.pagination || response?.snapshots || {};
+  return {
+    currentPage: Number(source.current_page || 1),
+    perPage: Number(source.per_page || PAGE_SIZE),
+    total: Number(source.total || 0),
+    lastPage: Number(source.last_page || 1),
+  };
 };
 
 export default function SnapshotsPage() {
@@ -62,6 +96,12 @@ export default function SnapshotsPage() {
   const { children, fetchChildren } = useChildrenStore();
   const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
   const [items, setItems] = useState([]);
+  const [snapshotPagination, setSnapshotPagination] = useState({
+    currentPage: 1,
+    perPage: PAGE_SIZE,
+    total: 0,
+    lastPage: 1,
+  });
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [titleModalOpen, setTitleModalOpen] = useState(false);
@@ -83,20 +123,28 @@ export default function SnapshotsPage() {
     if (!activeCentreId) return;
     setIsLoadingSnapshots(true);
     try {
-      const response = await snapshotService.getAllSnapshots(activeCentreId);
+      const response = await snapshotService.getAllSnapshots(activeCentreId, {
+        page,
+        perPage: PAGE_SIZE,
+      });
       if (response.status) {
-        setItems(response.snapshots || []);
+        setItems(getSnapshotItems(response));
+        setSnapshotPagination(getSnapshotPagination(response));
       }
     } catch (error) {
       console.error("Failed to fetch snapshots:", error);
     } finally {
       setIsLoadingSnapshots(false);
     }
-  }, [activeCentreId]);
+  }, [activeCentreId, page]);
 
   useEffect(() => {
     fetchSnapshots();
   }, [fetchSnapshots]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeCentreId]);
 
   useEffect(() => {
     if (!activeCentreId) return;
@@ -143,9 +191,9 @@ export default function SnapshotsPage() {
     });
   }, [items, activeCentreId, status, author, childId, dateRange, customFrom, customTo, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, snapshotPagination.lastPage);
   const safePage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageItems = filtered;
 
   const handleSubmitTitle = (title) => {
     setTitleModalOpen(false);
@@ -372,7 +420,7 @@ export default function SnapshotsPage() {
               snap={s}
               onDelete={() => setDeleteModal({ open: true, id: s.id })}
               onEdit={() => navigate(`/snapshots/${s.id}/edit`)}
-              onOpen={() => navigate(`/snapshots/${s.id}`)}
+              onOpen={() => setGallerySnap(s)}
               onViewGallery={() => setGallerySnap(s)}
               onPrint={() => handlePrint(s.id)}
               isPrinting={isPrinting === s.id}
@@ -416,9 +464,6 @@ function SnapshotGalleryModal({ snap, onClose }) {
   const images = (snap.media || []).filter((m) => m.mediaUrl);
   const [idx, setIdx] = useState(0);
   const timerRef = useRef(null);
-
-  const getUrl = (m) =>
-    m.mediaUrl.startsWith("http") ? m.mediaUrl : `https://mydiaree.com.au/${m.mediaUrl}`;
 
   // Auto-scroll every 4 seconds
   useEffect(() => {
@@ -507,7 +552,7 @@ function SnapshotGalleryModal({ snap, onClose }) {
         >
           <img
             key={images[idx]?.id || idx}
-            src={getUrl(images[idx])}
+            src={getMediaUrl(images[idx]?.mediaUrl)}
             alt={`${cleanTitle} - ${idx + 1}`}
             className="max-h-[70vh] w-full object-contain transition-opacity duration-500 animate-in fade-in"
           />
@@ -546,7 +591,11 @@ function SnapshotGalleryModal({ snap, onClose }) {
                     : "border-transparent opacity-50 hover:opacity-80"
                 }`}
               >
-                <img src={getUrl(m)} alt={`Thumb ${i + 1}`} className="h-12 w-12 object-cover" />
+                <img
+                  src={getMediaUrl(m.mediaUrl)}
+                  alt={`Thumb ${i + 1}`}
+                  className="h-12 w-12 object-cover"
+                />
               </button>
             ))}
           </div>
@@ -556,7 +605,104 @@ function SnapshotGalleryModal({ snap, onClose }) {
   );
 }
 
-function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, isPrinting, canEdit = true, canDelete = true }) {
+function ChildAvatarStack({ childTags = [] }) {
+  const visible = childTags.slice(0, 4);
+  const extra = childTags.length - visible.length;
+
+  return (
+    <TooltipProvider delayDuration={120}>
+      <div className="flex flex-wrap items-center gap-2">
+        {visible.map((tag) => {
+          const child = tag.child || {};
+          const name = getPersonName(child, `Child ${tag.childid || tag.id || ""}`.trim());
+          return (
+            <Tooltip key={tag.id || tag.childid || name}>
+              <TooltipTrigger asChild>
+                <div className="relative rounded-full transition-transform hover:z-10 hover:scale-110">
+                  <SnapshotPersonAvatar person={child} name={name} sizeClass="h-7 w-7" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top">{name}</TooltipContent>
+            </Tooltip>
+          );
+        })}
+        {extra > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-foreground/70">
+                +{extra}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {childTags
+                .slice(visible.length)
+                .map((tag) =>
+                  getPersonName(tag.child || {}, `Child ${tag.childid || tag.id || ""}`.trim()),
+                )
+                .join(", ")}
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    </TooltipProvider>
+  );
+}
+
+function RoomChipRow({ rooms = [] }) {
+  const visible = rooms.slice(0, 4);
+  const extra = rooms.length - visible.length;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {visible.map((room) => (
+        <span
+          key={room.id || room.name}
+          className="max-w-[120px] truncate rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+          title={room.name}
+        >
+          {room.name}
+        </span>
+      ))}
+      {extra > 0 && (
+        <span
+          className="rounded bg-muted px-2 py-0.5 text-[11px] font-bold text-foreground/70"
+          title={rooms
+            .slice(visible.length)
+            .map((room) => room.name)
+            .join(", ")}
+        >
+          +{extra}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SnapshotPersonAvatar({ person, name, sizeClass = "h-8 w-8" }) {
+  const displayName = name || getPersonName(person);
+  const imageUrl = getMediaUrl(person?.imageUrl);
+
+  return (
+    <Avatar className={`${sizeClass} border border-background bg-primary/10 shadow-sm`}>
+      {imageUrl && <AvatarImage src={imageUrl} alt={displayName} className="object-cover" />}
+      <AvatarFallback className="bg-primary/10 text-[10px] font-bold text-primary">
+        {getInitials(displayName)}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
+function SnapshotCard({
+  snap,
+  onDelete,
+  onEdit,
+  onOpen,
+  onViewGallery,
+  onPrint,
+  isPrinting,
+  canEdit = true,
+  canDelete = true,
+}) {
   const images = snap.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
 
@@ -571,6 +717,9 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
   const cover = images[currentIdx];
   const childTags = snap.children || [];
   const roomTags = snap.rooms || [];
+  const creatorName = getPersonName(snap.creator, "Unknown creator");
+  const cleanTitle = (snap.title || "").replace(/<[^>]*>/g, "") || "Untitled snapshot";
+  const cleanAbout = (snap.about || "").replace(/<[^>]*>/g, "");
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
@@ -581,11 +730,7 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
             <div className="relative h-full w-full">
               <img
                 key={cover.id}
-                src={
-                  cover.mediaUrl.startsWith("http")
-                    ? cover.mediaUrl
-                    : `https://mydiaree.com.au/${cover.mediaUrl}`
-                }
+                src={getMediaUrl(cover.mediaUrl)}
                 alt={snap.title}
                 className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
                 loading="lazy"
@@ -628,18 +773,19 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
             </div>
           </>
         )}
-        <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white shadow-sm">
-          <ImageIcon className="h-3 w-3" /> {currentIdx + 1}/{images.length}
-        </span>
+        {images.length > 0 && (
+          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white shadow-sm">
+            <ImageIcon className="h-3 w-3" /> {currentIdx + 1}/{images.length}
+          </span>
+        )}
       </div>
 
       {/* 2. Body (Title, Status, Dropdowns, Actions) */}
       <div className="flex flex-grow flex-col p-4">
-        <div className="mb-2 flex items-start justify-between gap-3">
-          <h3
-            className="line-clamp-2 text-base font-semibold leading-tight text-foreground"
-            dangerouslySetInnerHTML={{ __html: snap.title }}
-          ></h3>
+        <div className="mb-2 flex min-h-[2.5rem] items-start justify-between gap-3">
+          <h3 className="line-clamp-2 flex-1 text-base font-semibold leading-tight text-foreground">
+            {cleanTitle}
+          </h3>
           <span
             className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
               snap.status?.toLowerCase() === "published"
@@ -651,61 +797,40 @@ function SnapshotCard({ snap, onDelete, onEdit, onOpen, onViewGallery, onPrint, 
           </span>
         </div>
 
-        {snap.about && (
-          <div
-            className="mb-4 line-clamp-2 text-sm text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: snap.about }}
-          />
-        )}
+        <p className="mb-3 min-h-[2.5rem] line-clamp-2 text-sm text-muted-foreground">
+          {cleanAbout || " "}
+        </p>
 
-        {/* 3. Dropdowns for Children and Rooms */}
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
+          <SnapshotPersonAvatar person={snap.creator} name={creatorName} sizeClass="h-8 w-8" />
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium text-muted-foreground">Created by</p>
+            <p className="truncate text-sm font-semibold text-foreground">{creatorName}</p>
+          </div>
+        </div>
+
+        {/* 3. Rooms and children */}
         <div className="mt-auto space-y-2">
-          {childTags.length > 0 && (
-            <details className="group [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex cursor-pointer items-center justify-between gap-1.5 rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300 dark:hover:bg-slate-800/50">
-                <div className="flex items-center gap-1.5">
-                  <UserCircle2 className="h-4 w-4 text-slate-400" />
-                  <span>Children ({childTags.length})</span>
-                </div>
-                <span className="transition duration-300 group-open:rotate-90">
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </span>
-              </summary>
-              <div className="mt-1 flex flex-wrap gap-1 px-1 py-1.5">
-                {childTags.map((c) => (
-                  <span
-                    key={c.id}
-                    className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                  >
-                    {c.child?.name}
-                  </span>
-                ))}
+          {roomTags.length > 0 && (
+            <div className="rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
+              <div className="flex items-center gap-1.5">
+                <DoorOpen className="h-4 w-4 text-slate-400" />
+                <span>Rooms</span>
               </div>
-            </details>
+              <div className="mt-2">
+                <RoomChipRow rooms={roomTags} />
+              </div>
+            </div>
           )}
 
-          {roomTags.length > 0 && (
-            <details className="group [&_summary::-webkit-details-marker]:hidden">
-              <summary className="flex cursor-pointer items-center justify-between gap-1.5 rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300 dark:hover:bg-slate-800/50">
-                <div className="flex items-center gap-1.5">
-                  <DoorOpen className="h-4 w-4 text-slate-400" />
-                  <span>Rooms ({roomTags.length})</span>
-                </div>
-                <span className="transition duration-300 group-open:rotate-90">
-                  <ChevronRight className="h-4 w-4 text-slate-400" />
-                </span>
-              </summary>
-              <div className="mt-1 flex flex-wrap gap-1 px-1 py-1.5">
-                {roomTags.map((r) => (
-                  <span
-                    key={r.id}
-                    className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                  >
-                    {r.name}
-                  </span>
-                ))}
+          {childTags.length > 0 && (
+            <div className="rounded-md border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
+              <div className="mb-2 flex items-center gap-1.5">
+                <UserCircle2 className="h-4 w-4 text-slate-400" />
+                <span>Children ({childTags.length})</span>
               </div>
-            </details>
+              <ChildAvatarStack childTags={childTags} />
+            </div>
           )}
         </div>
 

@@ -64,10 +64,10 @@ export default function EventCreatePage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
   useEffect(() => {
     if (!id) return;
-    if (!activeCentreId && !isHoliday) return;
 
     const loadData = async () => {
       setIsLoading(true);
@@ -98,25 +98,32 @@ export default function EventCreatePage() {
             }
           }
         } else {
-          const res = await announcementService.getAnnouncements(activeCentreId);
-          if (res.status) {
-            const existing = (res.data?.records || [])
-              .map(mapAnnouncementRecord)
-              .find((e) => e.id === String(id));
-            if (existing) {
-              setForm({
-                type: existing.type,
-                title: existing.title,
-                date: existing.date,
-                access: existing.access,
-                description: existing.description || "",
-                eventColor: existing.eventColor || "#0d6efd",
-                media: existing.media || null,
-                children: existing.children || [],
-                state: "",
-                status: "1",
-              });
-            }
+          const res = await announcementService.getAnnouncementByAnnId(id);
+          const ok =
+            res.status === true ||
+            res.status === "true" ||
+            String(res.status).toLowerCase() === "true";
+          if (ok && res.data?.info) {
+            const mapped = mapAnnouncementRecord(res.data.info);
+            const childIds = (res.data.children || []).map((c) => String(c.id));
+            const rawDate = mapped.date || "";
+            const dateForInput = rawDate.includes("T")
+              ? rawDate.split("T")[0]
+              : rawDate.slice(0, 10);
+            setForm({
+              type: mapped.type,
+              title: mapped.title,
+              date: dateForInput || new Date().toISOString().slice(0, 10),
+              access: mapped.access,
+              description: mapped.description || "",
+              eventColor: mapped.eventColor || "#0d6efd",
+              media: mapped.media || null,
+              children: childIds,
+              state: "",
+              status: "1",
+            });
+          } else {
+            toast.error(res.message || "Failed to load announcement");
           }
         }
       } catch (error) {
@@ -127,9 +134,10 @@ export default function EventCreatePage() {
     };
 
     loadData();
-  }, [id, isHoliday, activeCentreId]);
+  }, [id, isHoliday]);
 
   useEffect(() => {
+    if (id) return;
     if (presetType && eventTypes.includes(presetType)) {
       setForm({
         type: presetType,
@@ -140,11 +148,32 @@ export default function EventCreatePage() {
         eventColor: "#0d6efd",
         media: null,
         children: [],
+        state: "",
+        status: "1",
       });
     }
-  }, [presetType]);
+  }, [presetType, id]);
 
-  const update = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const update = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    if (k === "description" && formErrors.text) {
+      setFormErrors((prev) => ({ ...prev, text: null }));
+    } else if (k === "children" && formErrors.childId) {
+      setFormErrors((prev) => ({ ...prev, childId: null }));
+    } else if (k === "date" && formErrors.eventDate) {
+      setFormErrors((prev) => ({ ...prev, eventDate: null }));
+    } else if (formErrors[k]) {
+      setFormErrors((prev) => ({ ...prev, [k]: null }));
+    }
+  };
+
+  /** Backend expects PHP date format d-m-Y (e.g. 05-05-2026), not yyyy-mm-dd from <input type="date"> */
+  const toApiEventDate = (isoDate) => {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    if (!year || !month || !day) return isoDate;
+    return `${day}-${month}-${year}`;
+  };
 
   const handleFile = (e) => {
     const file = e.target.files?.[0];
@@ -163,7 +192,7 @@ export default function EventCreatePage() {
     if (isEdit) formData.append("annId", id);
     formData.append("centerid", activeCentreId);
     formData.append("title", form.title.trim());
-    formData.append("eventDate", form.date);
+    formData.append("eventDate", toApiEventDate(form.date));
     formData.append("text", form.description || "");
     form.children.forEach((childId) => formData.append("childId[]", childId));
     if (form.media?.file) formData.append("media[]", form.media.file);
@@ -175,13 +204,25 @@ export default function EventCreatePage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    setFormErrors({});
     if (!form.title.trim()) {
+      setFormErrors((prev) => ({ ...prev, title: "The title field is required." }));
       toast.error("Title is required");
       return;
     }
     if (!activeCentreId && form.type !== "Public Holiday") {
       toast.error("Please select a centre first");
       return;
+    }
+    if (form.type !== "Public Holiday") {
+      const nextErrors = {};
+      if (!form.description.trim()) nextErrors.text = "Description is required.";
+      if (!form.children.length) nextErrors.childId = "Children are required.";
+      if (Object.keys(nextErrors).length > 0) {
+        setFormErrors((prev) => ({ ...prev, ...nextErrors }));
+        toast.error("Please fill all required fields");
+        return;
+      }
     }
     const label = form.type === "Public Holiday" ? "Holiday" : "Event";
     setIsSubmitting(true);
@@ -211,6 +252,16 @@ export default function EventCreatePage() {
       } else {
         const res = await announcementService.saveAnnouncement(buildFormData());
         if (res.status === false || res.status === "error") {
+          if (res.errors) {
+            setFormErrors({
+              title: res.errors.title?.[0],
+              text: res.errors.text?.[0],
+              childId: res.errors.childId?.[0],
+              eventDate: res.errors.eventDate?.[0],
+            });
+            toast.error(res.message || "Validation failed");
+            return;
+          }
           toast.error(res.message || `Failed to ${isEdit ? "update" : "create"} event`);
           return;
         }
@@ -218,6 +269,17 @@ export default function EventCreatePage() {
         navigate("/events");
       }
     } catch (error) {
+      const apiErrors = error?.response?.data?.errors;
+      if (apiErrors) {
+        setFormErrors({
+          title: apiErrors.title?.[0],
+          text: apiErrors.text?.[0],
+          childId: apiErrors.childId?.[0],
+          eventDate: apiErrors.eventDate?.[0],
+        });
+        toast.error(error?.response?.data?.message || "Validation failed");
+        return;
+      }
       toast.error(
         error?.response?.data?.message || `Failed to ${isEdit ? "update" : "create"} ${label.toLowerCase()}`,
       );
@@ -318,6 +380,7 @@ export default function EventCreatePage() {
                     placeholder="Enter a clear, descriptive title"
                     className="h-11"
                   />
+                  {formErrors.title && <p className="text-sm text-destructive">{formErrors.title}</p>}
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -332,6 +395,9 @@ export default function EventCreatePage() {
                       disabled={isView}
                       className="h-11"
                     />
+                    {formErrors.eventDate && (
+                      <p className="text-sm text-destructive">{formErrors.eventDate}</p>
+                    )}
                   </div>
                   {form.type === "Public Holiday" ? (
                     <div className="space-y-2">
@@ -432,6 +498,9 @@ export default function EventCreatePage() {
                   </SectionCard>
 
                   <SectionCard icon={<Users className="h-4 w-4" />} title="Recipients">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Children <span className="text-destructive">*</span>
+                    </Label>
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 p-3">
                       <div>
                         <p className="text-sm font-medium">
@@ -447,6 +516,7 @@ export default function EventCreatePage() {
                         <Plus className="h-4 w-4" /> Add Children
                       </Button>
                     </div>
+                    {formErrors.childId && <p className="text-sm text-destructive">{formErrors.childId}</p>}
                   </SectionCard>
                 </>
               )}
@@ -481,6 +551,9 @@ export default function EventCreatePage() {
                   </div>
                 ) : (
                   <>
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Description <span className="text-destructive">*</span>
+                    </Label>
                     <Textarea
                       value={form.description}
                       onChange={(e) => update("description", e.target.value)}
@@ -489,6 +562,7 @@ export default function EventCreatePage() {
                       placeholder="Describe the event in detail…"
                       className="resize-none"
                     />
+                    {formErrors.text && <p className="text-sm text-destructive">{formErrors.text}</p>}
                     <p className="text-right text-xs text-muted-foreground">
                       {form.description.length} characters
                     </p>

@@ -39,6 +39,11 @@ import { useAuthStore } from "@/stores/authStore";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import { accidentService } from "@/services/daily-operations/accidentService";
+import {
+  NATURE_API_MAP,
+  NATURE_API_KEYS,
+  natureLabelsFromApiRecord,
+} from "@/components/accident/accidentFormConstants";
 
 const seedRecords = [
   {
@@ -146,46 +151,12 @@ export default function AccidentFormPage() {
       if (res.data.status && res.data.data) {
         const d = res.data.data;
 
-        // Map nature fields (abrasion: 1, rash: 1, etc.) to an array of labels
-        const natureKeys = [
-          "abrasion",
-          "allergic_reaction",
-          "amputation",
-          "anaphylaxis",
-          "asthma",
-          "bite_wound",
-          "broken_bone",
-          "burn",
-          "choking",
-          "concussion",
-          "crush",
-          "cut",
-          "drowning",
-          "eye_injury",
-          "electric_shock",
-          "infectious_disease",
-          "high_temperature",
-          "ingestion",
-          "internal_injury",
-          "poisoning",
-          "rash",
-          "respiratory",
-          "seizure",
-          "sprain",
-          "stabbing",
-          "tooth",
-          "venomous_bite",
-          "other",
-        ];
-        const natures = natureKeys
-          .filter((k) => d[k] === 1)
-          .map((k) => k.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()));
+        const natures = natureLabelsFromApiRecord(d);
 
         const mapped = {
           id: d.id,
           recorderName: d.person_name,
           recorderPosition: d.person_role,
-          serviceName: d.service_name,
           recordDate: d.made_record_date,
           recordTime: d.made_record_time,
           recorderSignature: d.made_person_sign,
@@ -196,38 +167,51 @@ export default function AccidentFormPage() {
           childGender: d.child_gender,
           incidentDate: d.incident_date,
           incidentTime: d.incident_time,
-          serviceLocation: d.incident_location,
-          incidentLocation: d.location_of_incident,
+          location: d.incident_location || d.location_of_incident,
           witnessName: d.witness_name,
           witnessDate: d.witness_date,
           witnessSignature: d.witness_sign,
-          details: d.details_injury,
-          circumstances: d.circumstances_leading,
+          generalActivity: d.gen_actyvt,
+          causeOfInjury: d.cause,
+          circumstancesIllness: d.circumstances_leading,
+          missingCircumstances: d.missing_unaccounted,
+          removedCircumstances: d.taken_removed,
           natures,
+          natureOtherRemarks: d.other_remarks || d.remarks_other || "",
           actionDetails: d.action_taken,
-          emergencyAttended: d.emrg_serv_attend,
-          emergencyContactedTime: d.emrg_serv_time,
-          emergencyArrivedTime: d.emrg_serv_arrived,
-          medicalSought: d.med_attention,
-          yesDetails: d.med_attention_details,
-          preventionSteps: d.provideDetails_minimise,
-          parentName: d.parent1_name,
-          parentDate: d.carers_date,
-          parentTime: d.carers_time,
-          directorName: d.director_educator_coordinator,
-          directorDate: d.educator_date,
-          directorTime: d.educator_time,
-          otherAgency: d.other_agency,
-          otherAgencyDate: d.other_agency_date,
-          otherAgencyTime: d.other_agency_time,
-          regulatoryAuthority: d.regulatory_authority,
-          regDate: d.regulatory_authority_date,
-          regTime: d.regulatory_authority_time,
+          emergencyAttended: d.emrg_serv_attend === "yes" || d.emrg_serv_attend === 1 ? "yes" : "no",
+          medicalSought: d.med_attention === "yes" || d.med_attention === 1 ? "yes" : "no",
+          medicalAttentionDetails: d.med_attention_details,
+          preventionStep1: d.prevention_step_1 || d.provideDetails_minimise,
+          preventionStep2: d.prevention_step_2 || "",
+          parent1Name: d.parent1_name,
+          parent1Method: d.parent1_method || "",
+          parent1Date: d.contact1_date || d.carers_date,
+          parent1Time: d.contact1_time || d.carers_time,
+          parent1ContactMade: d.parent1_contact_made || "",
+          parent1MessageLeft: d.parent1_message_left || "",
+          parent2Name: d.parent2_name || "",
+          parent2Method: d.parent2_method || "",
+          parent2Date: d.contact2_date || "",
+          parent2Time: d.contact2_time || "",
+          parent2ContactMade: d.parent2_contact_made || "",
+          parent2MessageLeft: d.parent2_message_left || "",
+          responsiblePersonName: d.responsible_person_name,
+          responsiblePersonSignature: d.responsible_person_sign || "",
+          responsiblePersonDate: d.responsible_person_date || "",
+          responsiblePersonTime: d.responsible_person_time || "",
+          nominatedSupervisorName: d.director_educator_coordinator || d.nominated_supervisor_name,
+          nominatedSupervisorSignature: d.nominated_supervisor_sign || "",
+          nominatedSupervisorDate: d.educator_date || d.nsv_date,
+          nominatedSupervisorTime: d.educator_time || d.nsv_time,
+          otherAgencyDate: d.other_agency_date || d.enor_date,
+          otherAgencyTime: d.other_agency_time || d.enor_time,
+          regulatoryAuthorityDate: d.regulatory_authority_date || d.enra_date,
+          regulatoryAuthorityTime: d.regulatory_authority_time || d.enra_time,
           ackName: d.ack_parent_name,
           ackDate: d.ack_date,
-          ackTime: d.ack_time,
-          finalSignature: d.final_sign,
           additionalNotes: d.add_notes,
+          additionalNotesTime: d.ack_time,
           createdAt: d.added_at,
         };
 
@@ -264,83 +248,61 @@ export default function AccidentFormPage() {
       time: data.recordTime,
       incident_date: data.incidentDate,
       incident_time: data.incidentTime,
-      incident_location: data.serviceLocation,
-      location_of_incident: data.incidentLocation,
+      incident_location: data.location,
       witness_name: data.witnessName,
       witness_date: data.witnessDate,
-      gen_actyvt: data.details,
-      cause: data.circumstances,
+      gen_actyvt: data.generalActivity,
+      cause: data.causeOfInjury,
+      circumstances_leading: data.circumstancesIllness,
       missing_unaccounted: data.missingCircumstances,
       taken_removed: data.removedCircumstances,
+      other_remarks: data.natureOtherRemarks,
       action_taken: data.actionDetails,
-      med_attention_details: data.yesDetails,
-      prevention_step_1: data.preventionSteps,
       emrg_serv_attend: data.emergencyAttended === "yes" ? "yes" : "no",
       med_attention: data.medicalSought === "yes" ? "yes" : "no",
-
-      parent1_name: data.parentName,
-      contact1_date: data.parentDate,
-      contact1_time: data.parentTime,
-
-      responsible_person_name: data.directorName,
-      nsv_date: data.directorDate,
-      nsv_time: data.directorTime,
-
-      otheragency: data.otherAgency,
+      med_attention_details: data.medicalAttentionDetails,
+      prevention_step_1: data.preventionStep1,
+      prevention_step_2: data.preventionStep2,
+      parent1_name: data.parent1Name,
+      parent1_method: data.parent1Method,
+      contact1_date: data.parent1Date,
+      contact1_time: data.parent1Time,
+      parent1_contact_made: data.parent1ContactMade,
+      parent1_message_left: data.parent1MessageLeft,
+      parent2_name: data.parent2Name,
+      parent2_method: data.parent2Method,
+      contact2_date: data.parent2Date,
+      contact2_time: data.parent2Time,
+      parent2_contact_made: data.parent2ContactMade,
+      parent2_message_left: data.parent2MessageLeft,
+      responsible_person_name: data.responsiblePersonName,
+      responsible_person_sign: data.responsiblePersonSignature,
+      responsible_person_date: data.responsiblePersonDate,
+      responsible_person_time: data.responsiblePersonTime,
+      director_educator_coordinator: data.nominatedSupervisorName,
+      nominated_supervisor_sign: data.nominatedSupervisorSignature,
+      educator_date: data.nominatedSupervisorDate,
+      educator_time: data.nominatedSupervisorTime,
+      nsv_date: data.nominatedSupervisorDate,
+      nsv_time: data.nominatedSupervisorTime,
       enor_date: data.otherAgencyDate,
       enor_time: data.otherAgencyTime,
-
-      regulatoryauthority: data.regulatoryAuthority,
-      enra_date: data.regDate,
-      enra_time: data.regTime,
-
+      enra_date: data.regulatoryAuthorityDate,
+      enra_time: data.regulatoryAuthorityTime,
       ack_parent_name: data.ackName,
       ack_date: data.ackDate,
-      ack_time: data.ackTime,
-
+      ack_time: data.additionalNotesTime,
       add_notes: data.additionalNotes,
       person_sign: data.recorderSignature,
       witness_sign: data.witnessSignature,
-      final_sign: data.finalSignature,
     };
 
-    const natureMap = {
-      "Abrasion / Scrape": "abrasion",
-      "Allergic Reaction": "allergic_reaction",
-      Amputation: "amputation",
-      Anaphylaxis: "anaphylaxis",
-      "Asthma / Respiratory": "asthma",
-      "Bite Wound": "bite_wound",
-      "Broken Bone / Fracture / Dislocation": "broken_bone",
-      "Burn / Sunburn": "burn",
-      Choking: "choking",
-      Concussion: "concussion",
-      "Crush / Jam": "crush",
-      "Cut / Open Wound": "cut",
-      "Drowning (Nonfatal)": "drowning",
-      "Eye Injury": "eye_injury",
-      "Electric Shock": "electric_shock",
-      "High Temperature": "high_temperature",
-      "Infectious Disease": "infectious_disease",
-      "Ingestion / Inhalation / Insertion": "ingestion",
-      "Internal Injury / Infection": "internal_injury",
-      Poisoning: "poisoning",
-      Rash: "rash",
-      Respiratory: "respiratory",
-      "Seizure / Unconscious / Convulsion": "seizure",
-      "Sprain / Swelling": "sprain",
-      "Stabbing / Piercing": "stabbing",
-      Tooth: "tooth",
-      "Venomous Bite / Sting": "venomous_bite",
-      "Other (Please specify)": "other",
-    };
-
-    Object.keys(natureMap).forEach((label) => {
-      if (data.natures?.includes(label)) {
-        payload[natureMap[label]] = "1";
-      } else {
-        payload[natureMap[label]] = "0";
-      }
+    NATURE_API_KEYS.forEach((key) => {
+      payload[key] = "0";
+    });
+    (data.natures || []).forEach((label) => {
+      const key = NATURE_API_MAP[label];
+      if (key) payload[key] = "1";
     });
 
     if (mode.id) {

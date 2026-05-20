@@ -8,6 +8,14 @@ export const announcementService = {
     return res.data;
   },
 
+  /** GET single announcement/event for edit — query: annid */
+  async getAnnouncementByAnnId(annId) {
+    const res = await api.get("/announcements/view", {
+      params: { annid: annId },
+    });
+    return res.data;
+  },
+
   async getEvents() {
     const res = await api.get("/announcements/events");
     return res.data;

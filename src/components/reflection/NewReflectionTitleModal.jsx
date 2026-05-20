@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { X, FileText, PenLine } from "lucide-react";
+import { ArrowRight, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+
+const MAX_TITLE_LENGTH = 80;
 
 export function NewReflectionTitleModal({ open, onClose, onSubmit }) {
   const [title, setTitle] = useState("");
@@ -14,71 +16,81 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit }) {
 
   const canSubmit = title.trim().length > 0;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="w-full max-w-2xl overflow-hidden rounded-3xl border border-sidebar-border bg-card shadow-2xl animate-in zoom-in-95 duration-300">
-        
-        {/* Decorative top bar with gradient */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-primary via-emerald-500 to-teal-500" />
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (canSubmit) onSubmit(title.trim());
+  };
 
-        <div className="relative px-8 pt-6 pb-4">
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl animate-in zoom-in-95 duration-200"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                Daily Reflection
+              </p>
+              <h2 className="mt-1 text-xl font-bold text-foreground">Create New Reflection</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Start with a clear title for the day&apos;s learning story.
+              </p>
+            </div>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="absolute right-6 top-6 rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
-
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <FileText className="h-6 w-6" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">Create New Reflection</h2>
-              <p className="text-sm text-muted-foreground">Start by giving your reflection a meaningful title.</p>
-            </div>
-          </div>
         </div>
 
-        <div className="px-8 py-6">
+        <div className="px-6 py-6">
           <div className="space-y-2">
-            <label className="text-sm font-bold text-foreground uppercase tracking-wider">
-              Reflection Title
+            <label className="text-sm font-semibold text-foreground" htmlFor="reflection-title">
+              Title
             </label>
             <div className="relative">
-              <Textarea
+              <Input
+                id="reflection-title"
                 autoFocus
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Exploring colors with water paint or Morning circle time..."
-                rows={4}
-                className="resize-none border-sidebar-border bg-muted/20 p-4 text-base focus-visible:ring-primary/50 rounded-xl text-foreground placeholder:text-muted-foreground/50"
+                maxLength={MAX_TITLE_LENGTH}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="e.g., Morning circle discoveries"
+                className="h-12 rounded-xl border-border bg-muted/20 pr-20 text-base focus-visible:ring-primary/50"
               />
-              <div className="absolute bottom-3 right-3 text-xs text-muted-foreground">
-                {title.length} characters
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                {title.length}/{MAX_TITLE_LENGTH}
               </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              You can add children, educators, media and reflection notes on the next screen.
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-sidebar-border bg-muted/10 px-8 py-5">
-          <Button 
-            variant="ghost" 
-            onClick={onClose}
-            className="rounded-xl font-semibold hover:bg-muted text-muted-foreground hover:text-foreground"
-          >
+        <div className="flex items-center justify-end gap-3 border-t border-border bg-muted/20 px-6 py-4">
+          <Button type="button" variant="outline" onClick={onClose} className="rounded-xl">
             Cancel
           </Button>
           <Button
+            type="submit"
             disabled={!canSubmit}
-            onClick={() => onSubmit(title.trim())}
-            className="rounded-xl bg-primary px-6 font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all hover:translate-y-[-1px] disabled:opacity-50 disabled:translate-y-0"
+            className="rounded-xl bg-primary px-6 font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
           >
-            <PenLine className="mr-2 h-4 w-4" />
-            Submit & Continue
+            Continue
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </div>
-      </div>
+      </form>
     </div>
-  );}
+  );
+}
