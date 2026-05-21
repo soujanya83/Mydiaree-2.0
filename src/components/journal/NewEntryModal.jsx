@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Coffee,
   CupSoda,
@@ -23,11 +23,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useChildrenStore } from "@/stores/childrenStore";
+import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
+import { childrenService } from "@/services/centre/childrenService";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -70,6 +72,20 @@ function childInitials(child) {
     .slice(0, 2);
 }
 
+function childImageUrl(child) {
+  const url = child?.imageUrl;
+  if (!url) return null;
+  return url.startsWith("http") ? url : `https://mydiaree.com.au/${url.replace(/^\/+/, "")}`;
+}
+
+function childFirstName(child) {
+  return (child.first_name || child.name || "").trim() || "Child";
+}
+
+function childLastName(child) {
+  return (child.last_name || child.lastname || "").trim();
+}
+
 const getValidationSchema = (activity) => {
   const baseSchema = {
     date: z.string().min(1, "Date is required"),
@@ -109,12 +125,29 @@ const getValidationSchema = (activity) => {
   return z.object(schema);
 };
 
-export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
-  const storeChildren = useChildrenStore((s) => s.children);
-  const children = childList?.length > 0 ? childList : storeChildren;
-  
+const CHILDREN_PER_PAGE = 10;
+
+function mergeById(current, next) {
+  const map = new Map(current.map((c) => [c.id, c]));
+  next.forEach((c) => map.set(c.id, c));
+  return Array.from(map.values());
+}
+
+export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerIdProp, roomId: roomIdProp }) {
+  const activeCentreId = useCentreStore((s) => s.activeCentreId);
+  const activeRoomId = useRoomStore((s) => s.activeRoomId);
+  const centerId = centerIdProp ?? activeCentreId;
+  const roomId = roomIdProp ?? activeRoomId;
+
+  const [children, setChildren] = useState([]);
+  const [childrenPage, setChildrenPage] = useState(1);
+  const [childrenTotalPages, setChildrenTotalPages] = useState(1);
+  const [isLoadingChildren, setIsLoadingChildren] = useState(false);
+
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const loadMoreObserver = useRef(null);
 
   const {
     register,
@@ -155,14 +188,86 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
   const current = ACTIVITIES.find((a) => a.key === activity);
   const Icon = current.icon;
 
-  const filteredChildren = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return children;
-    return children.filter((c) => childDisplayName(c).toLowerCase().includes(q));
-  }, [search, children]);
+  const hasMoreChildren = childrenPage < childrenTotalPages;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    if (!open) {
+      setSearch("");
+      setDebouncedSearch("");
+      setChildrenPage(1);
+      setChildren([]);
+      setChildrenTotalPages(1);
+      return;
+    }
+    setChildrenPage(1);
+    setChildren([]);
+  }, [open, debouncedSearch, centerId, roomId]);
+
+  useEffect(() => {
+    if (!open || !centerId || !roomId) return;
+
+    let cancelled = false;
+
+    const fetchChildrenPage = async () => {
+      setIsLoadingChildren(true);
+      try {
+        const response = await childrenService.filterChildren({
+          center_id: centerId,
+          room_id: roomId,
+          search: debouncedSearch || undefined,
+          page: childrenPage,
+          per_page: CHILDREN_PER_PAGE,
+        });
+
+        if (cancelled || !response.status) return;
+
+        const pageData = response.data?.data || [];
+        const lastPage =
+          response.pagination?.last_page ?? response.data?.last_page ?? 1;
+
+        setChildren((prev) =>
+          childrenPage === 1 ? pageData : mergeById(prev, pageData),
+        );
+        setChildrenTotalPages(lastPage);
+      } catch (error) {
+        console.error("Failed to fetch children for entry modal", error);
+      } finally {
+        if (!cancelled) setIsLoadingChildren(false);
+      }
+    };
+
+    fetchChildrenPage();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, centerId, roomId, childrenPage, debouncedSearch]);
+
+  const loadMoreChildren = useCallback(() => {
+    if (isLoadingChildren || !hasMoreChildren) return;
+    setChildrenPage((p) => p + 1);
+  }, [isLoadingChildren, hasMoreChildren]);
+
+  const loadMoreRef = useCallback(
+    (node) => {
+      if (isLoadingChildren) return;
+      if (loadMoreObserver.current) loadMoreObserver.current.disconnect();
+      loadMoreObserver.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && childrenPage < childrenTotalPages) {
+          loadMoreChildren();
+        }
+      });
+      if (node) loadMoreObserver.current.observe(node);
+    },
+    [isLoadingChildren, childrenPage, childrenTotalPages, loadMoreChildren],
+  );
 
   const allSelected =
-    filteredChildren.length > 0 && filteredChildren.every((c) => selected.includes(c.id));
+    children.length > 0 && children.every((c) => selected.includes(c.id));
 
   const toggleChild = (id) => {
     const next = selected.includes(id)
@@ -173,11 +278,18 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
 
   const toggleAll = () => {
     if (allSelected) {
-      const next = selected.filter((id) => !filteredChildren.some((c) => c.id === id));
+      const next = selected.filter((id) => !children.some((c) => c.id === id));
       setValue("children", next, { shouldValidate: true });
     } else {
-      const next = Array.from(new Set([...selected, ...filteredChildren.map((c) => c.id)]));
+      const next = Array.from(new Set([...selected, ...children.map((c) => c.id)]));
       setValue("children", next, { shouldValidate: true });
+    }
+  };
+
+  const handleChildrenScroll = (event) => {
+    const target = event.currentTarget;
+    if (target.scrollHeight - target.scrollTop <= target.clientHeight + 16) {
+      loadMoreChildren();
     }
   };
 
@@ -342,49 +454,84 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, childList }) {
                   </span>
                 </div>
 
-                <ScrollArea className="h-[250px] rounded-xl border border-border bg-muted/20 p-2">
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {filteredChildren.map((c) => {
-                      const isSel = selected.includes(c.id);
-                      const displayName = childDisplayName(c) || "Child";
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => toggleChild(c.id)}
-                          className={cn(
-                            "flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all",
-                            isSel
-                              ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                              : "border-border bg-card hover:border-primary/50",
-                          )}
-                        >
-                          <Avatar className="h-9 w-9">
-                            <AvatarFallback className="bg-primary/10 text-xs text-primary">
-                              {childInitials(c)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{displayName}</p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {c.room || "Room"}
-                            </p>
-                          </div>
-                          {isSel && (
-                            <div className="rounded-full bg-primary p-1 text-primary-foreground">
-                              <Check className="h-3 w-3" />
+                <div
+                  className="h-[250px] overflow-y-auto rounded-xl border border-border bg-muted/20 p-2"
+                  onScroll={handleChildrenScroll}
+                >
+                  {isLoadingChildren && children.length === 0 ? (
+                    <div className="flex h-full items-center justify-center py-8 text-muted-foreground">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  ) : children.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                      {debouncedSearch
+                        ? `No children match "${debouncedSearch}".`
+                        : "No children found in this room."}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {children.map((c) => {
+                        const isSel = selected.includes(c.id);
+                        const firstName = childFirstName(c);
+                        const lastName = childLastName(c);
+                        const photoUrl = childImageUrl(c);
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => toggleChild(c.id)}
+                            className={cn(
+                              "flex items-center gap-3 rounded-lg border p-2.5 text-left transition-all",
+                              isSel
+                                ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                                : "border-border bg-card hover:border-primary/50",
+                            )}
+                          >
+                            <Avatar className="h-9 w-9 shrink-0">
+                              {photoUrl && (
+                                <AvatarImage
+                                  src={photoUrl}
+                                  alt={childDisplayName(c)}
+                                  className="object-cover"
+                                />
+                              )}
+                              <AvatarFallback className="bg-primary/10 text-xs text-primary">
+                                {childInitials(c)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium">{firstName}</p>
+                              {lastName ? (
+                                <p className="truncate text-xs text-muted-foreground">{lastName}</p>
+                              ) : null}
                             </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                    {filteredChildren.length === 0 && (
-                      <div className="col-span-full rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-                        No children match "{search}".
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
+                            {isSel && (
+                              <div className="rounded-full bg-primary p-1 text-primary-foreground">
+                                <Check className="h-3 w-3" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                      {isLoadingChildren && children.length > 0 && (
+                        <div className="col-span-full flex items-center justify-center py-3">
+                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        </div>
+                      )}
+                      {!isLoadingChildren && hasMoreChildren && (
+                        <div ref={loadMoreRef} className="col-span-full py-1">
+                          <button
+                            type="button"
+                            onClick={loadMoreChildren}
+                            className="w-full rounded-lg border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                          >
+                            Load more
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 {errors.children && (
                   <p className="text-red-500 text-xs">{errors.children.message}</p>
                 )}

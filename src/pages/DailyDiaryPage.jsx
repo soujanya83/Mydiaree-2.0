@@ -18,7 +18,6 @@ import { NewEntryModal } from "@/components/journal/NewEntryModal";
 import { Pagination } from "@/components/common/Pagination";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
-import { useChildrenStore } from "@/stores/childrenStore";
 import { useEffect } from "react";
 
 const DAILY_DIARY_ACTIVITY_COUNT = 9;
@@ -32,8 +31,6 @@ export default function DailyDiaryPage() {
   const rooms = useRoomStore((s) => s.rooms);
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
-
-  const fetchChildren = useChildrenStore((s) => s.fetchChildren);
 
   const [diaryChildren, setDiaryChildren] = useState([]);
 
@@ -203,12 +200,6 @@ export default function DailyDiaryPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [activeCentreId, activeRoomId, date, debouncedSearch]);
-
-  useEffect(() => {
-    if (activeCentreId && activeRoomId) {
-      fetchChildren({ center_id: activeCentreId, room_id: activeRoomId });
-    }
-  }, [activeCentreId, activeRoomId, fetchChildren]);
 
   const toFormData = (payload) => {
     const fd = new FormData();
@@ -449,7 +440,8 @@ export default function DailyDiaryPage() {
       <NewEntryModal
         open={modalOpen}
         onOpenChange={setModalOpen}
-        childList={diaryChildren}
+        centerId={activeCentreId}
+        roomId={activeRoomId}
         onSubmit={async (payload) => {
           try {
             console.log("Bulk save payload:", payload);
