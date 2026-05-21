@@ -36,6 +36,7 @@ import { useChildrenStore } from "@/stores/childrenStore";
 import { AccidentFormView } from "@/components/accident/AccidentFormView";
 import { AccidentReadOnlyView } from "@/components/accident/AccidentReadOnlyView";
 import { useAuthStore } from "@/stores/authStore";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import { accidentService } from "@/services/daily-operations/accidentService";
@@ -44,6 +45,11 @@ import {
   NATURE_API_KEYS,
   natureLabelsFromApiRecord,
 } from "@/components/accident/accidentFormConstants";
+import {
+  BODY_INJURY_API_FIELD,
+  bodyInjuryMarkersFromRecord,
+  serializeBodyInjuryMarkers,
+} from "@/components/accident/bodyInjuryMarkers";
 
 const seedRecords = [
   {
@@ -91,6 +97,7 @@ export default function AccidentFormPage() {
   const { children, isLoading } = useChildrenStore();
 
   const user = useAuthStore((s) => s.user);
+  const { isParent } = usePermissions();
 
   const [records, setRecords] = useState([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -103,7 +110,10 @@ export default function AccidentFormPage() {
 
   const toFormData = (data) => {
     const fd = new FormData();
-    Object.entries(data).forEach(([k, v]) => fd.append(k, v));
+    Object.entries(data).forEach(([k, v]) => {
+      if (v === undefined || v === null) return;
+      fd.append(k, typeof v === "object" && !(v instanceof Blob) ? JSON.stringify(v) : String(v));
+    });
     return fd;
   };
 
@@ -178,6 +188,7 @@ export default function AccidentFormPage() {
           removedCircumstances: d.taken_removed,
           natures,
           natureOtherRemarks: d.other_remarks || d.remarks_other || "",
+          bodyInjuryMarkers: bodyInjuryMarkersFromRecord(d),
           actionDetails: d.action_taken,
           emergencyAttended: d.emrg_serv_attend === "yes" || d.emrg_serv_attend === 1 ? "yes" : "no",
           medicalSought: d.med_attention === "yes" || d.med_attention === 1 ? "yes" : "no",
@@ -257,6 +268,7 @@ export default function AccidentFormPage() {
       missing_unaccounted: data.missingCircumstances,
       taken_removed: data.removedCircumstances,
       other_remarks: data.natureOtherRemarks,
+      [BODY_INJURY_API_FIELD]: serializeBodyInjuryMarkers(data.bodyInjuryMarkers),
       action_taken: data.actionDetails,
       emrg_serv_attend: data.emergencyAttended === "yes" ? "yes" : "no",
       med_attention: data.medicalSought === "yes" ? "yes" : "no",
@@ -387,7 +399,7 @@ export default function AccidentFormPage() {
       <AccidentReadOnlyView
         record={selectedRecord}
         onBack={() => setMode({ view: "list" })}
-        onEdit={() => setMode({ view: "edit", id: selectedRecord.id })}
+        onEdit={isParent ? undefined : () => setMode({ view: "edit", id: selectedRecord.id })}
       />
     );
   }
@@ -425,10 +437,12 @@ export default function AccidentFormPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={() => setMode({ view: "create" })}>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add New Accident
-            </Button>
+            {!isParent && (
+              <Button onClick={() => setMode({ view: "create" })}>
+                <Plus className="mr-1.5 h-4 w-4" />
+                Add New Accident
+              </Button>
+            )}
           </div>
         }
       />
@@ -463,10 +477,12 @@ export default function AccidentFormPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             Click “Add New Accident” to create your first record.
           </p>
-          <Button className="mt-5" onClick={() => setMode({ view: "create" })}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add New Accident
-          </Button>
+          {!isParent && (
+            <Button className="mt-5" onClick={() => setMode({ view: "create" })}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add New Accident
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -521,23 +537,27 @@ export default function AccidentFormPage() {
                 >
                   <Eye className="h-4 w-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => fetchDetails(r.id, "edit")}
-                  title="Edit"
-                  className={CARD_PRIMARY_ACTION_CLASSES}
-                  style={CARD_PRIMARY_ACTION_STYLE}
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmId(r.id)}
-                  title="Delete"
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {!isParent && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => fetchDetails(r.id, "edit")}
+                      title="Edit"
+                      className={CARD_PRIMARY_ACTION_CLASSES}
+                      style={CARD_PRIMARY_ACTION_STYLE}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmId(r.id)}
+                      title="Delete"
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-red-500 transition-all duration-200 hover:bg-red-50 hover:text-red-700 active:scale-90 dark:text-red-400 dark:hover:bg-red-950/30"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
               </div>
             </article>
           ))}

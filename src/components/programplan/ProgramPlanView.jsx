@@ -7,7 +7,6 @@ import {
   SUBJECT_TREE,
   RICH_SUBJECTS,
   ADDITIONAL_FIELDS,
-  EYLF_OUTCOMES,
 } from "./data";
 
 const SUBJECT_FIELDS = {
@@ -121,39 +120,16 @@ export function ProgramPlanView({ record, onBack, onEdit }) {
 
         {record.eylf?.length > 0 && (
           <Card title="EYLF Outcomes" icon={Sparkles}>
-            <div className="space-y-4">
-              {Array.from(
-                new Set(
-                  record.eylf.map((code) => EYLF_OUTCOMES.find((o) => o.code === code)?.outcome),
-                ),
-              ).map((outcomeTitle) => {
-                const groupItems = record.eylf.filter(
-                  (code) => EYLF_OUTCOMES.find((o) => o.code === code)?.outcome === outcomeTitle,
-                );
-                if (groupItems.length === 0) return null;
-                return (
-                  <div
-                    key={outcomeTitle}
-                    className="rounded-lg border border-border bg-muted/20 p-3 space-y-2"
-                  >
-                    <div className="text-xs font-bold text-primary uppercase tracking-wider">
-                      {outcomeTitle}
-                    </div>
-                    <div className="space-y-2">
-                      {groupItems.map((code) => {
-                        const o = EYLF_OUTCOMES.find((x) => x.code === code);
-                        return (
-                          <div key={code} className="pl-2 border-l-2 border-primary/20">
-                            <div className="text-sm font-semibold text-foreground">EYLF {code}</div>
-                            <div className="text-xs text-muted-foreground">{o?.label}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ul className="space-y-2">
+              {record.eylf.map((label, i) => (
+                <li
+                  key={`${label}-${i}`}
+                  className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-foreground"
+                >
+                  {label}
+                </li>
+              ))}
+            </ul>
           </Card>
         )}
 

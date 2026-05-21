@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
@@ -39,6 +40,7 @@ const BREATHING_OPTIONS = ["Regular", "Fast", "Difficult"];
 const TEMPERATURE_OPTIONS = ["Normal", "Warm", "Hot"];
 
 export default function SleepCheckPage() {
+  const { isParent } = usePermissions();
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
@@ -503,26 +505,28 @@ export default function SleepCheckPage() {
                               </Field>
                             </div>
 
-                            <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() =>
-                                  handleDeleteEntry(child.id, entry.id, entry.isNew !== false)
-                                }
-                              >
-                                <Trash2 className="mr-1.5 h-4 w-4" />
-                                Remove
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveSingle(child.id, entry)}
-                                disabled={isSaving}
-                              >
-                                <Save className="mr-1.5 h-4 w-4" />
-                                {entry.isNew === false ? "Update" : "Save"}
-                              </Button>
-                            </div>
+                            {!isParent && (
+                              <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() =>
+                                    handleDeleteEntry(child.id, entry.id, entry.isNew !== false)
+                                  }
+                                >
+                                  <Trash2 className="mr-1.5 h-4 w-4" />
+                                  Remove
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleSaveSingle(child.id, entry)}
+                                  disabled={isSaving}
+                                >
+                                  <Save className="mr-1.5 h-4 w-4" />
+                                  {entry.isNew === false ? "Update" : "Save"}
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -531,12 +535,14 @@ export default function SleepCheckPage() {
                 </div>
 
                 {/* Card footer */}
-                <div className="flex items-center justify-start border-t border-border bg-muted/20 px-5 py-3">
-                  <Button size="sm" onClick={() => addEntry(child.id)} className="rounded-full">
-                    <Plus className="mr-1.5 h-4 w-4" />
-                    Add 10-min Entry
-                  </Button>
-                </div>
+                {!isParent && (
+                  <div className="flex items-center justify-start border-t border-border bg-muted/20 px-5 py-3">
+                    <Button size="sm" onClick={() => addEntry(child.id)} className="rounded-full">
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Add 10-min Entry
+                    </Button>
+                  </div>
+                )}
               </article>
             );
           })}
@@ -544,7 +550,7 @@ export default function SleepCheckPage() {
       )}
 
       {/* Footer */}
-      {visibleChildren.length > 0 && (
+      {!isParent && visibleChildren.length > 0 && (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-border pt-6">
           <Button onClick={handleSaveAll} className="min-w-[200px]" disabled={isSaving}>
             <Save className="mr-1.5 h-4 w-4" />

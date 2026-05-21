@@ -1,11 +1,10 @@
 import {
   Users2,
-  ShieldCheck,
   ChefHat,
   Baby,
-  Building2,
   DoorOpen,
   Users,
+  UserPlus,
   NotebookPen,
   ClipboardList,
   Camera,
@@ -16,18 +15,28 @@ import { Link } from "react-router-dom";
 import { StatCard } from "@/components/common/StatCard";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
+import { useAuthStore } from "@/stores/authStore";
+import { isParentUser } from "@/constants/parentAccess";
 import { useCentreStore } from "@/stores/centreStore";
 import { dashboardService } from "@/services/admin/dashboardService";
+import ParentDashboardPage from "@/pages/ParentDashboardPage";
 import { DashboardCalendar } from "@/components/dashboard/DashboardCalendar";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DashboardWeather } from "@/components/dashboard/DashboardWeather";
+import { useDashboardEvents } from "@/hooks/useDashboardEvents";
 import { cn } from "@/lib/utils";
 
 function DashboardPage() {
+  const user = useAuthStore((s) => s.user);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
+
+  if (isParentUser(user)) {
+    return <ParentDashboardPage />;
+  }
   const centre = useCentreStore((s) => s.centres.find((c) => c.id === activeCentreId));
 
   const [dashboardResponse, setDashboardResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { events, isLoading: isEventsLoading } = useDashboardEvents();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,28 +63,22 @@ function DashboardPage() {
       accent: "primary",
     },
     {
-      label: "Total Superadmin",
-      value: dashboardData.totalSuperadmin ?? 0,
-      icon: ShieldCheck,
-      accent: "destructive",
-    },
-    {
       label: "Total Staff",
       value: dashboardData.totalStaff ?? 0,
       icon: Users,
       accent: "info",
     },
     {
-      label: "Total Parent",
+      label: "Total Parents",
       value: dashboardData.totalParent ?? 0,
       icon: Users,
       accent: "warning",
     },
     {
-      label: "Total Center",
-      value: dashboardData.totalCenter ?? 0,
-      icon: Building2,
-      accent: "primary",
+      label: "New Enrolments (Last Year)",
+      value: dashboardData.newEnrolmentsLastYear ?? 0,
+      icon: UserPlus,
+      accent: "success",
     },
     {
       label: "Total Rooms",
@@ -163,10 +166,14 @@ function DashboardPage() {
         })}
       </div>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-1 gap-4">
-        {/* Calendar */}
-        <DashboardCalendar />
+      {/* Weather & calendar — equal columns */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+        <DashboardWeather className="min-h-[28rem]" />
+        <DashboardCalendar
+          className="min-h-[28rem]"
+          events={events}
+          isLoading={isEventsLoading}
+        />
       </div>
     </div>
   );

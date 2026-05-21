@@ -5,7 +5,10 @@ export const dashboardService = {
     const formData = new FormData();
     formData.append("center_id", centerId);
     
-    const res = await api.post("/newdashboard", formData, {
+    const res = await api.get("/newdashboard", {
+      params: {
+        centerid: centerId,
+      },
       headers: {
         "Content-Type": "multipart/form-data",
       },

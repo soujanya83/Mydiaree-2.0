@@ -18,9 +18,11 @@ export const useAuthStore = create((set, get) => ({
         localStorage.setItem("token", data.token);
         set({ user: data.user, token: data.token, isAuthenticated: true });
 
-        // Fetch permissions after login
-        // Superadmin gets all permissions implicitly — no need to fetch
-        if (data.user.userType !== "Superadmin") {
+        // Parents use a fixed view-only module list — no permission API
+        if (data.user.userType === "Parent") {
+          localStorage.removeItem("userPermissions");
+          set({ userPermissions: null });
+        } else if (data.user.userType !== "Superadmin") {
           try {
             const permData = await permissionService.getUserPermission(data.user.userid);
             // API may return { permissions: {...} } OR the flat object directly
@@ -60,7 +62,7 @@ export const useAuthStore = create((set, get) => ({
    */
   refreshPermissions: async () => {
     const { user } = get();
-    if (!user || user.userType === "Superadmin") return;
+    if (!user || user.userType === "Superadmin" || user.userType === "Parent") return;
     try {
       const permData = await permissionService.getUserPermission(user.userid);
       const permissions = permData?.permissions ?? permData ?? null;

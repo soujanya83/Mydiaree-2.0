@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ChevronDown, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navConfig } from "@/constants/nav";
+import { parentNavConfig } from "@/constants/parentNav";
 import { useUiStore } from "@/stores/uiStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ROUTE_PERMISSIONS, SUPERADMIN_ONLY_ROUTES } from "@/constants/permissionMap";
@@ -17,10 +18,14 @@ export function Sidebar() {
   const pathname = useLocation().pathname;
   const isActive = (to) => pathname === to || pathname.startsWith(to + "/");
 
-  const { canAny, isSuperadmin } = usePermissions();
+  const { canAny, isSuperadmin, isParent } = usePermissions();
 
   // ----- Filter nav items by permission -----
   const filteredNav = useMemo(() => {
+    if (isParent) {
+      return parentNavConfig;
+    }
+
     return navConfig
       .map((group) => {
         // Single-link group (e.g. Dashboard) — always visible
@@ -50,7 +55,7 @@ export function Sidebar() {
         return { ...group, items: visibleItems };
       })
       .filter(Boolean);
-  }, [canAny, isSuperadmin]);
+  }, [canAny, isSuperadmin, isParent]);
 
   return (
     <>

@@ -33,7 +33,6 @@ import {
   ACTIVITY_SUBJECTS,
   RICH_SUBJECTS,
   ADDITIONAL_FIELDS,
-  EYLF_OUTCOMES,
 } from "./data";
 import { ActivityPickerModal } from "./ActivityPickerModal";
 import { EylfPickerModal } from "./EylfPickerModal";
@@ -648,51 +647,23 @@ export function ProgramPlanForm({
               {data.eylf.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No outcomes selected.</p>
               ) : (
-                <div className="space-y-3">
-                  {Array.from(
-                    new Set(
-                      data.eylf.map((code) => EYLF_OUTCOMES.find((o) => o.code === code)?.outcome),
-                    ),
-                  ).map((outcomeTitle) => {
-                    const groupItems = data.eylf.filter(
-                      (code) =>
-                        EYLF_OUTCOMES.find((o) => o.code === code)?.outcome === outcomeTitle,
-                    );
-                    if (groupItems.length === 0) return null;
-                    return (
-                      <div key={outcomeTitle} className="space-y-1">
-                        <div className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                          {outcomeTitle}
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {groupItems.map((code) => {
-                            const outcome = EYLF_OUTCOMES.find((o) => o.code === code);
-                            return (
-                              <span
-                                key={code}
-                                title={outcome?.label}
-                                className="inline-flex items-center gap-1 rounded-full bg-accent/30 border border-accent/50 px-2.5 py-1 text-xs font-medium text-accent-foreground"
-                              >
-                                EYLF {code}
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    update(
-                                      "eylf",
-                                      data.eylf.filter((x) => x !== code),
-                                    )
-                                  }
-                                  className="hover:text-destructive ml-0.5"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="flex flex-wrap gap-2">
+                  {data.eylf.map((label, i) => (
+                    <span
+                      key={`${label}-${i}`}
+                      title={label}
+                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-950/30 dark:text-emerald-400"
+                    >
+                      <span className="truncate">{label}</span>
+                      <button
+                        type="button"
+                        onClick={() => update("eylf", data.eylf.filter((_, j) => j !== i))}
+                        className="ml-0.5 shrink-0 hover:text-emerald-900 dark:hover:text-emerald-200"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
                 </div>
               )}
             </div>

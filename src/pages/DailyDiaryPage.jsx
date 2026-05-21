@@ -16,6 +16,7 @@ import {
 import { ChildDiaryCard } from "@/components/journal/ChildDiaryCard";
 import { NewEntryModal } from "@/components/journal/NewEntryModal";
 import { Pagination } from "@/components/common/Pagination";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useEffect } from "react";
@@ -32,6 +33,7 @@ export default function DailyDiaryPage() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
 
+  const { isParent } = usePermissions();
   const [diaryChildren, setDiaryChildren] = useState([]);
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -400,10 +402,12 @@ export default function DailyDiaryPage() {
               className="h-10 bg-background pl-9"
             />
           </div>
-          <Button className="h-10 shrink-0" onClick={() => setModalOpen(true)}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add Entry
-          </Button>
+          {!isParent && (
+            <Button className="h-10 shrink-0" onClick={() => setModalOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Entry
+            </Button>
+          )}
         </div>
       </section>
 
@@ -421,7 +425,8 @@ export default function DailyDiaryPage() {
               child={c}
               date={date}
               entries={entriesByChild[c.id] || {}}
-              onSaveEntry={handleSaveEntry}
+              readOnly={isParent}
+              onSaveEntry={isParent ? undefined : handleSaveEntry}
             />
           ))}
         </div>

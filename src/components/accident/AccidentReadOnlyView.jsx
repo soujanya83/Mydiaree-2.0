@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useChildrenStore } from "@/stores/childrenStore";
 import { toast } from "sonner";
+import { BodyInjuryDiagram } from "./BodyInjuryDiagram";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
@@ -42,7 +43,7 @@ export function AccidentReadOnlyView({ record, onBack, onEdit }) {
       <PageHeader
         title="View accident record"
         description={childDisplay !== "—" ? `Record for ${childDisplay}` : "Read-only incident record"}
-        breadcrumbs={[{ label: "Accident Forms", to: "/accident-form" }, { label: "View" }]}
+        breadcrumbs={[{ label: "Accident Forms", onClick: onBack }, { label: "View" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={onBack}>
@@ -61,10 +62,12 @@ export function AccidentReadOnlyView({ record, onBack, onEdit }) {
               <Send className="mr-1.5 h-4 w-4" />
               Send to parent
             </Button>
-            <Button size="sm" onClick={onEdit}>
-              <Pencil className="mr-1.5 h-4 w-4" />
-              Edit
-            </Button>
+            {onEdit && (
+              <Button size="sm" onClick={onEdit}>
+                <Pencil className="mr-1.5 h-4 w-4" />
+                Edit
+              </Button>
+            )}
           </div>
         }
       />
@@ -129,6 +132,12 @@ export function AccidentReadOnlyView({ record, onBack, onEdit }) {
         </ViewSection>
 
         <ViewSection step={4} title={SECTIONS[3].title} icon={SECTIONS[3].icon}>
+          <div className="sm:col-span-2 mb-4">
+            <BodyInjuryDiagram
+              markers={record.bodyInjuryMarkers || []}
+              readOnly
+            />
+          </div>
           <div className="sm:col-span-2">
             {record.natures?.length ? (
               <div className="flex flex-wrap gap-2">

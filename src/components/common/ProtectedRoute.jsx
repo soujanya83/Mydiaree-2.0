@@ -1,6 +1,7 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ROUTE_PERMISSIONS, SUPERADMIN_ONLY_ROUTES } from "@/constants/permissionMap";
+import { isParentRouteAllowed } from "@/constants/parentAccess";
 import { useAuthStore } from "@/stores/authStore";
 import AccessDeniedPage from "@/pages/AccessDeniedPage";
 
@@ -16,11 +17,19 @@ import AccessDeniedPage from "@/pages/AccessDeniedPage";
  */
 export default function ProtectedRoute({ path, children }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const { canAny, isSuperadmin } = usePermissions();
+  const { canAny, isSuperadmin, isParent } = usePermissions();
+  const { pathname } = useLocation();
 
   // If not authenticated, redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (isParent) {
+    if (isParentRouteAllowed(pathname)) {
+      return children;
+    }
+    return <AccessDeniedPage />;
   }
 
   // If route is superadmin-only, check userType

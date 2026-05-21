@@ -1,10 +1,11 @@
 import { useAuthStore } from "@/stores/authStore";
+import { isParentUser } from "@/constants/parentAccess";
 
 /**
  * Central permissions hook.
  *
  * Usage:
- *   const { can, canAny, canAll, isSuperadmin } = usePermissions();
+ *   const { can, canAny, canAll, isSuperadmin, isParent } = usePermissions();
  *   if (can("addSnapshots")) { ... }
  *   if (canAny(["addSnapshots", "editSnapshots"])) { ... }
  */
@@ -13,12 +14,14 @@ export function usePermissions() {
   const userPermissions = useAuthStore((s) => s.userPermissions);
 
   const isSuperadmin = user?.userType === "Superadmin";
+  const isParent = isParentUser(user);
 
   /**
    * Check if user has a specific permission.
-   * Superadmin always returns true.
+   * Superadmin always returns true. Parents never have write permissions.
    */
   const can = (permissionName) => {
+    if (isParent) return false;
     if (isSuperadmin) return true;
     if (!userPermissions) return false;
     return userPermissions[permissionName] === 1;
@@ -30,6 +33,7 @@ export function usePermissions() {
    * Superadmin always returns true.
    */
   const canAny = (permissionNames = []) => {
+    if (isParent) return true;
     if (isSuperadmin) return true;
     if (!permissionNames || permissionNames.length === 0) return true;
     if (!userPermissions) return false;
@@ -47,5 +51,5 @@ export function usePermissions() {
     return permissionNames.every((name) => userPermissions[name] === 1);
   };
 
-  return { can, canAny, canAll, isSuperadmin };
+  return { can, canAny, canAll, isSuperadmin, isParent };
 }

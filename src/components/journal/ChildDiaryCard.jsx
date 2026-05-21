@@ -200,7 +200,7 @@ function EntryDetails({ def, entry }) {
   );
 }
 
-function ActivityTile({ def, entry, onSave }) {
+function ActivityTile({ def, entry, onSave, readOnly = false }) {
   const [editOpen, setEditOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -210,13 +210,16 @@ function ActivityTile({ def, entry, onSave }) {
   const isMulti = MULTI_ENTRY_ACTIVITIES.has(def.key);
   const entries = Array.isArray(entry) ? entry : entry ? [entry] : [];
   const modalInitial = isMulti ? editingEntry : entry;
+  const canEdit = !readOnly && !!onSave;
 
   const openAdd = () => {
+    if (!canEdit) return;
     setEditingEntry(null);
     setEditOpen(true);
   };
 
   const openEdit = (item) => {
+    if (!canEdit) return;
     setEditingEntry(item);
     setEditOpen(true);
   };
@@ -258,36 +261,38 @@ function ActivityTile({ def, entry, onSave }) {
             </div>
           </CollapsibleTrigger>
 
-          <div className="flex shrink-0 items-center gap-1">
-            {isMulti ? (
-              <button
-                type="button"
-                onClick={openAdd}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/90"
-                title={`Add ${def.label}`}
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            ) : entry ? (
-              <button
-                type="button"
-                onClick={() => openEdit(entries[0])}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
-                title={`Edit ${def.label}`}
-              >
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={openAdd}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
-                title={`Add ${def.label}`}
-              >
-                <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            )}
-          </div>
+          {canEdit && (
+            <div className="flex shrink-0 items-center gap-1">
+              {isMulti ? (
+                <button
+                  type="button"
+                  onClick={openAdd}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/90"
+                  title={`Add ${def.label}`}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              ) : entry ? (
+                <button
+                  type="button"
+                  onClick={() => openEdit(entries[0])}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
+                  title={`Edit ${def.label}`}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openAdd}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
+                  title={`Add ${def.label}`}
+                >
+                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <CollapsibleContent className="overflow-hidden transition-all duration-300 ease-in-out data-[state=closed]:h-0 data-[state=open]:h-[var(--radix-collapsible-content-height)]">
@@ -301,7 +306,7 @@ function ActivityTile({ def, entry, onSave }) {
                   <div className="flex-1 text-xs leading-relaxed text-muted-foreground min-w-0 overflow-hidden">
                     <EntryDetails def={def} entry={item} />
                   </div>
-                  {isMulti && (
+                  {isMulti && canEdit && (
                     <button
                       type="button"
                       onClick={() => openEdit(item)}
@@ -321,13 +326,15 @@ function ActivityTile({ def, entry, onSave }) {
         </CollapsibleContent>
       </Collapsible>
 
-      <ActivityEditModal
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        activityLabel={def.label}
-        initial={modalInitial}
-        onSave={(payload) => onSave?.(def.key, payload)}
-      />
+      {canEdit && (
+        <ActivityEditModal
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          activityLabel={def.label}
+          initial={modalInitial}
+          onSave={(payload) => onSave?.(def.key, payload)}
+        />
+      )}
     </>
   );
 }
@@ -344,7 +351,8 @@ function formatDob(dob) {
   });
 }
 
-export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
+export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry, readOnly = false }) {
+  const isReadOnly = readOnly || !onSaveEntry;
   const initials = (child.name || "Child")
     .split(" ")
     .map((n) => n[0])
@@ -426,9 +434,16 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
       </div>
 
       <div className="border-t border-border bg-muted/20 p-4">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-          <CheckCircle2 className="h-4 w-4 text-primary" />
-          Activities
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            Activities
+          </div>
+          {isReadOnly && (
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+              View only
+            </span>
+          )}
         </div>
         <div className="flex max-h-[350px] flex-col gap-2 overflow-y-auto pr-1">
           {ACTIVITY_DEFS.map((def) => (
@@ -436,6 +451,7 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry }) {
               key={def.key}
               def={def}
               entry={entries[def.key]}
+              readOnly={isReadOnly}
               onSave={(key, payload) => onSaveEntry?.(child.id, key, payload)}
             />
           ))}

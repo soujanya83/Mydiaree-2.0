@@ -30,6 +30,7 @@ import {
 import { useChildrenStore } from "@/stores/childrenStore";
 import { SignatureField } from "./SignaturePad";
 import { NATURE_OPTIONS } from "./accidentFormConstants";
+import { BodyInjuryDiagram } from "./BodyInjuryDiagram";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -59,6 +60,7 @@ const empty = () => ({
   removedCircumstances: "",
   natures: [],
   natureOtherRemarks: "",
+  bodyInjuryMarkers: [],
   actionDetails: "",
   emergencyAttended: "no",
   medicalSought: "no",
@@ -170,7 +172,7 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
         title={isEdit ? "Edit Accident Form" : "New Accident Form"}
         description="Complete all sections. Required fields are marked with *"
         breadcrumbs={[
-          { label: "Accident Forms", to: "/accident-form" },
+          { label: "Accident Forms", onClick: onCancel },
           { label: isEdit ? "Edit" : "Create" },
         ]}
         actions={
@@ -428,6 +430,12 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
         </Section>
 
         <Section icon={Activity} title="Nature of Injury / Trauma / Illness" step={4}>
+          <div className="mb-6">
+            <BodyInjuryDiagram
+              markers={data.bodyInjuryMarkers}
+              onChange={(markers) => set({ bodyInjuryMarkers: markers })}
+            />
+          </div>
           <p className="mb-4 text-sm text-muted-foreground">
             Toggle each type that applies. Select &quot;Other&quot; to add remarks below.
           </p>

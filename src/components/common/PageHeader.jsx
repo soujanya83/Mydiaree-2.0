@@ -19,7 +19,15 @@ export function PageHeader({
           {breadcrumbs.map((b, i) => (
             <span key={i} className="flex items-center gap-1.5">
               <ChevronRight className="h-3.5 w-3.5" />
-              {b.to ? (
+              {b.onClick ? (
+                <button
+                  type="button"
+                  onClick={b.onClick}
+                  className="hover:text-foreground"
+                >
+                  {b.label}
+                </button>
+              ) : b.to ? (
                 <Link to={b.to} className="hover:text-foreground">
                   {b.label}
                 </Link>

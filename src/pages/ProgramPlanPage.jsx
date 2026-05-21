@@ -220,7 +220,10 @@ const normalizeProgramPlan = (plan) => {
     language: parseActivityText(plan.language),
     culture: parseActivityText(plan.culture),
     artCraft: stripHtml(plan.art_craft),
-    eylf: Array.from(String(plan.eylf || "").matchAll(/\b\d\.\d\b/g)).map((m) => m[0]),
+    eylf: String(plan.eylf || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean),
     outdoor: stripHtml(plan.outdoor_experiences),
     inquiry: stripHtml(plan.inquiry_topic),
     sustainability: stripHtml(plan.sustainability_topic),
