@@ -291,7 +291,7 @@ export default function SnapshotsPage() {
     clearPersonSearch();
   };
 
-  const { can } = usePermissions();
+  const { can, isParent } = usePermissions();
   const perms = ACTION_PERMISSIONS.snapshots;
 
   return (
@@ -302,10 +302,12 @@ export default function SnapshotsPage() {
         breadcrumbs={[{ label: "Snapshots" }]}
         actions={
           <>
-            <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
-              <Filter className="mr-1.5 h-4 w-4" />
-              Filters
-            </Button>
+            {!isParent && (
+              <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
+                <Filter className="mr-1.5 h-4 w-4" />
+                Filters
+              </Button>
+            )}
             {can(perms.delete) && (
               <Button variant="outline" onClick={() => navigate("/snapshots/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
@@ -318,32 +320,36 @@ export default function SnapshotsPage() {
                 Add New
               </Button>
             )}
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                <Building2 className="mr-1.5 h-4 w-4" />
-                <SelectValue placeholder="Centre" />
-              </SelectTrigger>
-              <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={activeRoomId} onValueChange={setActiveRoom}>
-              <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                <DoorOpen className="mr-1.5 h-4 w-4" />
-                <SelectValue placeholder="Room" />
-              </SelectTrigger>
-              <SelectContent>
-                {rooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isParent && (
+              <>
+                <Select value={activeCentreId} onValueChange={setActiveCentre}>
+                  <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                    <Building2 className="mr-1.5 h-4 w-4" />
+                    <SelectValue placeholder="Centre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centres.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={activeRoomId} onValueChange={setActiveRoom}>
+                  <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                    <DoorOpen className="mr-1.5 h-4 w-4" />
+                    <SelectValue placeholder="Room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rooms.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </>
         }
       />
@@ -355,7 +361,7 @@ export default function SnapshotsPage() {
         </h2>
       </div>
 
-      {filtersOpen && (
+      {!isParent && filtersOpen && (
         <div className="mb-5 rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Filter snapshots</h3>
@@ -472,6 +478,7 @@ export default function SnapshotsPage() {
               isPrinting={isPrinting === s.id}
               canEdit={can(perms.edit)}
               canDelete={can(perms.delete)}
+              canPrint={!isParent}
             />
           ))}
         </div>
@@ -748,6 +755,7 @@ function SnapshotCard({
   isPrinting,
   canEdit = true,
   canDelete = true,
+  canPrint = true,
 }) {
   const images = snap.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -771,7 +779,7 @@ function SnapshotCard({
     <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
       {/* 1. Image Container (Top) */}
       <div className="group relative h-48 w-full shrink-0 overflow-hidden bg-muted/40">
-        <button type="button" onClick={onOpen} className="block h-full w-full">
+        <button type="button" onClick={onOpen} className="block h-full w-full cursor-pointer">
           {cover ? (
             <div className="relative h-full w-full">
               <img
@@ -882,20 +890,22 @@ function SnapshotCard({
 
         {/* 4. Actions (Formal, not rang-birangi) */}
         <div className="mt-4 flex items-center justify-end gap-1 border-t border-border/50 pt-3">
-          <button
-            type="button"
-            onClick={onPrint}
-            title="Print"
-            disabled={isPrinting}
-            className={`${CARD_PRIMARY_ACTION_CLASSES} disabled:opacity-50`}
-            style={CARD_PRIMARY_ACTION_STYLE}
-          >
-            {isPrinting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Printer className="h-4 w-4" />
-            )}
-          </button>
+          {canPrint && (
+            <button
+              type="button"
+              onClick={onPrint}
+              title="Print"
+              disabled={isPrinting}
+              className={`${CARD_PRIMARY_ACTION_CLASSES} disabled:opacity-50`}
+              style={CARD_PRIMARY_ACTION_STYLE}
+            >
+              {isPrinting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
+            </button>
+          )}
           <button
             type="button"
             onClick={onViewGallery}

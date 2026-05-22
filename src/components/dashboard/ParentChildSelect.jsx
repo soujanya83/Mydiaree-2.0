@@ -28,9 +28,6 @@ export function ParentChildSelect({ children = [], value, onChange, className })
         </div>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">
-          {children.length === 1 ? "Your child" : `All children (${children.length})`}
-        </SelectItem>
         {children.map((child) => {
           const name = childDisplayName(child);
           const img = childImageUrl(child.imageUrl);
@@ -39,7 +36,9 @@ export function ParentChildSelect({ children = [], value, onChange, className })
               <span className="flex items-center gap-2">
                 <Avatar className="h-6 w-6">
                   {img && <AvatarImage src={img} alt={name} />}
-                  <AvatarFallback className="text-[9px]">{name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  <AvatarFallback className="text-[9px]">
+                    {name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
                 </Avatar>
                 {name}
               </span>
@@ -52,11 +51,6 @@ export function ParentChildSelect({ children = [], value, onChange, className })
 }
 
 export function ParentChildSelectLabel({ children = [], value }) {
-  if (value === "all") {
-    return children.length === 1
-      ? childDisplayName(children[0])
-      : `All ${children.length} children`;
-  }
   const child = children.find((c) => String(c.id) === String(value));
   return child ? childDisplayName(child) : "Select child";
 }

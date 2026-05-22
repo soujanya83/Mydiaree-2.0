@@ -44,7 +44,7 @@ import { mapAnnouncementRecord } from "@/components/events/eventMappers";
 export default function EventsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const { can } = usePermissions();
+  const { can, isParent } = usePermissions();
   const perms = ACTION_PERMISSIONS.events;
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -176,10 +176,12 @@ export default function EventsPage() {
         breadcrumbs={[{ label: "Events" }]}
         actions={
           <>
-            <Button variant="outline" onClick={() => navigate("/events/holidays")}>
-              <CalendarDays className="h-4 w-4" />
-              Public Holiday
-            </Button>
+            {!isParent && (
+              <Button variant="outline" onClick={() => navigate("/events/holidays")}>
+                <CalendarDays className="h-4 w-4" />
+                Public Holiday
+              </Button>
+            )}
             {can(perms.add) && (
               <Button
                 variant="outline"
@@ -204,77 +206,79 @@ export default function EventsPage() {
       />
 
       {/* Filters */}
-      <div className="mb-6 rounded-lg border bg-card p-4 shadow-sm">
-        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-          <FilterIcon className="h-4 w-4" />
-          Filters
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {centres.length > 0 && (
+      {!isParent && (
+        <div className="mb-6 rounded-lg border bg-card p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
+            <FilterIcon className="h-4 w-4" />
+            Filters
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {centres.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-xs">Centre</Label>
+                <Select value={String(activeCentreId || "")} onValueChange={setActiveCentre}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select centre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centres.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1">
-              <Label className="text-xs">Centre</Label>
-              <Select value={String(activeCentreId || "")} onValueChange={setActiveCentre}>
+              <Label className="text-xs">Type</Label>
+              <Select value={type} onValueChange={setType}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select centre" />
+                  <SelectValue placeholder="Choose" />
                 </SelectTrigger>
                 <SelectContent>
-                  {centres.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
+                  <SelectItem value="all">All Types</SelectItem>
+                  {eventTypes.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
-          <div className="space-y-1">
-            <Label className="text-xs">Type</Label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {eventTypes.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="published">Published</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Title</Label>
-            <Input
-              placeholder="Search title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          <div className="flex items-end">
-            <Button variant="outline" onClick={reset} className="w-full">
-              Reset
-            </Button>
+            <div className="space-y-1">
+              <Label className="text-xs">Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Title</Label>
+              <Input
+                placeholder="Search title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Date</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="flex items-end">
+              <Button variant="outline" onClick={reset} className="w-full">
+                Reset
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Header banner replacement — more formal */}
       <div className="mb-4 flex items-center justify-between px-1">
@@ -342,11 +346,16 @@ export default function EventsPage() {
                 value={holidayForm.date}
                 onChange={(e) => {
                   setHolidayForm((prev) => ({ ...prev, date: e.target.value }));
-                  if (holidayErrors.date) setHolidayErrors((prev) => ({ ...prev, date: null }));
+                  if (holidayErrors.date) {
+                    setHolidayErrors((prev) => ({ ...prev, date: null }));
+                  }
                 }}
               />
-              {holidayErrors.date && <p className="text-sm text-destructive">{holidayErrors.date}</p>}
+              {holidayErrors.date ? (
+                <p className="text-sm text-destructive">{holidayErrors.date}</p>
+              ) : null}
             </div>
+
             <div className="space-y-1">
               <Label htmlFor="events-holiday-state">
                 State <span className="text-red-600">*</span>
@@ -356,11 +365,16 @@ export default function EventsPage() {
                 value={holidayForm.state}
                 onChange={(e) => {
                   setHolidayForm((prev) => ({ ...prev, state: e.target.value }));
-                  if (holidayErrors.state) setHolidayErrors((prev) => ({ ...prev, state: null }));
+                  if (holidayErrors.state) {
+                    setHolidayErrors((prev) => ({ ...prev, state: null }));
+                  }
                 }}
               />
-              {holidayErrors.state && <p className="text-sm text-destructive">{holidayErrors.state}</p>}
+              {holidayErrors.state ? (
+                <p className="text-sm text-destructive">{holidayErrors.state}</p>
+              ) : null}
             </div>
+
             <div className="space-y-1">
               <Label htmlFor="events-holiday-occasion">
                 Occasion <span className="text-red-600">*</span>
@@ -370,11 +384,16 @@ export default function EventsPage() {
                 value={holidayForm.occasion}
                 onChange={(e) => {
                   setHolidayForm((prev) => ({ ...prev, occasion: e.target.value }));
-                  if (holidayErrors.occasion) setHolidayErrors((prev) => ({ ...prev, occasion: null }));
+                  if (holidayErrors.occasion) {
+                    setHolidayErrors((prev) => ({ ...prev, occasion: null }));
+                  }
                 }}
               />
-              {holidayErrors.occasion && <p className="text-sm text-destructive">{holidayErrors.occasion}</p>}
+              {holidayErrors.occasion ? (
+                <p className="text-sm text-destructive">{holidayErrors.occasion}</p>
+              ) : null}
             </div>
+
             <div className="space-y-1">
               <Label>Status</Label>
               <Select
@@ -390,14 +409,21 @@ export default function EventsPage() {
                 </SelectContent>
               </Select>
             </div>
-            {holidayErrors.centerid && <p className="text-sm text-destructive">{holidayErrors.centerid}</p>}
+
+            {holidayErrors.centerid ? (
+              <p className="text-sm text-destructive">{holidayErrors.centerid}</p>
+            ) : null}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsHolidayModalOpen(false)} disabled={isSavingHoliday}>
+            <Button
+              variant="outline"
+              onClick={() => setIsHolidayModalOpen(false)}
+              disabled={isSavingHoliday}
+            >
               Cancel
             </Button>
             <Button onClick={handleHolidaySave} disabled={isSavingHoliday}>
-              {isSavingHoliday ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {isSavingHoliday ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Create Holiday
             </Button>
           </DialogFooter>

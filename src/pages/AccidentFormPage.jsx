@@ -190,7 +190,8 @@ export default function AccidentFormPage() {
           natureOtherRemarks: d.other_remarks || d.remarks_other || "",
           bodyInjuryMarkers: bodyInjuryMarkersFromRecord(d),
           actionDetails: d.action_taken,
-          emergencyAttended: d.emrg_serv_attend === "yes" || d.emrg_serv_attend === 1 ? "yes" : "no",
+          emergencyAttended:
+            d.emrg_serv_attend === "yes" || d.emrg_serv_attend === 1 ? "yes" : "no",
           medicalSought: d.med_attention === "yes" || d.med_attention === 1 ? "yes" : "no",
           medicalAttentionDetails: d.med_attention_details,
           preventionStep1: d.prevention_step_1 || d.provideDetails_minimise,
@@ -413,30 +414,34 @@ export default function AccidentFormPage() {
         breadcrumbs={[{ label: "Accident Forms" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[200px]">
-                <SelectValue placeholder="Centre" />
-              </SelectTrigger>
-              <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={activeRoomId} onValueChange={setActiveRoom}>
-              <SelectTrigger className="h-9 w-[180px]">
-                <SelectValue placeholder="Room" />
-              </SelectTrigger>
-              <SelectContent>
-                {rooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isParent && (
+              <>
+                <Select value={activeCentreId} onValueChange={setActiveCentre}>
+                  <SelectTrigger className="h-9 w-[200px]">
+                    <SelectValue placeholder="Centre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centres.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={activeRoomId} onValueChange={setActiveRoom}>
+                  <SelectTrigger className="h-9 w-[180px]">
+                    <SelectValue placeholder="Room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rooms.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
             {!isParent && (
               <Button onClick={() => setMode({ view: "create" })}>
                 <Plus className="mr-1.5 h-4 w-4" />

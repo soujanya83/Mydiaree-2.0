@@ -21,12 +21,32 @@ import { Textarea } from "@/components/ui/textarea";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
 import { useCentreStore } from "@/stores/centreStore";
-import {
-  formatObsDate,
-  statusBadgeClasses,
-} from "@/components/observation/observationsData";
+import { formatObsDate, statusBadgeClasses } from "@/components/observation/observationsData";
 import { observationService } from "@/services/learning/observationService";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermissions";
+
+const IMG_BASE = "https://mydiaree.com.au/";
+
+function stripHtml(value = "") {
+  return String(value)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s+/g, "\n")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function mediaUrl(raw) {
+  if (!raw) return "";
+  return String(raw).startsWith("http")
+    ? String(raw)
+    : `${IMG_BASE}${String(raw).replace(/^\/+/, "")}`;
+}
 
 const TABS = [
   { id: "observation", label: "Observation", Icon: Eye },
@@ -42,6 +62,7 @@ export default function ObservationDetailsPage() {
   const { activeCentreId } = useCentreStore();
   const { rooms: allRooms } = useRoomStore();
   const { children: allChildren } = useChildrenStore();
+  const { isParent } = usePermissions();
 
   const [obs, setObs] = useState(null);
   const [comments, setComments] = useState([]);
@@ -110,9 +131,7 @@ export default function ObservationDetailsPage() {
   };
 
   if (isLoading) {
-    return (
-      <PageLoader label="Loading observation details…" />
-    );
+    return <PageLoader label="Loading observation details…" />;
   }
 
   if (!obs) {
@@ -138,20 +157,29 @@ export default function ObservationDetailsPage() {
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Back
           </Button>
           <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Link to="/observation" className="hover:text-foreground">Observations</Link>
+            <Link to="/observation" className="hover:text-foreground">
+              Observations
+            </Link>
             <span>/</span>
             <span className="text-foreground">Observation Details</span>
           </nav>
         </div>
-        <Button onClick={() => navigate(`/observation/${obs.id}/edit`)} className="bg-emerald-600 hover:bg-emerald-700">
-          <Edit className="mr-1.5 h-4 w-4" /> Edit
-        </Button>
+        {!isParent && (
+          <Button
+            onClick={() => navigate(`/observation/${obs.id}/edit`)}
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Edit className="mr-1.5 h-4 w-4" /> Edit
+          </Button>
+        )}
       </div>
 
       {/* Title bar */}
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-amber-50/40 p-4 dark:bg-amber-950/10">
         <Eye className="h-6 w-6 text-sky-500" />
-        <h1 className="text-xl font-bold text-sky-600" dangerouslySetInnerHTML={{ __html: obs.obestitle }} />
+        <h1 className="text-xl font-bold text-sky-600">
+          {stripHtml(obs.obestitle || obs.title) || "Untitled Observation"}
+        </h1>
         <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
           #{obs.id}
         </span>
@@ -167,7 +195,9 @@ export default function ObservationDetailsPage() {
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold transition ${
-                active ? "bg-foreground text-background shadow" : "text-muted-foreground hover:bg-muted"
+                active
+                  ? "bg-foreground text-background shadow"
+                  : "text-muted-foreground hover:bg-muted"
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -183,21 +213,28 @@ export default function ObservationDetailsPage() {
             <div className="space-y-6">
               <DetailSection title="Basic Information">
                 <Row label="Date">{formatObsDate(obs.created_at)}</Row>
-                <Row label="Time">{new Date(obs.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Row>
+                <Row label="Time">
+                  {new Date(obs.created_at).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Row>
                 <Row label="Status">
-                  <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${statusBadgeClasses(obs.status.toLowerCase())}`}>
+                  <span
+                    className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${statusBadgeClasses(obs.status.toLowerCase())}`}
+                  >
                     {obs.status}
                   </span>
                 </Row>
               </DetailSection>
 
               <DetailSection title="Observation Information">
-                <Row label="Title"><div dangerouslySetInnerHTML={{ __html: obs.obestitle }} /></Row>
-                <Row label="Notes">{obs.notes || "Not Update"}</Row>
-                <Row label="Reflection">{obs.reflection || "Not Update"}</Row>
-                <Row label="Future Plan">{obs.future_plan || "Not Update"}</Row>
-                <Row label="Child Voice">{obs.child_voice || "Not Update"}</Row>
-                <Row label="Implementation">{obs.implementation || "Not Update"}</Row>
+                <Row label="Title">{stripHtml(obs.obestitle || obs.title) || "Not Update"}</Row>
+                <Row label="Notes">{stripHtml(obs.notes) || "Not Update"}</Row>
+                <Row label="Reflection">{stripHtml(obs.reflection) || "Not Update"}</Row>
+                <Row label="Future Plan">{stripHtml(obs.future_plan) || "Not Update"}</Row>
+                <Row label="Child Voice">{stripHtml(obs.child_voice) || "Not Update"}</Row>
+                <Row label="Implementation">{stripHtml(obs.implementation) || "Not Update"}</Row>
               </DetailSection>
 
               <DetailSection title="Media Files">
@@ -206,8 +243,15 @@ export default function ObservationDetailsPage() {
                     obs.media.map((m) => {
                       if (!m) return null;
                       return (
-                        <div key={m.id} className="h-28 w-40 overflow-hidden rounded-md border border-border bg-muted/20">
-                          <img src={m.mediaUrl} className="h-full w-full object-cover transition-transform hover:scale-110" alt="media" />
+                        <div
+                          key={m.id}
+                          className="h-28 w-40 overflow-hidden rounded-md border border-border bg-muted/20"
+                        >
+                          <img
+                            src={mediaUrl(m.mediaUrl)}
+                            className="h-full w-full object-cover transition-transform hover:scale-110"
+                            alt={stripHtml(obs.obestitle || obs.title) || "Observation media"}
+                          />
                         </div>
                       );
                     })
@@ -230,18 +274,31 @@ export default function ObservationDetailsPage() {
                       const c = item.child;
                       if (!c) return null;
                       return (
-                        <div key={item.id} className="flex items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-muted/30">
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-3 rounded-xl border border-border p-3 transition-colors hover:bg-muted/30"
+                        >
                           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted">
                             {c.imageUrl ? (
-                              <img src={c.imageUrl} className="h-full w-full object-cover" alt={c.name} />
+                              <img
+                                src={mediaUrl(c.imageUrl)}
+                                className="h-full w-full object-cover"
+                                alt={`${c.name} ${c.lastname || ""}`.trim()}
+                              />
                             ) : (
                               <User className="h-full w-full p-2 text-muted-foreground" />
                             )}
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-foreground">{c.name} {c.lastname}</p>
-                            <p className="text-[10px] text-muted-foreground">ID: {c.id} • Room: {c.room}</p>
-                            <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${c.status === "Active" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                            <p className="text-sm font-bold text-foreground">
+                              {c.name} {c.lastname}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              ID: {c.id} • Room: {c.room}
+                            </p>
+                            <span
+                              className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${c.status === "Active" ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}
+                            >
                               {c.status}
                             </span>
                           </div>
@@ -261,7 +318,10 @@ export default function ObservationDetailsPage() {
 
           {tab === "montessori" && (
             <DetailSection title="Montessori Assessment">
-              <AssessmentList items={obs.montessori_links} empty="No Montessori assessment recorded." />
+              <AssessmentList
+                items={obs.montessori_links}
+                empty="No Montessori assessment recorded."
+              />
             </DetailSection>
           )}
 
@@ -273,7 +333,10 @@ export default function ObservationDetailsPage() {
 
           {tab === "development" && (
             <DetailSection title="Developmental Milestones">
-              <AssessmentList items={obs.dev_milestone_subs} empty="No developmental milestones recorded." />
+              <AssessmentList
+                items={obs.dev_milestone_subs}
+                empty="No developmental milestones recorded."
+              />
             </DetailSection>
           )}
         </div>
@@ -287,7 +350,7 @@ export default function ObservationDetailsPage() {
                 <h2 className="text-sm font-bold">Comments ({comments.length})</h2>
               </div>
             </div>
-            
+
             <div className="max-h-[500px] overflow-y-auto p-4 space-y-4">
               {comments.length === 0 ? (
                 <div className="text-center py-10 opacity-40">
@@ -296,10 +359,15 @@ export default function ObservationDetailsPage() {
                 </div>
               ) : (
                 comments.map((c) => (
-                  <div key={c.id} className="group relative rounded-lg border border-border bg-muted/20 p-3">
+                  <div
+                    key={c.id}
+                    className="group relative rounded-lg border border-border bg-muted/20 p-3"
+                  >
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-xs font-bold text-foreground">{c.user?.name || "Unknown"}</span>
-                      <button 
+                      <span className="text-xs font-bold text-foreground">
+                        {c.user?.name || "Unknown"}
+                      </span>
+                      <button
                         onClick={() => handleDeleteComment(c.id)}
                         className="opacity-0 group-hover:opacity-100 p-1 text-rose-500 hover:bg-rose-50 rounded-md transition"
                       >
@@ -308,7 +376,11 @@ export default function ObservationDetailsPage() {
                     </div>
                     <p className="text-xs text-foreground leading-relaxed">{c.comments}</p>
                     <span className="mt-2 block text-[10px] text-muted-foreground">
-                      {new Date(c.created_at).toLocaleDateString()} at {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {new Date(c.created_at).toLocaleDateString()} at{" "}
+                      {new Date(c.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
                   </div>
                 ))
@@ -322,12 +394,16 @@ export default function ObservationDetailsPage() {
                 onChange={(e) => setNewComment(e.target.value)}
                 className="min-h-[100px] text-xs resize-none mb-3 border-border bg-white"
               />
-              <Button 
-                onClick={handleAddComment} 
+              <Button
+                onClick={handleAddComment}
                 disabled={isCommenting || !newComment.trim()}
                 className="w-full h-9 text-xs bg-[#0084ff] hover:bg-[#0073e6]"
               >
-                {isCommenting ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Send className="h-3 w-3 mr-1.5" />}
+                {isCommenting ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                ) : (
+                  <Send className="h-3 w-3 mr-1.5" />
+                )}
                 Send Message
               </Button>
             </div>
@@ -366,7 +442,10 @@ function AssessmentList({ items, empty }) {
       {items.map((it, idx) => {
         if (!it) return null;
         return (
-          <div key={idx} className="rounded-md border border-border p-2 text-xs text-foreground bg-muted/10">
+          <div
+            key={idx}
+            className="rounded-md border border-border p-2 text-xs text-foreground bg-muted/10"
+          >
             {JSON.stringify(it)}
           </div>
         );

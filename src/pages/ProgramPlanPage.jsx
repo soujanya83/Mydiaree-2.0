@@ -379,7 +379,7 @@ export default function ProgramPlanPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
   const user = useAuthStore((s) => s.user);
-  const { can } = usePermissions();
+  const { can, isParent } = usePermissions();
   const perms = ACTION_PERMISSIONS.programPlan;
 
   const [records, setRecords] = useState([]);
@@ -697,27 +697,31 @@ export default function ProgramPlanPage() {
           subtitle="Plan, organise and publish your monthly program at a glance."
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <Select value={activeCentreId} onValueChange={setActiveCentre}>
-                <SelectTrigger className="h-10 w-[180px] rounded-xl border-border/70 bg-background/70 backdrop-blur">
-                  <SelectValue placeholder="Centre" />
-                </SelectTrigger>
-                <SelectContent>
-                  {centres.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {!isParent && (
+                <Select value={activeCentreId} onValueChange={setActiveCentre}>
+                  <SelectTrigger className="h-10 w-[180px] rounded-xl border-border/70 bg-background/70 backdrop-blur">
+                    <SelectValue placeholder="Centre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centres.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
-              <Button
-                variant="outline"
-                onClick={() => navigate("/observation/activity")}
-                className="h-10 rounded-xl border-primary/30 text-primary hover:bg-primary/10"
-              >
-                <Activity className="mr-2 h-4 w-4" />
-                Activities
-              </Button>
+              {!isParent && (
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/observation/activity")}
+                  className="h-10 rounded-xl border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  <Activity className="mr-2 h-4 w-4" />
+                  Activities
+                </Button>
+              )}
 
               {user?.userType === "Superadmin" && (
                 <Button
@@ -745,96 +749,98 @@ export default function ProgramPlanPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-3 shadow-sm backdrop-blur">
-        <div className="flex items-center gap-2 px-2 text-sm font-medium text-muted-foreground">
-          <Filter className="h-4 w-4" />
-          Filters
-        </div>
+      {!isParent && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-card/60 p-3 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-2 px-2 text-sm font-medium text-muted-foreground">
+            <Filter className="h-4 w-4" />
+            Filters
+          </div>
 
-        <Select
-          value={filters.room || "all"}
-          onValueChange={(v) => handleFilterChange("room", v === "all" ? "" : v)}
-        >
-          <SelectTrigger className="h-9 w-[170px] rounded-xl border-border/60 bg-background">
-            <DoorOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Room" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Rooms</SelectItem>
-            {roomNames.map((r) => (
-              <SelectItem key={r} value={r}>
-                {r}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.status || "all"}
-          onValueChange={(v) => handleFilterChange("status", v === "all" ? "" : v)}
-        >
-          <SelectTrigger className="h-9 w-[150px] rounded-xl border-border/60 bg-background">
-            <Sparkles className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="published">Published</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.month || "all"}
-          onValueChange={(v) => handleFilterChange("month", v === "all" ? "" : v)}
-        >
-          <SelectTrigger className="h-9 w-[150px] rounded-xl border-border/60 bg-background">
-            <Calendar className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Month" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Months</SelectItem>
-            {MONTHS.map((m) => (
-              <SelectItem key={m} value={m.toLowerCase()}>
-                {m}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.year || "all"}
-          onValueChange={(v) => handleFilterChange("year", v === "all" ? "" : v)}
-        >
-          <SelectTrigger className="h-9 w-[120px] rounded-xl border-border/60 bg-background">
-            <CalendarDays className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Year" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Years</SelectItem>
-            {YEARS.map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-9 rounded-xl text-muted-foreground hover:text-foreground"
-            onClick={() => {
-              setFilters({ room: "", createdBy: "", status: "", month: "", year: "" });
-              setPage(1);
-            }}
+          <Select
+            value={filters.room || "all"}
+            onValueChange={(v) => handleFilterChange("room", v === "all" ? "" : v)}
           >
-            <X className="mr-1 h-3.5 w-3.5" />
-            Clear
-          </Button>
-        )}
-      </div>
+            <SelectTrigger className="h-9 w-[170px] rounded-xl border-border/60 bg-background">
+              <DoorOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Room" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Rooms</SelectItem>
+              {roomNames.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filters.status || "all"}
+            onValueChange={(v) => handleFilterChange("status", v === "all" ? "" : v)}
+          >
+            <SelectTrigger className="h-9 w-[150px] rounded-xl border-border/60 bg-background">
+              <Sparkles className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filters.month || "all"}
+            onValueChange={(v) => handleFilterChange("month", v === "all" ? "" : v)}
+          >
+            <SelectTrigger className="h-9 w-[150px] rounded-xl border-border/60 bg-background">
+              <Calendar className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Month" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Months</SelectItem>
+              {MONTHS.map((m) => (
+                <SelectItem key={m} value={m.toLowerCase()}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={filters.year || "all"}
+            onValueChange={(v) => handleFilterChange("year", v === "all" ? "" : v)}
+          >
+            <SelectTrigger className="h-9 w-[120px] rounded-xl border-border/60 bg-background">
+              <CalendarDays className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {YEARS.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 rounded-xl text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setFilters({ room: "", createdBy: "", status: "", month: "", year: "" });
+                setPage(1);
+              }}
+            >
+              <X className="mr-1 h-3.5 w-3.5" />
+              Clear
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Body */}
       {isLoadingPlans ? (

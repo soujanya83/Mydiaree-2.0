@@ -297,30 +297,34 @@ export default function DailyDiaryPage() {
         breadcrumbs={[{ label: "Daily Diary" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[200px]">
-                <SelectValue placeholder="Centre" />
-              </SelectTrigger>
-              <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={activeRoomId} onValueChange={setActiveRoom}>
-              <SelectTrigger className="h-9 w-[160px]">
-                <SelectValue placeholder="Room" />
-              </SelectTrigger>
-              <SelectContent>
-                {rooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isParent && (
+              <>
+                <Select value={activeCentreId} onValueChange={setActiveCentre}>
+                  <SelectTrigger className="h-9 w-[200px]">
+                    <SelectValue placeholder="Centre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centres.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={activeRoomId} onValueChange={setActiveRoom}>
+                  <SelectTrigger className="h-9 w-[160px]">
+                    <SelectValue placeholder="Room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rooms.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
             <Input
               type="date"
               value={date}

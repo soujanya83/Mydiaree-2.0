@@ -26,7 +26,7 @@ const quickColor = {
   success: "bg-success/10 text-success",
 };
 
-export function ParentQuickActions() {
+export function ParentQuickActions({ className, gridClassName = "grid-cols-2 sm:grid-cols-4" }) {
   const [selectedIds, setSelectedIds] = useState(loadParentQuickActionIds);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [draftIds, setDraftIds] = useState(selectedIds);
@@ -56,16 +56,22 @@ export function ParentQuickActions() {
   };
 
   return (
-    <section className="space-y-3">
+    <section className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-bold text-foreground">Quick actions</h2>
-        <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5" onClick={openCustomize}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5"
+          onClick={openCustomize}
+        >
           <Settings2 className="h-3.5 w-3.5" />
           Customize
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className={cn("grid gap-3", gridClassName)}>
         {actions.map((action) => {
           const Icon = action.icon;
           return (

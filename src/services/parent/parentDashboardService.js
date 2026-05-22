@@ -7,4 +7,21 @@ export const parentDashboardService = {
     });
     return res.data;
   },
+
+  async getSelectedChild() {
+    const res = await api.get("/parent-dashboard/selected-child");
+    return res.data;
+  },
+
+  async saveSelectedChild(childId) {
+    const formData = new FormData();
+    formData.append("child_id", String(childId));
+
+    const res = await api.post("/parent-dashboard/selected-child", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data;
+  },
 };

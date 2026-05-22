@@ -2,12 +2,8 @@ import { ArrowLeft, Pencil, Calendar, DoorOpen, Building2, Users, Sparkles } fro
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { useCentreStore } from "@/stores/centreStore";
-import {
-  ACTIVITY_SUBJECTS,
-  SUBJECT_TREE,
-  RICH_SUBJECTS,
-  ADDITIONAL_FIELDS,
-} from "./data";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTIVITY_SUBJECTS, SUBJECT_TREE, RICH_SUBJECTS, ADDITIONAL_FIELDS } from "./data";
 
 const SUBJECT_FIELDS = {
   "practical-life": "practicalLife",
@@ -27,6 +23,7 @@ const SUBJECT_MAP = {
 
 export function ProgramPlanView({ record, onBack, onEdit }) {
   const centres = useCentreStore((s) => s.centres);
+  const { isParent } = usePermissions();
   const centreName = centres.find((c) => String(c.id) === String(record.centreId))?.name || "—";
   const educators = record.educatorNames?.length ? record.educatorNames : record.educators;
   const children = record.childrenNames?.length ? record.childrenNames : record.children;
@@ -42,9 +39,11 @@ export function ProgramPlanView({ record, onBack, onEdit }) {
             <Button variant="outline" onClick={onBack}>
               <ArrowLeft className="mr-1.5 h-4 w-4" /> Back
             </Button>
-            <Button onClick={onEdit}>
-              <Pencil className="mr-1.5 h-4 w-4" /> Edit
-            </Button>
+            {!isParent && onEdit && (
+              <Button onClick={onEdit}>
+                <Pencil className="mr-1.5 h-4 w-4" /> Edit
+              </Button>
+            )}
           </div>
         }
       />

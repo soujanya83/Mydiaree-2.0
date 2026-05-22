@@ -28,11 +28,8 @@ import { cn } from "@/lib/utils";
 function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
-
-  if (isParentUser(user)) {
-    return <ParentDashboardPage />;
-  }
-  const centre = useCentreStore((s) => s.centres.find((c) => c.id === activeCentreId));
+  const centres = useCentreStore((s) => s.centres);
+  const centre = centres.find((c) => c.id === activeCentreId);
 
   const [dashboardResponse, setDashboardResponse] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +49,10 @@ function DashboardPage() {
     };
     fetchData();
   }, [activeCentreId]);
+
+  if (isParentUser(user)) {
+    return <ParentDashboardPage />;
+  }
 
   const dashboardData = dashboardResponse?.data || {};
 
@@ -135,41 +136,43 @@ function DashboardPage() {
         </div>
       )}
 
-      {/* Quick actions */}
-      <div className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight text-foreground">Quick Actions</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {quickActions.map((a) => {
-            const Icon = a.icon;
-            return (
-              <Link
-                key={a.label}
-                to={a.to}
-                className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition hover:shadow-md"
-              >
-                <div
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-lg",
-                    quickColor[a.color],
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-foreground">{a.label}</p>
-                  <p className="text-[11px] text-muted-foreground">Create new</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Weather & calendar — equal columns */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
-        <DashboardWeather className="min-h-[28rem]" />
+      {/* Calendar + quick actions + weather */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
         <DashboardCalendar className="min-h-[28rem]" events={events} isLoading={isEventsLoading} />
+
+        <div className="space-y-4">
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">Quick Actions</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {quickActions.map((a) => {
+                const Icon = a.icon;
+                return (
+                  <Link
+                    key={a.label}
+                    to={a.to}
+                    className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition hover:shadow-md"
+                  >
+                    <div
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-lg",
+                        quickColor[a.color],
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-foreground">{a.label}</p>
+                      <p className="text-[11px] text-muted-foreground">Create new</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          <DashboardWeather className="min-h-[28rem]" />
+        </div>
       </div>
     </div>
   );

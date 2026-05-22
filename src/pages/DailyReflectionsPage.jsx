@@ -118,7 +118,7 @@ export default function DailyReflectionsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { can } = usePermissions();
+  const { can, isParent } = usePermissions();
   const {
     filteredStaff,
     filteredChildren,
@@ -199,7 +199,17 @@ export default function DailyReflectionsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [activeCentreId, activeRoomId, search, status, dateRange, customFrom, customTo, childId, author]);
+  }, [
+    activeCentreId,
+    activeRoomId,
+    search,
+    status,
+    dateRange,
+    customFrom,
+    customTo,
+    childId,
+    author,
+  ]);
 
   useEffect(() => {
     setAuthor("all");
@@ -269,10 +279,12 @@ export default function DailyReflectionsPage() {
         breadcrumbs={[{ label: "Daily Reflections" }]}
         actions={
           <>
-            <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
-              <Filter className="mr-1.5 h-4 w-4" />
-              Filters
-            </Button>
+            {!isParent && (
+              <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
+                <Filter className="mr-1.5 h-4 w-4" />
+                Filters
+              </Button>
+            )}
             {can(perms.delete) && (
               <Button variant="outline" onClick={() => navigate("/daily-reflections/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
@@ -285,37 +297,41 @@ export default function DailyReflectionsPage() {
                 Add New
               </Button>
             )}
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                <Building2 className="mr-1.5 h-4 w-4" />
-                <SelectValue placeholder="Centre" />
-              </SelectTrigger>
-              <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={activeRoomId} onValueChange={setActiveRoom}>
-              <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                <DoorOpen className="mr-1.5 h-4 w-4" />
-                <SelectValue placeholder="Room" />
-              </SelectTrigger>
-              <SelectContent>
-                {rooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isParent && (
+              <>
+                <Select value={activeCentreId} onValueChange={setActiveCentre}>
+                  <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                    <Building2 className="mr-1.5 h-4 w-4" />
+                    <SelectValue placeholder="Centre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centres.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={activeRoomId} onValueChange={setActiveRoom}>
+                  <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                    <DoorOpen className="mr-1.5 h-4 w-4" />
+                    <SelectValue placeholder="Room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rooms.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </>
         }
       />
 
-      {filtersOpen && (
+      {!isParent && filtersOpen && (
         <div className="mb-5 rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Filter reflections</h3>
@@ -394,9 +410,7 @@ export default function DailyReflectionsPage() {
                 allLabel="All children"
                 searchPlaceholder="Search children..."
                 emptyMessage={
-                  activeRoomId
-                    ? "No children in this room"
-                    : "Select a room to filter by child"
+                  activeRoomId ? "No children in this room" : "Select a room to filter by child"
                 }
                 maxVisibleRows={5}
               />

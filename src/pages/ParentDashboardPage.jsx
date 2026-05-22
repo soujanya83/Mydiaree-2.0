@@ -45,7 +45,7 @@ export default function ParentDashboardPage() {
   }, [activeCentreId, setChildren]);
 
   const selectedChild = useMemo(() => {
-    if (selectedChildId === "all") return null;
+    if (!selectedChildId) return null;
     return children.find((c) => String(c.id) === String(selectedChildId)) ?? null;
   }, [children, selectedChildId]);
 
@@ -90,15 +90,17 @@ export default function ParentDashboardPage() {
         description={parentDashboardDescription(children, selectedChild)}
       />
 
-      <ParentQuickActions />
-
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
-        <DashboardWeather className="min-h-[32rem]" />
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
         <ParentDashboardCalendar
           className="min-h-[32rem]"
           calendarEvents={data?.calendarEvents || []}
           isLoading={false}
         />
+
+        <div className="space-y-4">
+          <ParentQuickActions gridClassName="grid-cols-2" />
+          <DashboardWeather className="min-h-[32rem]" />
+        </div>
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">

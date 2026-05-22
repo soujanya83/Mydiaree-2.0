@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -20,6 +20,8 @@ import {
   UserCircle2,
   CalendarRange,
   X,
+  Mail,
+  Send,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -35,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CustomDateFilter } from "@/components/common/CustomDateFilter";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import {
@@ -63,12 +66,26 @@ const CARD_PRIMARY_ACTION_CLASSES =
 const CARD_PRIMARY_ACTION_STYLE = {
   color: "var(--primary)",
 };
+const IMG_BASE = "https://mydiaree.com.au/";
+
+function getMediaUrl(raw) {
+  if (!raw) return "";
+  return String(raw).startsWith("http")
+    ? String(raw)
+    : `${IMG_BASE}${String(raw).replace(/^\/+/, "")}`;
+}
+
+function stripHtml(value = "") {
+  return String(value)
+    .replace(/<[^>]*>/g, "")
+    .trim();
+}
 
 export default function ObservationPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { can } = usePermissions();
+  const { can, isParent } = usePermissions();
   const {
     filteredStaff,
     filteredChildren,
@@ -166,6 +183,8 @@ export default function ObservationPage() {
   const [deleteModalId, setDeleteModalId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPrintingId, setIsPrintingId] = useState(null);
+  const [galleryObservation, setGalleryObservation] = useState(null);
+  const [shareObservation, setShareObservation] = useState(null);
 
   const handleSubmitTitle = (title) => {
     setTitleModalOpen(false);
@@ -227,10 +246,12 @@ export default function ObservationPage() {
         breadcrumbs={[{ label: "Observation" }]}
         actions={
           <>
-            <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
-              <Filter className="mr-1.5 h-4 w-4" />
-              Filters
-            </Button>
+            {!isParent && (
+              <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
+                <Filter className="mr-1.5 h-4 w-4" />
+                Filters
+              </Button>
+            )}
             {can(perms.delete) && (
               <Button variant="outline" onClick={() => navigate("/observation/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
@@ -243,42 +264,46 @@ export default function ObservationPage() {
                 Add New
               </Button>
             )}
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                <Building2 className="mr-1.5 h-4 w-4" />
-                <SelectValue placeholder="Centre" />
-              </SelectTrigger>
-              <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={activeRoomId || "all"}
-              onValueChange={(val) => setActiveRoom(val === "all" ? null : val)}
-            >
-              <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                <DoorOpen className="mr-1.5 h-4 w-4" />
-                <SelectValue placeholder="Room" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Rooms</SelectItem>
-                {rooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!isParent && (
+              <>
+                <Select value={activeCentreId} onValueChange={setActiveCentre}>
+                  <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                    <Building2 className="mr-1.5 h-4 w-4" />
+                    <SelectValue placeholder="Centre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {centres.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={activeRoomId || "all"}
+                  onValueChange={(val) => setActiveRoom(val === "all" ? null : val)}
+                >
+                  <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                    <DoorOpen className="mr-1.5 h-4 w-4" />
+                    <SelectValue placeholder="Room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Rooms</SelectItem>
+                    {rooms.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            )}
           </>
         }
       />
 
       {/* Filters panel */}
-      {filtersOpen && (
+      {!isParent && filtersOpen && (
         <div className="mb-5 rounded-xl border border-border bg-card p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Filter observations</h3>
@@ -391,11 +416,14 @@ export default function ObservationPage() {
               onDelete={() => handleDelete(o.id)}
               onComment={() => setCommentModalId(o.id)}
               onOpen={() => navigate(`/observation/${o.id}`)}
+              onOpenGallery={() => setGalleryObservation(o)}
+              onShare={() => setShareObservation(o)}
               onEdit={() => navigate(`/observation/${o.id}/edit`)}
               onPrint={() => handlePrint(o.id)}
               isPrinting={isPrintingId === o.id}
               canEdit={can(perms.edit)}
               canDelete={can(perms.delete)}
+              canShare={isParent}
             />
           ))}
         </div>
@@ -416,8 +444,21 @@ export default function ObservationPage() {
 
       <ObservationCommentModal
         open={Boolean(commentModalId)}
-        onClose={() => setCommentModalId(null)}
         observationId={commentModalId}
+        onClose={() => setCommentModalId(null)}
+      />
+
+      {galleryObservation && (
+        <ObservationGalleryModal
+          obs={galleryObservation}
+          onClose={() => setGalleryObservation(null)}
+        />
+      )}
+
+      <ObservationShareModal
+        open={Boolean(shareObservation)}
+        obs={shareObservation}
+        onClose={() => setShareObservation(null)}
       />
 
       <DeleteConfirmationModal
@@ -426,6 +467,249 @@ export default function ObservationPage() {
         onConfirm={confirmDelete}
         isLoading={isDeleting}
       />
+    </div>
+  );
+}
+
+function ObservationShareModal({ open, obs, onClose }) {
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [emailError, setEmailError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setRecipientEmail("");
+      setMessage("");
+      setEmailError("");
+    }
+  }, [open, obs?.id]);
+
+  const handleSend = () => {
+    const email = recipientEmail.trim();
+    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    if (!email) {
+      setEmailError("Recipient email is required.");
+      return;
+    }
+
+    if (!isValidEmail) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
+    setEmailError("");
+    toast.info("Observation share email API is not configured yet.");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+      <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col gap-0 overflow-hidden rounded-[2rem] border-0 p-0 shadow-2xl">
+        <div className="relative shrink-0 flex items-center gap-3 bg-gradient-to-br from-primary via-primary/90 to-primary/75 px-8 py-6 text-primary-foreground [&_.dialog-close]:text-primary-foreground">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20 shadow-inner backdrop-blur-md">
+            <Mail className="h-5 w-5" />
+          </div>
+          <div className="relative min-w-0 flex-1">
+            <h2 className="text-xl font-bold tracking-tight">Share via Email</h2>
+            <p className="mt-1 text-sm text-primary-foreground/80">
+              {obs ? stripHtml(obs.obestitle) || "Observation" : "Observation"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto bg-muted/10 px-8 py-7">
+          <div className="space-y-6">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-foreground">
+                Recipient Email
+              </label>
+              <Input
+                type="email"
+                value={recipientEmail}
+                onChange={(e) => {
+                  setRecipientEmail(e.target.value);
+                  if (emailError) setEmailError("");
+                }}
+                placeholder="Enter recipient's email address"
+                className="h-12 rounded-xl border-border/60 bg-background px-4 text-base shadow-sm"
+              />
+              <p className="mt-2 text-sm text-muted-foreground">
+                You can enter a single email address.
+              </p>
+              {emailError ? (
+                <p className="mt-2 text-sm font-medium text-destructive">{emailError}</p>
+              ) : null}
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-foreground">
+                Message <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Write a short message..."
+                className="min-h-[160px] w-full rounded-2xl border border-border/60 bg-background px-4 py-3 text-base text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border/50 bg-card px-8 py-5 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <Button variant="outline" className="rounded-xl px-6" onClick={onClose}>
+            <X className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSend}
+            className="rounded-xl bg-gradient-to-r from-primary to-primary/80 px-6 font-semibold text-primary-foreground shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+          >
+            <Send className="mr-2 h-4 w-4" />
+            Send
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ObservationGalleryModal({ obs, onClose }) {
+  const images = (obs.media || []).filter((m) => m?.mediaUrl);
+  const [idx, setIdx] = useState(0);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    timerRef.current = setInterval(() => {
+      setIdx((prev) => (prev + 1) % images.length);
+    }, 4000);
+    return () => clearInterval(timerRef.current);
+  }, [images.length]);
+
+  const goTo = useCallback(
+    (newIdx) => {
+      setIdx(newIdx);
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setIdx((prev) => (prev + 1) % images.length);
+      }, 4000);
+    },
+    [images.length],
+  );
+
+  const goPrev = useCallback(
+    () => goTo((idx - 1 + images.length) % images.length),
+    [goTo, idx, images.length],
+  );
+  const goNext = useCallback(() => goTo((idx + 1) % images.length), [goTo, idx, images.length]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "ArrowRight") goNext();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goNext, goPrev, onClose]);
+
+  const cleanTitle = stripHtml(obs.obestitle) || "Observation Gallery";
+
+  if (images.length === 0) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center shadow-2xl">
+          <ImageIcon className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" />
+          <h3 className="text-lg font-bold text-foreground">No Images</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            This observation has no media attached.
+          </p>
+          <Button onClick={onClose} className="mt-5 rounded-full" variant="outline">
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950 shadow-2xl animate-in zoom-in-95 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-white">{cleanTitle}</h2>
+            <p className="text-xs font-medium text-white/50">
+              {idx + 1} of {images.length} images
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div
+          className="relative flex items-center justify-center bg-black"
+          style={{ minHeight: "420px" }}
+        >
+          <img
+            key={images[idx]?.id || idx}
+            src={getMediaUrl(images[idx]?.mediaUrl)}
+            alt={`${cleanTitle} - ${idx + 1}`}
+            className="max-h-[70vh] w-full object-contain transition-opacity duration-500 animate-in fade-in"
+          />
+
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={goPrev}
+                className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg transition-all hover:scale-110 hover:bg-black/70"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+              <button
+                onClick={goNext}
+                className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg transition-all hover:scale-110 hover:bg-black/70"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {images.length > 1 && (
+          <div className="flex items-center justify-center gap-2 border-t border-white/10 px-6 py-4">
+            {images.map((m, i) => (
+              <button
+                key={m.id || i}
+                onClick={() => goTo(i)}
+                className={`overflow-hidden rounded-lg border-2 transition-all ${
+                  i === idx
+                    ? "border-emerald-400 shadow-lg shadow-emerald-500/30 scale-110"
+                    : "border-transparent opacity-50 hover:opacity-80"
+                }`}
+              >
+                <img
+                  src={getMediaUrl(m.mediaUrl)}
+                  alt={`Thumb ${i + 1}`}
+                  className="h-12 w-12 object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -478,11 +762,14 @@ function ObservationCard({
   onDelete,
   onComment,
   onOpen,
+  onOpenGallery,
+  onShare,
   onEdit,
   onPrint,
   isPrinting,
   canEdit = true,
   canDelete = true,
+  canShare = false,
 }) {
   const images = obs.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -500,20 +787,24 @@ function ObservationCard({
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
       {/* 1. Image Container (Top) */}
-      <Link
-        to={`/observation/${obs.id}`}
-        className="group relative h-48 w-full shrink-0 overflow-hidden bg-muted/40 block"
+      <div
+        onClick={onOpenGallery}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onOpenGallery();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        className="group relative block h-48 w-full shrink-0 cursor-pointer overflow-hidden bg-muted/40"
       >
         {cover ? (
           <div className="relative h-full w-full">
             <img
               key={cover.id || currentIdx}
-              src={
-                cover.mediaUrl.startsWith("http")
-                  ? cover.mediaUrl
-                  : `https://mydiaree.com.au/${cover.mediaUrl}`
-              }
-              alt="Observation Media"
+              src={getMediaUrl(cover.mediaUrl)}
+              alt={stripHtml(obs.obestitle) || "Observation Media"}
               className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
               loading="lazy"
             />
@@ -559,16 +850,15 @@ function ObservationCard({
         <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white shadow-sm">
           <ImageIcon className="h-3 w-3" /> {currentIdx + 1}/{Math.max(1, images.length)}
         </span>
-      </Link>
+      </div>
 
       {/* 2. Body (Title, Status, Details, Dropdowns, Actions) */}
       <div className="flex flex-grow flex-col p-4">
         <div className="mb-2 flex items-start justify-between gap-3">
           <Link to={`/observation/${obs.id}`} className="hover:underline">
-            <h3
-              className="line-clamp-2 text-base font-semibold leading-tight text-foreground"
-              dangerouslySetInnerHTML={{ __html: obs.obestitle }}
-            ></h3>
+            <h3 className="line-clamp-2 text-base font-semibold leading-tight text-foreground">
+              {stripHtml(obs.obestitle) || "Untitled observation"}
+            </h3>
           </Link>
           <span
             className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
@@ -614,6 +904,20 @@ function ObservationCard({
               style={CARD_PRIMARY_ACTION_STYLE}
             >
               <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          {canShare && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onShare();
+              }}
+              title="Share via Email"
+              className={CARD_PRIMARY_ACTION_CLASSES}
+              style={CARD_PRIMARY_ACTION_STYLE}
+            >
+              <Mail className="h-4 w-4" />
             </button>
           )}
           <button
