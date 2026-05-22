@@ -1,8 +1,13 @@
 import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ThemeSwitcher } from "@/components/common/ThemeSwitcher";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
+import { useCentreStore } from "@/stores/centreStore";
+import { useParentDashboardStore } from "@/stores/parentDashboardStore";
+import { isParentUser } from "@/constants/parentAccess";
+import { ParentChildSelect } from "@/components/dashboard/ParentChildSelect";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,13 +24,25 @@ export function Header() {
   const toggleMobile = useUiStore((s) => s.toggleMobileSidebar);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const activeCentreId = useCentreStore((s) => s.activeCentreId);
+  const parentChildren = useParentDashboardStore((s) => s.children);
+  const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
+  const setSelectedChildId = useParentDashboardStore((s) => s.setSelectedChildId);
+  const fetchParentChildren = useParentDashboardStore((s) => s.fetchChildren);
   const navigate = useNavigate();
+  const isParent = isParentUser(user);
 
   const initials = (user?.name ?? "NA")
     .split(" ")
     .map((s) => s[0])
     .slice(0, 2)
     .join("");
+
+  useEffect(() => {
+    if (isParent && activeCentreId) {
+      fetchParentChildren(activeCentreId);
+    }
+  }, [isParent, activeCentreId, fetchParentChildren]);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur-md">
@@ -58,6 +75,14 @@ export function Header() {
       </div> */}
 
       <div className="ml-auto flex items-center gap-2">
+        {isParent && parentChildren.length > 0 && (
+          <ParentChildSelect
+            children={parentChildren}
+            value={selectedChildId}
+            onChange={setSelectedChildId}
+            className="h-9 min-w-[180px] sm:w-[220px]"
+          />
+        )}
         {/* Theme switcher */}
         <ThemeSwitcher />
 
@@ -96,7 +121,7 @@ export function Header() {
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigate("/my-profile")}>My Profile</DropdownMenuItem>
-            
+
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {

@@ -6,9 +6,9 @@ import { DashboardWeather } from "@/components/dashboard/DashboardWeather";
 import { ParentDashboardCalendar } from "@/components/dashboard/ParentDashboardCalendar";
 import { ParentFeedCarousel } from "@/components/dashboard/ParentFeedCarousel";
 import { ParentQuickActions } from "@/components/dashboard/ParentQuickActions";
-import { ParentChildSelect } from "@/components/dashboard/ParentChildSelect";
 import { useAuthStore } from "@/stores/authStore";
 import { useCentreStore } from "@/stores/centreStore";
+import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { parentDashboardService } from "@/services/parent/parentDashboardService";
 import {
   childPossessive,
@@ -16,24 +16,15 @@ import {
   parentDashboardDescription,
 } from "@/utils/parentDashboardText";
 
-const CHILD_FILTER_STORAGE_KEY = "mydiaree:parent-dashboard-child";
-
-function loadSelectedChildId() {
-  if (typeof window === "undefined") return "all";
-  try {
-    return localStorage.getItem(CHILD_FILTER_STORAGE_KEY) || "all";
-  } catch {
-    return "all";
-  }
-}
-
 export default function ParentDashboardPage() {
   const user = useAuthStore((s) => s.user);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
 
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedChildId, setSelectedChildId] = useState(loadSelectedChildId);
+  const children = useParentDashboardStore((s) => s.children);
+  const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
+  const setChildren = useParentDashboardStore((s) => s.setChildren);
 
   useEffect(() => {
     const load = async () => {
@@ -42,6 +33,7 @@ export default function ParentDashboardPage() {
         const res = await parentDashboardService.getDashboard(activeCentreId || 1);
         if (res.status) {
           setData(res.data);
+          setChildren(res.data?.children || []);
         }
       } catch (error) {
         console.error("Failed to load parent dashboard:", error);
@@ -50,9 +42,7 @@ export default function ParentDashboardPage() {
       }
     };
     load();
-  }, [activeCentreId]);
-
-  const children = data?.children || [];
+  }, [activeCentreId, setChildren]);
 
   const selectedChild = useMemo(() => {
     if (selectedChildId === "all") return null;
@@ -60,16 +50,10 @@ export default function ParentDashboardPage() {
   }, [children, selectedChildId]);
 
   useEffect(() => {
-    if (selectedChildId === "all") return;
-    const stillValid = children.some((c) => String(c.id) === String(selectedChildId));
-    if (!stillValid) setSelectedChildId("all");
-  }, [children, selectedChildId]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(CHILD_FILTER_STORAGE_KEY, selectedChildId);
-    } catch {}
-  }, [selectedChildId]);
+    if (!activeCentreId) {
+      setChildren([]);
+    }
+  }, [activeCentreId, setChildren]);
 
   const reflections = useMemo(() => {
     const published = (data?.reflections || []).filter(
@@ -104,18 +88,18 @@ export default function ParentDashboardPage() {
       <PageHeader
         title={`Welcome back${firstName ? `, ${firstName}` : ""}`}
         description={parentDashboardDescription(children, selectedChild)}
-        actions={
-          children.length > 0 ? (
-            <ParentChildSelect
-              children={children}
-              value={selectedChildId}
-              onChange={setSelectedChildId}
-            />
-          ) : null
-        }
       />
 
       <ParentQuickActions />
+
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+        <DashboardWeather className="min-h-[32rem]" />
+        <ParentDashboardCalendar
+          className="min-h-[32rem]"
+          calendarEvents={data?.calendarEvents || []}
+          isLoading={false}
+        />
+      </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
         <ParentFeedCarousel
@@ -143,15 +127,6 @@ export default function ParentDashboardPage() {
           viewAllTo="/snapshots"
           items={snapshots}
           emptyLabel={`No snapshots published for ${possessive} profile yet.`}
-        />
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
-        <DashboardWeather className="min-h-[32rem]" />
-        <ParentDashboardCalendar
-          className="min-h-[32rem]"
-          calendarEvents={data?.calendarEvents || []}
-          isLoading={false}
         />
       </section>
     </div>
