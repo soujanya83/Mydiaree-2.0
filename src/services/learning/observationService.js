@@ -1,5 +1,70 @@
 import api from "../../api/api";
 
+const DEFAULT_PER_PAGE = 13;
+
+const ADDED_DATE_MAP = {
+  today: "Today",
+  "this-week": "This Week",
+  "last-week": "Last Week",
+  "this-month": "This Month",
+  custom: "Custom",
+};
+
+function buildObservationListParams(centerId, options = {}) {
+  const {
+    page = 1,
+    perPage = DEFAULT_PER_PAGE,
+    roomId,
+    search,
+    status,
+    dateRange,
+    customFrom,
+    customTo,
+    childIds = [],
+    authorIds = [],
+  } = options;
+
+  const params = {
+    center_id: centerId,
+    per_page: perPage,
+    page,
+  };
+
+  if (roomId) params.room_id = roomId;
+  if (search?.trim()) params.search = search.trim();
+
+  if (status && status !== "all") {
+    params["observations[]"] = String(status).toUpperCase();
+  }
+
+  if (dateRange && dateRange !== "all") {
+    const added = ADDED_DATE_MAP[dateRange];
+    if (added) {
+      params["added[]"] = added;
+      if (added === "Custom") {
+        if (customFrom) params.fromDate = customFrom;
+        if (customTo) params.toDate = customTo;
+      }
+    }
+  }
+
+  const normalizedChildIds = (Array.isArray(childIds) ? childIds : [childIds])
+    .map((id) => String(id).trim())
+    .filter(Boolean);
+  if (normalizedChildIds.length > 0) {
+    params["childs[]"] = normalizedChildIds;
+  }
+
+  const normalizedAuthorIds = (Array.isArray(authorIds) ? authorIds : [authorIds])
+    .map((id) => String(id).trim())
+    .filter(Boolean);
+  if (normalizedAuthorIds.length > 0) {
+    params["authors[]"] = normalizedAuthorIds;
+  }
+
+  return params;
+}
+
 const postObservationMultipart = async (url, fields) => {
   const formData = new FormData();
   Object.entries(fields).forEach(([key, value]) => {
@@ -37,27 +102,31 @@ export const observationService = {
   addActivity: async (payload) => postObservationMultipart("/Observation/addActivity", payload),
 
   /** FormData: idActivity, title */
-  updateActivity: async (payload) => postObservationMultipart("/Observation/updateActivity", payload),
+  updateActivity: async (payload) =>
+    postObservationMultipart("/Observation/updateActivity", payload),
 
   /** FormData: idActivity */
   deleteActivity: async (idActivity) =>
     postObservationMultipart("/Observation/deleteActivity", { idActivity }),
 
   /** FormData: idActivity, title, center_id */
-  addSubActivity: async (payload) => postObservationMultipart("/Observation/addSubActivity", payload),
+  addSubActivity: async (payload) =>
+    postObservationMultipart("/Observation/addSubActivity", payload),
 
   /** FormData: idSubActivity, title */
-  updateSubActivity: async (payload) => postObservationMultipart("/Observation/updateSubActivity", payload),
+  updateSubActivity: async (payload) =>
+    postObservationMultipart("/Observation/updateSubActivity", payload),
 
   /** FormData: idSubActivity */
   deleteSubActivity: async (idSubActivity) =>
     postObservationMultipart("/Observation/deleteSubActivity", { idSubActivity }),
 
   // 1. List of the Observation
-  getObservations: async (center_id, per_page = 13, page = 1, filters = {}) => {
+  getObservations: async (centerId, options = {}) => {
     try {
-      const params = { center_id, per_page, page, ...filters };
-      const response = await api.get("/observation/index", { params });
+      const response = await api.get("/observation/index", {
+        params: buildObservationListParams(centerId, options),
+      });
       return response.data;
     } catch (error) {
       console.error("Error fetching observations:", error);
@@ -157,7 +226,7 @@ export const observationService = {
       throw error;
     }
   },
-  
+
   // 8. Print Observation
   printObservation: async (id) => {
     try {
@@ -168,6 +237,23 @@ export const observationService = {
       return response.data;
     } catch (error) {
       console.error("Error printing observation:", error);
+      throw error;
+    }
+  },
+
+  // 9. Get Rooms and Staff
+  getRoomsAndStaff: async (centerId) => {
+    try {
+      const formData = new FormData();
+      formData.append("user_center_id", centerId);
+      const response = await api.post("/rooms", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching rooms and staff:", error);
       throw error;
     }
   },

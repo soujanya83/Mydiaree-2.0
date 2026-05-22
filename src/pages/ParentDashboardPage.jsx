@@ -1,62 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import {
-  ArrowRight,
-  BookOpen,
-  Camera,
-  ClipboardPlus,
-  Moon,
-  PencilLine,
-  SlidersHorizontal,
-  Sparkles,
-} from "lucide-react";
+import { Camera, PencilLine, SlidersHorizontal } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
-import { cn } from "@/lib/utils";
 import { PageLoader } from "@/components/common/PageLoader";
 import { DashboardWeather } from "@/components/dashboard/DashboardWeather";
 import { ParentDashboardCalendar } from "@/components/dashboard/ParentDashboardCalendar";
 import { ParentFeedCarousel } from "@/components/dashboard/ParentFeedCarousel";
+import { ParentQuickActions } from "@/components/dashboard/ParentQuickActions";
+import { ParentChildSelect } from "@/components/dashboard/ParentChildSelect";
 import { useAuthStore } from "@/stores/authStore";
 import { useCentreStore } from "@/stores/centreStore";
 import { parentDashboardService } from "@/services/parent/parentDashboardService";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  childPossessive,
+  itemMatchesChild,
+  parentDashboardDescription,
+} from "@/utils/parentDashboardText";
 
-const IMG_BASE = "https://mydiaree.com.au/";
+const CHILD_FILTER_STORAGE_KEY = "mydiaree:parent-dashboard-child";
 
-function childImageUrl(url) {
-  if (!url) return null;
-  return url.startsWith("http") ? url : `${IMG_BASE}${url.replace(/^\/+/, "")}`;
+function loadSelectedChildId() {
+  if (typeof window === "undefined") return "all";
+  try {
+    return localStorage.getItem(CHILD_FILTER_STORAGE_KEY) || "all";
+  } catch {
+    return "all";
+  }
 }
-
-function childName(c) {
-  return [c.name, c.lastname].filter(Boolean).join(" ").trim() || "Child";
-}
-
-const PARENT_QUICK_ACTIONS = [
-  { label: "Daily Diary", icon: BookOpen, to: "/daily-diary", color: "primary", subtitle: "View diary" },
-  { label: "Sleep Check", icon: Moon, to: "/sleep-check", color: "info", subtitle: "View sleep logs" },
-  {
-    label: "Accident Form",
-    icon: ClipboardPlus,
-    to: "/accident-form",
-    color: "warning",
-    subtitle: "View records",
-  },
-  {
-    label: "Observation & Reflection",
-    icon: SlidersHorizontal,
-    to: "/observation",
-    color: "success",
-    subtitle: "View learning",
-  },
-];
-
-const quickColor = {
-  primary: "bg-primary/10 text-primary",
-  warning: "bg-warning/15 text-warning",
-  info: "bg-info/10 text-info",
-  success: "bg-success/10 text-success",
-};
 
 export default function ParentDashboardPage() {
   const user = useAuthStore((s) => s.user);
@@ -64,6 +33,7 @@ export default function ParentDashboardPage() {
 
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedChildId, setSelectedChildId] = useState(loadSelectedChildId);
 
   useEffect(() => {
     const load = async () => {
@@ -82,20 +52,48 @@ export default function ParentDashboardPage() {
     load();
   }, [activeCentreId]);
 
-  const reflections = useMemo(
-    () => (data?.reflections || []).filter((r) => String(r.status).toUpperCase() === "PUBLISHED"),
-    [data],
-  );
+  const children = data?.children || [];
 
-  const observations = useMemo(
-    () => (data?.observations || []).filter((o) => String(o.status).toLowerCase() === "published"),
-    [data],
-  );
+  const selectedChild = useMemo(() => {
+    if (selectedChildId === "all") return null;
+    return children.find((c) => String(c.id) === String(selectedChildId)) ?? null;
+  }, [children, selectedChildId]);
 
-  const snapshots = useMemo(
-    () => (data?.snapshots || []).filter((s) => String(s.status).toLowerCase() === "published"),
-    [data],
-  );
+  useEffect(() => {
+    if (selectedChildId === "all") return;
+    const stillValid = children.some((c) => String(c.id) === String(selectedChildId));
+    if (!stillValid) setSelectedChildId("all");
+  }, [children, selectedChildId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHILD_FILTER_STORAGE_KEY, selectedChildId);
+    } catch {}
+  }, [selectedChildId]);
+
+  const reflections = useMemo(() => {
+    const published = (data?.reflections || []).filter(
+      (r) => String(r.status).toUpperCase() === "PUBLISHED",
+    );
+    return published.filter((r) => itemMatchesChild(r, selectedChildId));
+  }, [data, selectedChildId]);
+
+  const observations = useMemo(() => {
+    const published = (data?.observations || []).filter(
+      (o) => String(o.status).toLowerCase() === "published",
+    );
+    return published.filter((o) => itemMatchesChild(o, selectedChildId));
+  }, [data, selectedChildId]);
+
+  const snapshots = useMemo(() => {
+    const published = (data?.snapshots || []).filter(
+      (s) => String(s.status).toLowerCase() === "published",
+    );
+    return published.filter((s) => itemMatchesChild(s, selectedChildId));
+  }, [data, selectedChildId]);
+
+  const possessive = childPossessive(children, selectedChild);
+  const firstName = user?.name?.split(/\s+/)[0] || "";
 
   if (isLoading) {
     return <PageLoader label="Loading your dashboard…" />;
@@ -104,66 +102,20 @@ export default function ParentDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Welcome${user?.name ? `, ${user.name}` : ""}`}
-        description="Your family hub — reflections, learning moments, and centre updates."
+        title={`Welcome back${firstName ? `, ${firstName}` : ""}`}
+        description={parentDashboardDescription(children, selectedChild)}
+        actions={
+          children.length > 0 ? (
+            <ParentChildSelect
+              children={children}
+              value={selectedChildId}
+              onChange={setSelectedChildId}
+            />
+          ) : null
+        }
       />
 
-      {(data?.children || []).length > 0 && (
-        <section className="rounded-2xl border border-border bg-gradient-to-br from-primary/8 via-card to-card p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
-            <h2 className="text-sm font-bold text-foreground">Your children</h2>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {data.children.map((child) => (
-              <div
-                key={child.id}
-                className="flex items-center gap-3 rounded-xl border border-border/80 bg-background/80 px-4 py-2.5 shadow-sm"
-              >
-                <Avatar className="h-10 w-10 border border-primary/15">
-                  {childImageUrl(child.imageUrl) && (
-                    <AvatarImage src={childImageUrl(child.imageUrl)} alt={childName(child)} />
-                  )}
-                  <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
-                    {childName(child).slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{childName(child)}</p>
-                  <p className="text-xs text-muted-foreground">{child.status || "Active"}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {PARENT_QUICK_ACTIONS.map((action) => {
-          const Icon = action.icon;
-          return (
-            <Link
-              key={action.label}
-              to={action.to}
-              className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/25 hover:shadow-md"
-            >
-              <div
-                className={cn(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-                  quickColor[action.color],
-                )}
-              >
-                <Icon className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-foreground">{action.label}</p>
-                <p className="text-[11px] text-muted-foreground">{action.subtitle}</p>
-              </div>
-              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
-            </Link>
-          );
-        })}
-      </div>
+      <ParentQuickActions />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-stretch">
         <ParentFeedCarousel
@@ -173,7 +125,7 @@ export default function ParentDashboardPage() {
           viewAllTo="/daily-reflections"
           items={reflections}
           getItemLink={(item) => `/daily-reflections/${item.id}`}
-          emptyLabel="No reflections published yet."
+          emptyLabel={`No reflections published for ${possessive} profile yet.`}
         />
         <ParentFeedCarousel
           title="Observations"
@@ -182,7 +134,7 @@ export default function ParentDashboardPage() {
           viewAllTo="/observation"
           items={observations}
           getItemLink={(item) => `/observation/${item.id}`}
-          emptyLabel="No observations published yet."
+          emptyLabel={`No observations published for ${possessive} profile yet.`}
         />
         <ParentFeedCarousel
           title="Snapshots"
@@ -190,14 +142,14 @@ export default function ParentDashboardPage() {
           accentClass="ring-1 ring-violet-500/10"
           viewAllTo="/snapshots"
           items={snapshots}
-          emptyLabel="No snapshots published yet."
+          emptyLabel={`No snapshots published for ${possessive} profile yet.`}
         />
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
-        <DashboardWeather className="min-h-[28rem]" />
+        <DashboardWeather className="min-h-[32rem]" />
         <ParentDashboardCalendar
-          className="min-h-[28rem]"
+          className="min-h-[32rem]"
           calendarEvents={data?.calendarEvents || []}
           isLoading={false}
         />

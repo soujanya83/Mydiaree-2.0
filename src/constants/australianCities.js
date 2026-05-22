@@ -1,13 +1,16 @@
+/** SunSmart UV alert location IDs (version=australia). Default matches Melbourne. */
+export const DEFAULT_SUNSMART_LOCATION_ID = 161;
+
 /** Major Australian cities for dashboard weather (lat/lon for Open-Meteo). */
 export const AUSTRALIAN_CITIES = [
-  { id: "sydney", name: "Sydney, NSW", latitude: -33.8688, longitude: 151.2093 },
-  { id: "melbourne", name: "Melbourne, VIC", latitude: -37.8136, longitude: 144.9631 },
-  { id: "brisbane", name: "Brisbane, QLD", latitude: -27.4698, longitude: 153.0251 },
-  { id: "perth", name: "Perth, WA", latitude: -31.9505, longitude: 115.8605 },
-  { id: "adelaide", name: "Adelaide, SA", latitude: -34.9285, longitude: 138.6007 },
-  { id: "canberra", name: "Canberra, ACT", latitude: -35.2809, longitude: 149.13 },
-  { id: "hobart", name: "Hobart, TAS", latitude: -42.8821, longitude: 147.3272 },
-  { id: "darwin", name: "Darwin, NT", latitude: -12.4634, longitude: 130.8456 },
+  { id: "sydney", name: "Sydney, NSW", latitude: -33.8688, longitude: 151.2093, sunSmartLocationId: 150 },
+  { id: "melbourne", name: "Melbourne, VIC", latitude: -37.8136, longitude: 144.9631, sunSmartLocationId: 161 },
+  { id: "brisbane", name: "Brisbane, QLD", latitude: -27.4698, longitude: 153.0251, sunSmartLocationId: 128 },
+  { id: "perth", name: "Perth, WA", latitude: -31.9505, longitude: 115.8605, sunSmartLocationId: 134 },
+  { id: "adelaide", name: "Adelaide, SA", latitude: -34.9285, longitude: 138.6007, sunSmartLocationId: 142 },
+  { id: "canberra", name: "Canberra, ACT", latitude: -35.2809, longitude: 149.13, sunSmartLocationId: 145 },
+  { id: "hobart", name: "Hobart, TAS", latitude: -42.8821, longitude: 147.3272, sunSmartLocationId: 162 },
+  { id: "darwin", name: "Darwin, NT", latitude: -12.4634, longitude: 130.8456, sunSmartLocationId: 138 },
   { id: "gold-coast", name: "Gold Coast, QLD", latitude: -28.0167, longitude: 153.4 },
   { id: "newcastle", name: "Newcastle, NSW", latitude: -32.9283, longitude: 151.7817 },
   { id: "wollongong", name: "Wollongong, NSW", latitude: -34.4278, longitude: 150.8931 },
@@ -43,6 +46,14 @@ export const AUSTRALIAN_CITIES = [
   { id: "mount-gambier", name: "Mount Gambier, SA", latitude: -37.8333, longitude: 140.7667 },
   { id: "whyalla", name: "Whyalla, SA", latitude: -33.0333, longitude: 137.5667 },
   { id: "port-lincoln", name: "Port Lincoln, SA", latitude: -34.7333, longitude: 135.8667 },
-].sort((a, b) => a.name.localeCompare(b.name));
+].map((city) => ({
+  ...city,
+  sunSmartLocationId: city.sunSmartLocationId ?? DEFAULT_SUNSMART_LOCATION_ID,
+})).sort((a, b) => a.name.localeCompare(b.name));
 
 export const DEFAULT_CITY_ID = "sydney";
+
+export function getSunSmartLocationId(cityId) {
+  const city = AUSTRALIAN_CITIES.find((c) => c.id === cityId);
+  return city?.sunSmartLocationId ?? DEFAULT_SUNSMART_LOCATION_ID;
+}

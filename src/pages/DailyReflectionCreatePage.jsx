@@ -123,7 +123,10 @@ export default function DailyReflectionCreatePage() {
     const loadReflection = async () => {
       if (!isEdit || !id || !activeCentreId) return;
       try {
-        const reflRes = await reflectionService.getAllReflections(activeCentreId);
+        const reflRes = await reflectionService.getAllReflections(activeCentreId, {
+          perPage: 100,
+          page: 1,
+        });
         const existing = reflRes.data?.reflection?.data?.find((r) => String(r.id) === String(id));
         if (existing) {
           setTitle(existing.title?.replace(/<[^>]*>/g, "") || "");

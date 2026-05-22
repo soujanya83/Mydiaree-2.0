@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
+import { PersonFilterPicker } from "@/components/common/PersonFilterPicker";
+import { useListFilterPeople } from "@/hooks/useListFilterPeople";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -35,12 +37,9 @@ import {
 import { CustomDateFilter } from "@/components/common/CustomDateFilter";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
-import { useChildrenStore } from "@/stores/childrenStore";
 import {
   STATUS_FILTERS,
   DATE_FILTERS,
-  AUTHORS,
-  inDateRange,
   formatObsDate,
 } from "@/components/observation/observationsData";
 import { NewObservationTitleModal } from "@/components/observation/NewObservationTitleModal";
@@ -56,6 +55,9 @@ const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
 
 const PAGE_SIZE = 13;
+const OBSERVATION_DATE_FILTERS = DATE_FILTERS.filter(
+  (option) => option.value !== "yesterday" && option.value !== "last-month",
+);
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -66,8 +68,17 @@ export default function ObservationPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { children } = useChildrenStore();
   const { can } = usePermissions();
+  const {
+    filteredStaff,
+    filteredChildren,
+    staffSearch,
+    setStaffSearch,
+    childrenSearch,
+    setChildrenSearch,
+    isChildrenLoading,
+    clearPersonSearch,
+  } = useListFilterPeople({ activeCentreId, activeRoomId, rooms });
   const perms = ACTION_PERMISSIONS.observation;
 
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -89,16 +100,18 @@ export default function ObservationPage() {
     if (!activeCentreId) return;
     setIsLoading(true);
     try {
-      const filters = {
-        room_id: activeRoomId || undefined,
-        status: status !== "all" ? status : undefined,
-        search: search || undefined,
-        author: author !== "all" ? author : undefined,
-        date_range: dateRange !== "all" && dateRange !== "custom" ? dateRange : undefined,
-        from_date: dateRange === "custom" && customFrom ? customFrom : undefined,
-        to_date: dateRange === "custom" && customTo ? customTo : undefined,
-      };
-      const res = await observationService.getObservations(activeCentreId, PAGE_SIZE, page, filters);
+      const res = await observationService.getObservations(activeCentreId, {
+        page,
+        perPage: PAGE_SIZE,
+        roomId: activeRoomId || undefined,
+        search,
+        status,
+        dateRange,
+        customFrom,
+        customTo,
+        childIds: childId !== "all" ? [childId] : [],
+        authorIds: author !== "all" ? [author] : [],
+      });
       if (res.success) {
         setItems(res.observations.data || []);
         setTotal(res.observations.total || 0);
@@ -110,7 +123,18 @@ export default function ObservationPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeCentreId, page, activeRoomId, status, search, author, dateRange, customFrom, customTo]);
+  }, [
+    activeCentreId,
+    page,
+    activeRoomId,
+    status,
+    search,
+    author,
+    childId,
+    dateRange,
+    customFrom,
+    customTo,
+  ]);
 
   useEffect(() => {
     fetchObservations();
@@ -118,26 +142,24 @@ export default function ObservationPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [activeRoomId, status, search, author, dateRange, customFrom, customTo, activeCentreId]);
+  }, [
+    activeRoomId,
+    status,
+    search,
+    author,
+    childId,
+    dateRange,
+    customFrom,
+    customTo,
+    activeCentreId,
+  ]);
 
-  const childrenInRoom = useMemo(() => {
-    if (!activeRoomId) return children;
-    const room = rooms.find((r) => r.id === activeRoomId);
-    if (!room) return [];
-    return children.filter(
-      (c) =>
-        String(c.room) === String(activeRoomId) ||
-        String(c.room) === String(room.id) ||
-        String(c.room) === String(room.name),
-    );
-  }, [children, activeRoomId, rooms]);
+  useEffect(() => {
+    setAuthor("all");
+    setChildId("all");
+  }, [activeRoomId]);
 
-  const authors = useMemo(() => {
-    const set = new Set(items.map((o) => o.user?.name).filter(Boolean));
-    return Array.from(set);
-  }, [items]);
-
-  const filtered = items; // Now using server-side filtering
+  const filtered = items;
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
@@ -195,6 +217,7 @@ export default function ObservationPage() {
     setAuthor("all");
     setChildId("all");
     setSearch("");
+    clearPersonSearch();
   };
 
   return (
@@ -303,40 +326,41 @@ export default function ObservationPage() {
                 setCustomFrom={setCustomFrom}
                 customTo={customTo}
                 setCustomTo={setCustomTo}
-                options={DATE_FILTERS}
+                options={OBSERVATION_DATE_FILTERS}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Author</label>
-              <Select value={author} onValueChange={setAuthor}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All authors</SelectItem>
-                  {authors.map((a) => (
-                    <SelectItem key={a} value={a}>
-                      {a}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PersonFilterPicker
+                label="Author"
+                value={author}
+                onChange={setAuthor}
+                items={filteredStaff}
+                search={staffSearch}
+                onSearchChange={setStaffSearch}
+                allLabel="All authors"
+                searchPlaceholder="Search staff..."
+                emptyMessage={
+                  activeRoomId ? "No educators in this room" : "Select a room to filter by educator"
+                }
+                maxVisibleRows={5}
+              />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Child</label>
-              <Select value={childId} onValueChange={setChildId}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All children</SelectItem>
-                  {childrenInRoom.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PersonFilterPicker
+                label="Child"
+                value={childId}
+                onChange={setChildId}
+                items={filteredChildren}
+                search={childrenSearch}
+                onSearchChange={setChildrenSearch}
+                isLoading={isChildrenLoading}
+                allLabel="All children"
+                searchPlaceholder="Search children..."
+                emptyMessage={
+                  activeRoomId ? "No children in this room" : "Select a room to filter by child"
+                }
+                maxVisibleRows={5}
+              />
             </div>
           </div>
         </div>
@@ -449,7 +473,17 @@ function DeleteConfirmationModal({ open, onClose, onConfirm, isLoading }) {
   );
 }
 
-function ObservationCard({ obs, onDelete, onComment, onOpen, onEdit, onPrint, isPrinting, canEdit = true, canDelete = true }) {
+function ObservationCard({
+  obs,
+  onDelete,
+  onComment,
+  onOpen,
+  onEdit,
+  onPrint,
+  isPrinting,
+  canEdit = true,
+  canDelete = true,
+}) {
   const images = obs.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
 
@@ -466,7 +500,10 @@ function ObservationCard({ obs, onDelete, onComment, onOpen, onEdit, onPrint, is
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
       {/* 1. Image Container (Top) */}
-      <Link to={`/observation/${obs.id}`} className="group relative h-48 w-full shrink-0 overflow-hidden bg-muted/40 block">
+      <Link
+        to={`/observation/${obs.id}`}
+        className="group relative h-48 w-full shrink-0 overflow-hidden bg-muted/40 block"
+      >
         {cover ? (
           <div className="relative h-full w-full">
             <img
@@ -550,7 +587,6 @@ function ObservationCard({ obs, onDelete, onComment, onOpen, onEdit, onPrint, is
           </p>
           <p>{formatObsDate(obs.created_at)}</p>
         </div>
-
 
         {/* 4. Actions (Formal, not rang-birangi) */}
         <div className="mt-4 flex items-center justify-end gap-1 border-t border-border/50 pt-3">

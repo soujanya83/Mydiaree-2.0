@@ -36,9 +36,10 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CustomDateFilter } from "@/components/common/CustomDateFilter";
+import { PersonFilterPicker } from "@/components/common/PersonFilterPicker";
+import { useListFilterPeople } from "@/hooks/useListFilterPeople";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
-import { useChildrenStore } from "@/stores/childrenStore";
 import { snapshotService } from "@/services/learning/snapshotService";
 import { STATUS_FILTERS, DATE_FILTERS, inDateRange } from "@/components/snapshots/snapshotsData";
 import { NewSnapshotTitleModal } from "@/components/snapshots/NewSnapshotTitleModal";
@@ -47,6 +48,9 @@ import { Pagination } from "@/components/common/Pagination";
 
 const PAGE_SIZE = 12;
 const IMG_BASE = "https://mydiaree.com.au/";
+const SNAPSHOT_DATE_FILTERS = DATE_FILTERS.filter(
+  (option) => option.value !== "yesterday" && option.value !== "last-month",
+);
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -93,7 +97,16 @@ export default function SnapshotsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { children, fetchChildren } = useChildrenStore();
+  const {
+    filteredStaff,
+    filteredChildren,
+    staffSearch,
+    setStaffSearch,
+    childrenSearch,
+    setChildrenSearch,
+    isChildrenLoading,
+    clearPersonSearch,
+  } = useListFilterPeople({ activeCentreId, activeRoomId, rooms });
   const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
   const [items, setItems] = useState([]);
   const [snapshotPagination, setSnapshotPagination] = useState({
@@ -113,7 +126,6 @@ export default function SnapshotsPage() {
   const [author, setAuthor] = useState("all");
   const [childId, setChildId] = useState("all");
   const [page, setPage] = useState(1);
-
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
   const [isDeleting, setIsDeleting] = useState(false);
   const [gallerySnap, setGallerySnap] = useState(null);
@@ -126,6 +138,14 @@ export default function SnapshotsPage() {
       const response = await snapshotService.getAllSnapshots(activeCentreId, {
         page,
         perPage: PAGE_SIZE,
+        roomId: activeRoomId || undefined,
+        search,
+        status,
+        dateRange,
+        customFrom,
+        customTo,
+        childIds: childId !== "all" ? [childId] : [],
+        authorIds: author !== "all" ? [author] : [],
       });
       if (response.status) {
         setItems(getSnapshotItems(response));
@@ -136,7 +156,18 @@ export default function SnapshotsPage() {
     } finally {
       setIsLoadingSnapshots(false);
     }
-  }, [activeCentreId, page]);
+  }, [
+    activeCentreId,
+    activeRoomId,
+    page,
+    search,
+    status,
+    dateRange,
+    customFrom,
+    customTo,
+    childId,
+    author,
+  ]);
 
   useEffect(() => {
     fetchSnapshots();
@@ -144,31 +175,34 @@ export default function SnapshotsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [activeCentreId]);
+  }, [
+    activeCentreId,
+    activeRoomId,
+    search,
+    status,
+    dateRange,
+    customFrom,
+    customTo,
+    childId,
+    author,
+  ]);
 
   useEffect(() => {
-    if (!activeCentreId) return;
-    fetchChildren({
-      center_id: activeCentreId,
-      room_id: activeRoomId || undefined,
-    });
+    setAuthor("all");
     setChildId("all");
-  }, [activeCentreId, activeRoomId, fetchChildren]);
+  }, [activeRoomId]);
 
-  const authors = useMemo(() => {
-    const set = new Set(items.map((s) => s.creator?.name).filter(Boolean));
-    return Array.from(set);
-  }, [items]);
+  const selectedAuthorName = useMemo(() => {
+    if (author === "all") return undefined;
+    return filteredStaff.find((staff) => String(staff.id) === String(author))?.name;
+  }, [author, filteredStaff]);
 
   const filtered = useMemo(() => {
     return items.filter((s) => {
-      // API already filters by centerId, but we double check
       if (activeCentreId && String(s.centerid) !== String(activeCentreId)) return false;
 
       if (status !== "all" && s.status.toLowerCase() !== status.toLowerCase()) return false;
-      // Author in API is creator.name
-      if (author !== "all" && s.creator?.name !== author) return false;
-      // Child filtering
+      if (selectedAuthorName && s.creator?.name !== selectedAuthorName) return false;
       if (childId !== "all") {
         const hasChild = s.children?.some((c) => String(c.childid) === String(childId));
         if (!hasChild) return false;
@@ -189,7 +223,17 @@ export default function SnapshotsPage() {
       if (search && !cleanTitle.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [items, activeCentreId, status, author, childId, dateRange, customFrom, customTo, search]);
+  }, [
+    items,
+    activeCentreId,
+    status,
+    selectedAuthorName,
+    childId,
+    dateRange,
+    customFrom,
+    customTo,
+    search,
+  ]);
 
   const totalPages = Math.max(1, snapshotPagination.lastPage);
   const safePage = Math.min(page, totalPages);
@@ -244,6 +288,7 @@ export default function SnapshotsPage() {
     setAuthor("all");
     setChildId("all");
     setSearch("");
+    clearPersonSearch();
   };
 
   const { can } = usePermissions();
@@ -358,40 +403,41 @@ export default function SnapshotsPage() {
                 setCustomFrom={setCustomFrom}
                 customTo={customTo}
                 setCustomTo={setCustomTo}
-                options={DATE_FILTERS}
+                options={SNAPSHOT_DATE_FILTERS}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Author</label>
-              <Select value={author} onValueChange={setAuthor}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All authors</SelectItem>
-                  {authors.map((a) => (
-                    <SelectItem key={a} value={a}>
-                      {a}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PersonFilterPicker
+                label="Author"
+                value={author}
+                onChange={setAuthor}
+                items={filteredStaff}
+                search={staffSearch}
+                onSearchChange={setStaffSearch}
+                allLabel="All authors"
+                searchPlaceholder="Search staff..."
+                emptyMessage={
+                  activeRoomId ? "No educators in this room" : "Select a room to filter by educator"
+                }
+                maxVisibleRows={5}
+              />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Child</label>
-              <Select value={childId} onValueChange={setChildId}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All children</SelectItem>
-                  {children.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PersonFilterPicker
+                label="Child"
+                value={childId}
+                onChange={setChildId}
+                items={filteredChildren}
+                search={childrenSearch}
+                onSearchChange={setChildrenSearch}
+                isLoading={isChildrenLoading}
+                allLabel="All children"
+                searchPlaceholder="Search children..."
+                emptyMessage={
+                  activeRoomId ? "No children in this room" : "Select a room to filter by child"
+                }
+                maxVisibleRows={5}
+              />
             </div>
           </div>
         </div>

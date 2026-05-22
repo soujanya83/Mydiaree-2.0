@@ -32,17 +32,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CustomDateFilter } from "@/components/common/CustomDateFilter";
+import { PersonFilterPicker } from "@/components/common/PersonFilterPicker";
+import { useListFilterPeople } from "@/hooks/useListFilterPeople";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
-import { useChildrenStore } from "@/stores/childrenStore";
 import { reflectionService } from "@/services/learning/reflectionService";
 import {
   STATUS_FILTERS,
   DATE_FILTERS,
-  inDateRange,
   formatObsDate,
   statusBadgeClasses,
 } from "@/components/reflection/reflectionsData";
+import { REFLECTION_DEFAULT_PER_PAGE } from "@/services/learning/reflectionService";
 import { NewReflectionTitleModal } from "@/components/reflection/NewReflectionTitleModal";
 import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 import { DoorOpen } from "lucide-react";
@@ -55,7 +56,7 @@ import { Pagination } from "@/components/common/Pagination";
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = REFLECTION_DEFAULT_PER_PAGE;
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -64,16 +65,20 @@ const CARD_PRIMARY_ACTION_STYLE = {
 
 const stripHtml = (value = "") => String(value).replace(/<[^>]*>/g, "");
 
-const toIdList = (value) =>
-  String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
 const getReflectionItems = (response) => {
   const reflection = response?.data?.reflection ?? response?.reflection ?? response?.data;
   const rows = reflection?.data ?? reflection;
   return Array.isArray(rows) ? rows : [];
+};
+
+const getReflectionPagination = (response) => {
+  const reflection = response?.data?.reflection ?? response?.reflection ?? {};
+  return {
+    currentPage: Number(reflection.current_page || 1),
+    perPage: Number(reflection.per_page || PAGE_SIZE),
+    total: Number(reflection.total || 0),
+    lastPage: Number(reflection.last_page || 1),
+  };
 };
 
 const getMediaUrl = (media) => {
@@ -113,12 +118,27 @@ export default function DailyReflectionsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { children } = useChildrenStore();
   const { can } = usePermissions();
+  const {
+    filteredStaff,
+    filteredChildren,
+    staffSearch,
+    setStaffSearch,
+    childrenSearch,
+    setChildrenSearch,
+    isChildrenLoading,
+    clearPersonSearch,
+  } = useListFilterPeople({ activeCentreId, activeRoomId, rooms });
   const perms = ACTION_PERMISSIONS.reflection;
 
   const [isLoadingReflections, setIsLoadingReflections] = useState(false);
   const [items, setItems] = useState([]);
+  const [reflectionPagination, setReflectionPagination] = useState({
+    currentPage: 1,
+    perPage: PAGE_SIZE,
+    total: 0,
+    lastPage: 1,
+  });
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [titleModalOpen, setTitleModalOpen] = useState(false);
@@ -135,101 +155,60 @@ export default function DailyReflectionsPage() {
   const [isPrintingId, setIsPrintingId] = useState(null);
   const [galleryReflection, setGalleryReflection] = useState(null);
 
-  useEffect(() => {
-    const fetchReflections = async () => {
-      if (!activeCentreId) return;
-      setIsLoadingReflections(true);
-      try {
-        const response = await reflectionService.getAllReflections(activeCentreId);
-        if (response.status) {
-          setItems(getReflectionItems(response));
-        }
-      } catch (error) {
-        console.error("Failed to fetch reflections:", error);
-      } finally {
-        setIsLoadingReflections(false);
+  const fetchReflections = useCallback(async () => {
+    if (!activeCentreId) return;
+    setIsLoadingReflections(true);
+    try {
+      const response = await reflectionService.getAllReflections(activeCentreId, {
+        page,
+        perPage: PAGE_SIZE,
+        roomId: activeRoomId || undefined,
+        search,
+        status,
+        dateRange,
+        customFrom,
+        customTo,
+        childIds: childId !== "all" ? [childId] : [],
+        authorIds: author !== "all" ? [author] : [],
+      });
+      if (response.status) {
+        setItems(getReflectionItems(response));
+        setReflectionPagination(getReflectionPagination(response));
       }
-    };
-
-    fetchReflections();
-  }, [activeCentreId]);
-
-  const childrenInRoom = useMemo(() => {
-    if (!activeRoomId) return children;
-    const room = rooms.find((r) => r.id === activeRoomId);
-    if (!room) return [];
-    return children.filter(
-      (c) =>
-        String(c.room) === String(activeRoomId) ||
-        String(c.room) === String(room.id) ||
-        String(c.room) === String(room.name),
-    );
-  }, [children, activeRoomId, rooms]);
-
-  const filtered = useMemo(() => {
-    const activeRoom = rooms.find((r) => String(r.id) === String(activeRoomId));
-    const activeRoomMatches = [activeRoomId, activeRoom?.id, activeRoom?.roomid, activeRoom?.roomId]
-      .filter((value) => value !== undefined && value !== null)
-      .map(String);
-
-    return items.filter((r) => {
-      if (activeCentreId && String(r.centerid) !== String(activeCentreId)) return false;
-      const reflectionRoomIds = toIdList(r.roomids);
-      if (
-        activeRoomId &&
-        reflectionRoomIds.length > 0 &&
-        !reflectionRoomIds.some((roomId) => activeRoomMatches.includes(String(roomId)))
-      ) {
-        return false;
-      }
-
-      if (status !== "all" && String(r.status).toLowerCase() !== status.toLowerCase()) return false;
-      // Author in API is creator.name
-      if (author !== "all" && r.creator?.name !== author) return false;
-      // Child filtering
-      if (childId !== "all") {
-        const hasChild = r.children?.some((c) => String(c.childid) === String(childId));
-        if (!hasChild) return false;
-      }
-      // Custom date range filtering
-      if (dateRange === "custom") {
-        if (customFrom || customTo) {
-          const date = new Date(r.created_at);
-          if (customFrom && date < new Date(customFrom)) return false;
-          if (customTo) {
-            const toEnd = new Date(customTo);
-            toEnd.setHours(23, 59, 59, 999);
-            if (date > toEnd) return false;
-          }
-        }
-      } else if (!inDateRange(r.created_at, dateRange)) return false;
-
-      const cleanTitle = stripHtml(r.title);
-      if (search && !cleanTitle.toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
+    } catch (error) {
+      console.error("Failed to fetch reflections:", error);
+    } finally {
+      setIsLoadingReflections(false);
+    }
   }, [
-    items,
     activeCentreId,
     activeRoomId,
-    rooms,
+    page,
+    search,
     status,
-    author,
-    childId,
     dateRange,
     customFrom,
     customTo,
-    search,
+    childId,
+    author,
   ]);
 
-  const authors = useMemo(() => {
-    const set = new Set(items.map((s) => s.creator?.name).filter(Boolean));
-    return Array.from(set);
-  }, [items]);
+  useEffect(() => {
+    fetchReflections();
+  }, [fetchReflections]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    setPage(1);
+  }, [activeCentreId, activeRoomId, search, status, dateRange, customFrom, customTo, childId, author]);
+
+  useEffect(() => {
+    setAuthor("all");
+    setChildId("all");
+  }, [activeRoomId]);
+
+  const totalPages = Math.max(1, reflectionPagination.lastPage);
   const safePage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageItems = items;
 
   const handleSubmitTitle = (title) => {
     setTitleModalOpen(false);
@@ -243,8 +222,8 @@ export default function DailyReflectionsPage() {
       const res = await reflectionService.deleteReflection(deleteModal.id);
       if (res.status) {
         toast.success("Reflection deleted successfully");
-        setItems((prev) => prev.filter((r) => r.id !== deleteModal.id));
         setDeleteModal({ open: false, id: null });
+        fetchReflections();
       } else {
         toast.error(res.message || "Failed to delete reflection");
       }
@@ -278,6 +257,8 @@ export default function DailyReflectionsPage() {
     setAuthor("all");
     setChildId("all");
     setSearch("");
+    clearPersonSearch();
+    setPage(1);
   };
 
   return (
@@ -386,36 +367,39 @@ export default function DailyReflectionsPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Author</label>
-              <Select value={author} onValueChange={setAuthor}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All authors</SelectItem>
-                  {authors.map((a) => (
-                    <SelectItem key={a} value={a}>
-                      {a}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PersonFilterPicker
+                label="Author"
+                value={author}
+                onChange={setAuthor}
+                items={filteredStaff}
+                search={staffSearch}
+                onSearchChange={setStaffSearch}
+                allLabel="All authors"
+                searchPlaceholder="Search staff..."
+                emptyMessage={
+                  activeRoomId ? "No educators in this room" : "Select a room to filter by educator"
+                }
+                maxVisibleRows={5}
+              />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Child</label>
-              <Select value={childId} onValueChange={setChildId}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All children</SelectItem>
-                  {childrenInRoom.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <PersonFilterPicker
+                label="Child"
+                value={childId}
+                onChange={setChildId}
+                items={filteredChildren}
+                search={childrenSearch}
+                onSearchChange={setChildrenSearch}
+                isLoading={isChildrenLoading}
+                allLabel="All children"
+                searchPlaceholder="Search children..."
+                emptyMessage={
+                  activeRoomId
+                    ? "No children in this room"
+                    : "Select a room to filter by child"
+                }
+                maxVisibleRows={5}
+              />
             </div>
           </div>
         </div>

@@ -1,5 +1,42 @@
 import { create } from "zustand";
 
+const LIGHT_FG = "oklch(0.21 0.04 256)";
+const LIGHT_MUTED_FG = "oklch(0.55 0.03 250)";
+const DARK_FG = "oklch(0.96 0.012 230)";
+const DARK_MUTED_FG = "oklch(0.74 0.02 230)";
+
+/** One accent palette ↔ one page background (bidirectional). */
+export const THEME_PAIRINGS = [
+  { paletteId: "teal", backgroundId: "mint" },
+  { paletteId: "indigo", backgroundId: "lavender" },
+  { paletteId: "rose", backgroundId: "warm" },
+  { paletteId: "amber", backgroundId: "stone" },
+  { paletteId: "emerald", backgroundId: "white" },
+  { paletteId: "violet", backgroundId: "paper" },
+  { paletteId: "sky", backgroundId: "slate" },
+  { paletteId: "obsidian", backgroundId: "obsidian" },
+];
+
+const PALETTE_TO_BACKGROUND = Object.fromEntries(
+  THEME_PAIRINGS.map(({ paletteId, backgroundId }) => [paletteId, backgroundId]),
+);
+
+const BACKGROUND_TO_PALETTE = Object.fromEntries(
+  THEME_PAIRINGS.map(({ paletteId, backgroundId }) => [backgroundId, paletteId]),
+);
+
+export function getPairedBackgroundId(paletteId) {
+  return PALETTE_TO_BACKGROUND[paletteId] ?? THEME_PAIRINGS[0].backgroundId;
+}
+
+export function getPairedPaletteId(backgroundId) {
+  return BACKGROUND_TO_PALETTE[backgroundId] ?? THEME_PAIRINGS[0].paletteId;
+}
+
+export function isPairedTheme(paletteId, backgroundId) {
+  return getPairedBackgroundId(paletteId) === backgroundId;
+}
+
 export const PALETTES = [
   {
     id: "teal",
@@ -121,28 +158,23 @@ export const PALETTES = [
     },
   },
   {
-    id: "slate",
-    name: "Slate",
-    swatch: "#475569",
+    id: "obsidian",
+    name: "Obsidian",
+    swatch: "#0A0A0A",
     tokens: {
-      primary: "oklch(0.45 0.04 250)",
+      primary: "oklch(0.45 0 0)",
       primaryForeground: "oklch(1 0 0)",
-      primaryDeep: "oklch(0.35 0.04 250)",
-      primarySoft: "oklch(0.96 0.01 250)",
-      accent: "oklch(0.94 0.01 250)",
-      accentForeground: "oklch(0.30 0.04 250)",
-      ring: "oklch(0.45 0.04 250)",
-      sidebar: "oklch(0.22 0.02 250)",
-      sidebarPrimary: "oklch(0.55 0.04 250)",
-      chart1: "oklch(0.45 0.04 250)",
+      primaryDeep: "oklch(0.32 0 0)",
+      primarySoft: "oklch(0.26 0 0)",
+      accent: "oklch(0.26 0 0)",
+      accentForeground: DARK_FG,
+      ring: "oklch(0.45 0 0)",
+      sidebar: "oklch(0.16 0 0)",
+      sidebarPrimary: "oklch(0.45 0 0)",
+      chart1: "oklch(0.45 0 0)",
     },
   },
 ];
-
-const LIGHT_FG = "oklch(0.21 0.04 256)";
-const LIGHT_MUTED_FG = "oklch(0.55 0.03 250)";
-const DARK_FG = "oklch(0.96 0.012 230)";
-const DARK_MUTED_FG = "oklch(0.74 0.02 230)";
 
 export const BACKGROUNDS = [
   {
@@ -286,86 +318,6 @@ export const BACKGROUNDS = [
     },
   },
   {
-    id: "rose",
-    name: "Rose Petal",
-    swatch: "#FDF5F5",
-    mode: "light",
-    tokens: {
-      background: "oklch(0.975 0.014 18)",
-      foreground: LIGHT_FG,
-      card: "oklch(1 0 0)",
-      cardForeground: LIGHT_FG,
-      popover: "oklch(1 0 0)",
-      popoverForeground: LIGHT_FG,
-      muted: "oklch(0.955 0.016 18)",
-      mutedForeground: LIGHT_MUTED_FG,
-      secondary: "oklch(0.95 0.016 18)",
-      secondaryForeground: LIGHT_FG,
-      border: "oklch(0.90 0.018 18)",
-      input: "oklch(0.90 0.018 18)",
-    },
-  },
-  {
-    id: "sky-light",
-    name: "Sky Mist",
-    swatch: "#F0F7FE",
-    mode: "light",
-    tokens: {
-      background: "oklch(0.975 0.018 230)",
-      foreground: LIGHT_FG,
-      card: "oklch(1 0 0)",
-      cardForeground: LIGHT_FG,
-      popover: "oklch(1 0 0)",
-      popoverForeground: LIGHT_FG,
-      muted: "oklch(0.955 0.02 230)",
-      mutedForeground: LIGHT_MUTED_FG,
-      secondary: "oklch(0.95 0.02 230)",
-      secondaryForeground: LIGHT_FG,
-      border: "oklch(0.90 0.022 230)",
-      input: "oklch(0.90 0.022 230)",
-    },
-  },
-  {
-    id: "midnight",
-    name: "Midnight",
-    swatch: "#0F172A",
-    mode: "dark",
-    tokens: {
-      background: "oklch(0.22 0.03 250)",
-      foreground: DARK_FG,
-      card: "oklch(0.27 0.03 250)",
-      cardForeground: DARK_FG,
-      popover: "oklch(0.27 0.03 250)",
-      popoverForeground: DARK_FG,
-      muted: "oklch(0.30 0.03 250)",
-      mutedForeground: DARK_MUTED_FG,
-      secondary: "oklch(0.30 0.03 250)",
-      secondaryForeground: DARK_FG,
-      border: "oklch(0.36 0.03 250)",
-      input: "oklch(0.36 0.03 250)",
-    },
-  },
-  {
-    id: "graphite",
-    name: "Graphite",
-    swatch: "#1F2937",
-    mode: "dark",
-    tokens: {
-      background: "oklch(0.27 0.018 250)",
-      foreground: DARK_FG,
-      card: "oklch(0.32 0.02 250)",
-      cardForeground: DARK_FG,
-      popover: "oklch(0.32 0.02 250)",
-      popoverForeground: DARK_FG,
-      muted: "oklch(0.35 0.02 250)",
-      mutedForeground: DARK_MUTED_FG,
-      secondary: "oklch(0.35 0.02 250)",
-      secondaryForeground: DARK_FG,
-      border: "oklch(0.40 0.022 250)",
-      input: "oklch(0.40 0.022 250)",
-    },
-  },
-  {
     id: "obsidian",
     name: "Obsidian",
     swatch: "#0A0A0A",
@@ -385,27 +337,29 @@ export const BACKGROUNDS = [
       input: "oklch(0.32 0 0)",
     },
   },
-  {
-    id: "forest",
-    name: "Forest",
-    swatch: "#0E2422",
-    mode: "dark",
-    tokens: {
-      background: "oklch(0.24 0.03 180)",
-      foreground: DARK_FG,
-      card: "oklch(0.29 0.03 180)",
-      cardForeground: DARK_FG,
-      popover: "oklch(0.29 0.03 180)",
-      popoverForeground: DARK_FG,
-      muted: "oklch(0.32 0.03 180)",
-      mutedForeground: DARK_MUTED_FG,
-      secondary: "oklch(0.32 0.03 180)",
-      secondaryForeground: DARK_FG,
-      border: "oklch(0.38 0.03 180)",
-      input: "oklch(0.38 0.03 180)",
-    },
-  },
 ];
+
+/** Backgrounds in the same order as THEME_PAIRINGS (for aligned theme picker UI). */
+export const PAIRED_BACKGROUNDS = THEME_PAIRINGS.map(
+  ({ backgroundId }) => BACKGROUNDS.find((b) => b.id === backgroundId) ?? BACKGROUNDS[0],
+);
+
+function findPalette(id) {
+  const normalized = id === "slate" ? "obsidian" : id;
+  return PALETTES.find((x) => x.id === normalized) ?? PALETTES[0];
+}
+
+function findBackground(id) {
+  return BACKGROUNDS.find((x) => x.id === id) ?? BACKGROUNDS[0];
+}
+
+function persistThemeIds(paletteId, backgroundId) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, paletteId);
+    localStorage.setItem(BG_STORAGE_KEY, backgroundId);
+  } catch {}
+}
 
 function applyPalette(p) {
   if (typeof document === "undefined") return;
@@ -449,28 +403,57 @@ function applyBackground(b) {
 const STORAGE_KEY = "mydiaree:theme-palette";
 const BG_STORAGE_KEY = "mydiaree:theme-background";
 
-export const useThemeStore = create((set) => ({
+export const useThemeStore = create((set, get) => ({
   paletteId: "teal",
   backgroundId: "mint",
-  setPalette: (id) => {
-    const p = PALETTES.find((x) => x.id === id) ?? PALETTES[0];
+  /**
+   * @param {string} id - palette id
+   * @param {{ syncPair?: boolean }} [options] - syncPair true (default): also apply paired background
+   */
+  setPalette: (id, options = {}) => {
+    const { syncPair = true } = options;
+    const p = findPalette(id);
     applyPalette(p);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(STORAGE_KEY, p.id);
-      } catch {}
+
+    let backgroundId = get().backgroundId;
+    if (syncPair) {
+      const pairedBackgroundId = getPairedBackgroundId(p.id);
+      const b = findBackground(pairedBackgroundId);
+      applyBackground(b);
+      backgroundId = b.id;
     }
-    set({ paletteId: p.id });
+
+    persistThemeIds(p.id, backgroundId);
+    set({ paletteId: p.id, backgroundId });
   },
-  setBackground: (id) => {
-    const b = BACKGROUNDS.find((x) => x.id === id) ?? BACKGROUNDS[0];
+  /**
+   * @param {string} id - background id
+   * @param {{ syncPair?: boolean }} [options] - syncPair true (default): also apply paired accent
+   */
+  setBackground: (id, options = {}) => {
+    const { syncPair = true } = options;
+    const b = findBackground(id);
     applyBackground(b);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(BG_STORAGE_KEY, b.id);
-      } catch {}
+
+    let paletteId = get().paletteId;
+    if (syncPair) {
+      const pairedPaletteId = getPairedPaletteId(b.id);
+      const p = findPalette(pairedPaletteId);
+      applyPalette(p);
+      paletteId = p.id;
     }
-    set({ backgroundId: b.id });
+
+    persistThemeIds(paletteId, b.id);
+    set({ paletteId, backgroundId: b.id });
+  },
+  /** Apply a mapped pair in one step. */
+  setThemePair: (paletteId) => {
+    const p = findPalette(paletteId);
+    const b = findBackground(getPairedBackgroundId(p.id));
+    applyPalette(p);
+    applyBackground(b);
+    persistThemeIds(p.id, b.id);
+    set({ paletteId: p.id, backgroundId: b.id });
   },
   init: () => {
     if (typeof window === "undefined") return;
@@ -480,8 +463,8 @@ export const useThemeStore = create((set) => ({
       pid = localStorage.getItem(STORAGE_KEY) ?? "teal";
       bid = localStorage.getItem(BG_STORAGE_KEY) ?? "mint";
     } catch {}
-    const p = PALETTES.find((x) => x.id === pid) ?? PALETTES[0];
-    const b = BACKGROUNDS.find((x) => x.id === bid) ?? BACKGROUNDS[0];
+    const p = findPalette(pid);
+    const b = findBackground(bid);
     applyPalette(p);
     applyBackground(b);
     set({ paletteId: p.id, backgroundId: b.id });

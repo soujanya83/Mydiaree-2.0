@@ -116,10 +116,7 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={`Welcome back${centre ? `, ${centre.name || centre.code}` : ""}`}
-        description={centre ? `${centre.name} • ${centre.address}` : "Daily overview at a glance"}
-      />
+      <PageHeader title={`Welcome back${centre ? `, ${centre.name || centre.code}` : ""}`} />
 
       {/* Stats Grid */}
       {isLoading ? (
@@ -139,41 +136,40 @@ function DashboardPage() {
       )}
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {quickActions.map((a) => {
-          const Icon = a.icon;
-          return (
-            <Link
-              key={a.label}
-              to={a.to}
-              className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition hover:shadow-md"
-            >
-              <div
-                className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-lg",
-                  quickColor[a.color],
-                )}
+      <div className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">Quick Actions</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {quickActions.map((a) => {
+            const Icon = a.icon;
+            return (
+              <Link
+                key={a.label}
+                to={a.to}
+                className="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition hover:shadow-md"
               >
-                <Icon className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">{a.label}</p>
-                <p className="text-[11px] text-muted-foreground">Create new</p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
-            </Link>
-          );
-        })}
+                <div
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-lg",
+                    quickColor[a.color],
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">{a.label}</p>
+                  <p className="text-[11px] text-muted-foreground">Create new</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       {/* Weather & calendar — equal columns */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
         <DashboardWeather className="min-h-[28rem]" />
-        <DashboardCalendar
-          className="min-h-[28rem]"
-          events={events}
-          isLoading={isEventsLoading}
-        />
+        <DashboardCalendar className="min-h-[28rem]" events={events} isLoading={isEventsLoading} />
       </div>
     </div>
   );

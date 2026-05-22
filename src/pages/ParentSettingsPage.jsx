@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Pencil, Trash2, Filter, Users, ChevronDown, Check, Mail, Phone, User } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Pencil,
+  Trash2,
+  Filter,
+  Users,
+  ChevronDown,
+  Check,
+  Mail,
+  Phone,
+  User,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
@@ -59,11 +71,12 @@ export default function ParentSettingsPage() {
   const navigate = useNavigate();
   const [modal, setModal] = useState({ open: false, initial: null });
   const [confirm, setConfirm] = useState({ open: false, id: null });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const mapParents = (parentsArray) =>
     (parentsArray || []).map((p) => ({
       ...p,
-      gender: p.gender ? (p.gender.charAt(0).toUpperCase() + p.gender.slice(1).toLowerCase()) : "",
+      gender: p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1).toLowerCase() : "",
       avatar: p.imageUrl
         ? p.imageUrl.startsWith("http")
           ? p.imageUrl
@@ -96,14 +109,16 @@ export default function ParentSettingsPage() {
         const parentList = parentData?.data || parentData || [];
         setParents(mapParents(parentList));
 
-        setPagination(res.pagination || {
-          current_page: parentData?.current_page || 1,
-          last_page: parentData?.last_page || 1,
-          total: parentData?.total || 0,
-          from: parentData?.from,
-          to: parentData?.to,
-          per_page: parentData?.per_page || 10,
-        });
+        setPagination(
+          res.pagination || {
+            current_page: parentData?.current_page || 1,
+            last_page: parentData?.last_page || 1,
+            total: parentData?.total || 0,
+            from: parentData?.from,
+            to: parentData?.to,
+            per_page: parentData?.per_page || 10,
+          },
+        );
       } else {
         setParents([]);
         toast.error(res.message || "Failed to load parents");
@@ -154,10 +169,13 @@ export default function ParentSettingsPage() {
 
   const activeCenter = storeCenters.find((c) => c.id === centerId);
 
-  const childName = useCallback((id) => {
-    const child = availableChildren.find((c) => String(c.id) === String(id));
-    return child ? `${child.name} ${child.lastname || ""}`.trim() : "Unknown";
-  }, [availableChildren]);
+  const childName = useCallback(
+    (id) => {
+      const child = availableChildren.find((c) => String(c.id) === String(id));
+      return child ? `${child.name} ${child.lastname || ""}`.trim() : "Unknown";
+    },
+    [availableChildren],
+  );
 
   const totalPages = pagination.last_page || 1;
   const totalRecords = pagination.total || 0;
@@ -202,20 +220,25 @@ export default function ParentSettingsPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm.id) return;
+    if (!confirm.id || isDeleting) return;
+
     try {
+      setIsDeleting(true);
       const res = await parentService.deleteParent(confirm.id);
-      if (res.status === "success" || res.success) {
+
+      if (res.status === "success" || res.success || res.status === true) {
         toast.success(res.message || "Parent deleted successfully");
-        fetchParents(centerId, query, page);
+        setConfirm({ open: false, id: null });
+        await fetchParents(centerId, query, page);
       } else {
         toast.error(res.message || "Failed to delete parent");
       }
     } catch (error) {
-      toast.error("Failed to delete parent");
+      const res = error?.response?.data || error;
+      toast.error(res?.message || "Failed to delete parent");
       console.error(error);
     } finally {
-      setConfirm({ open: false, id: null });
+      setIsDeleting(false);
     }
   };
 
@@ -233,7 +256,10 @@ export default function ParentSettingsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-10 gap-2 rounded-xl bg-card/60 backdrop-blur border-border/60 shadow-sm font-medium">
+                <Button
+                  variant="outline"
+                  className="h-10 gap-2 rounded-xl bg-card/60 backdrop-blur border-border/60 shadow-sm font-medium"
+                >
                   {activeCenter?.name ?? "Select Center"}
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
@@ -251,7 +277,10 @@ export default function ParentSettingsPage() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button onClick={() => setModal({ open: true, initial: null })} className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20">
+            <Button
+              onClick={() => setModal({ open: true, initial: null })}
+              className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20"
+            >
               <Plus className="h-4 w-4" />
               Add Parent
             </Button>
@@ -283,7 +312,9 @@ export default function ParentSettingsPage() {
           </div>
           <h3 className="text-lg font-bold tracking-tight text-foreground">No Parents Found</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            {query ? "Try adjusting your search filters." : "You haven't added any parents to this center yet."}
+            {query
+              ? "Try adjusting your search filters."
+              : "You haven't added any parents to this center yet."}
           </p>
         </div>
       ) : (
@@ -313,8 +344,10 @@ export default function ParentSettingsPage() {
                       </AvatarFallback>
                     </Avatar>
                   </div>
-                  <h3 className="text-lg font-bold tracking-tight text-foreground line-clamp-1">{p.name}</h3>
-                  
+                  <h3 className="text-lg font-bold tracking-tight text-foreground line-clamp-1">
+                    {p.name}
+                  </h3>
+
                   <div className="mt-3 space-y-2 w-full text-sm">
                     <div className="flex items-center justify-center gap-2 text-muted-foreground bg-background/40 py-1.5 px-3 rounded-lg w-full">
                       <Mail className="h-3.5 w-3.5 shrink-0 text-primary/60" />
@@ -322,7 +355,9 @@ export default function ParentSettingsPage() {
                     </div>
                     <div className="flex items-center justify-center gap-2 text-muted-foreground bg-background/40 py-1.5 px-3 rounded-lg w-full">
                       <Phone className="h-3.5 w-3.5 shrink-0 text-primary/60" />
-                      <span className="truncate text-xs font-medium">{p.contact || "No Contact"}</span>
+                      <span className="truncate text-xs font-medium">
+                        {p.contact || "No Contact"}
+                      </span>
                     </div>
                     {p.gender && (
                       <div className="flex items-center justify-center gap-2 text-muted-foreground bg-background/40 py-1.5 px-3 rounded-lg w-full">
@@ -340,9 +375,9 @@ export default function ParentSettingsPage() {
                     ) : (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={(e) => e.stopPropagation()}
                             className="w-full justify-between rounded-xl h-9 text-xs font-semibold bg-background/60 hover:bg-background shadow-sm border-border/80"
                           >
@@ -355,7 +390,10 @@ export default function ParentSettingsPage() {
                             Child • Relation
                           </div>
                           {p.children.map((c, i) => (
-                            <DropdownMenuItem key={i} className="flex justify-between items-center py-2 px-2.5 rounded-lg focus:bg-primary/5 cursor-default">
+                            <DropdownMenuItem
+                              key={i}
+                              className="flex justify-between items-center py-2 px-2.5 rounded-lg focus:bg-primary/5 cursor-default"
+                            >
                               <span className="text-sm font-medium text-foreground truncate max-w-[120px]">
                                 {c.name ? `${c.name} ${c.lastname}`.trim() : childName(c.childId)}
                               </span>
@@ -416,21 +454,38 @@ export default function ParentSettingsPage() {
         centerId={centerId}
       />
 
-      <AlertDialog open={confirm.open} onOpenChange={(o) => setConfirm((c) => ({ ...c, open: o }))}>
+      <AlertDialog
+        open={confirm.open}
+        onOpenChange={(o) => !isDeleting && setConfirm((c) => ({ ...c, open: o }))}
+      >
         <AlertDialogContent className="rounded-3xl p-6">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl">Delete this parent?</AlertDialogTitle>
             <AlertDialogDescription className="font-medium text-muted-foreground">
-              This action cannot be undone. The parent account and its child links will be permanently removed.
+              This action cannot be undone. The parent account and its child links will be
+              permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4">
-            <AlertDialogCancel className="rounded-xl font-semibold">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete}
+            <AlertDialogCancel disabled={isDeleting} className="rounded-xl font-semibold">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={isDeleting}
               className="rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-semibold shadow-md shadow-rose-500/20 hover:shadow-lg hover:shadow-rose-500/30"
             >
-              Delete Parent
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Parent"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

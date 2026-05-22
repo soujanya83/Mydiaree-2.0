@@ -31,7 +31,13 @@ export const useRoomStore = create(
               children: r.children || [],
             }));
 
-            let staffList = [];
+            const staffList = (response.roomStaffs || [])
+              .filter((staff) => staff.staffid && staff.name)
+              .map((staff) => ({
+                staffid: String(staff.staffid),
+                name: staff.name,
+                imageUrl: staff.imageUrl,
+              }));
 
             const currentActiveId = get().activeRoomId;
 
