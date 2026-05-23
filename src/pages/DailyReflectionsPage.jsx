@@ -174,7 +174,7 @@ export default function DailyReflectionsPage() {
         response = await reflectionService.getAllReflections(centerId, {
           page,
           perPage: PAGE_SIZE,
-          childIds: [selectedChildId],
+          childId: selectedChildId,
         });
       } else {
         response = await reflectionService.getAllReflections(activeCentreId, {

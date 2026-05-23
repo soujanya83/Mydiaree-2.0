@@ -21,6 +21,7 @@ function buildReflectionListParams(centerId, options = {}) {
     customTo,
     childIds = [],
     authorIds = [],
+    childId, // single child_id param (used for parent)
   } = options;
 
   const params = {
@@ -47,11 +48,15 @@ function buildReflectionListParams(centerId, options = {}) {
     }
   }
 
-  const normalizedChildIds = (Array.isArray(childIds) ? childIds : [childIds])
-    .map((id) => String(id).trim())
-    .filter(Boolean);
-  if (normalizedChildIds.length > 0) {
-    params["childs[]"] = normalizedChildIds;
+  if (childId) {
+    params.child_id = String(childId);
+  } else {
+    const normalizedChildIds = (Array.isArray(childIds) ? childIds : [childIds])
+      .map((id) => String(id).trim())
+      .filter(Boolean);
+    if (normalizedChildIds.length > 0) {
+      params["childs[]"] = normalizedChildIds;
+    }
   }
 
   const normalizedAuthorIds = (Array.isArray(authorIds) ? authorIds : [authorIds])

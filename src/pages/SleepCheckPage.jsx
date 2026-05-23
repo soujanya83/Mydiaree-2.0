@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -31,10 +31,11 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
+import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { sleepChecksService } from "@/services/daily-operations/sleepChecksService";
-import { useEffect } from "react";
+import { Pagination } from "@/components/common/Pagination";
 
 const BREATHING_OPTIONS = ["Regular", "Fast", "Difficult"];
 const TEMPERATURE_OPTIONS = ["Normal", "Warm", "Hot"];
@@ -52,12 +53,19 @@ export default function SleepCheckPage() {
   const children = useChildrenStore((s) => s.children);
   const isLoading = useChildrenStore((s) => s.isLoading);
 
+  const parentChildren = useParentDashboardStore((s) => s.children);
+  const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
+
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [search, setSearch] = useState("");
   const [fetchedChildren, setFetchedChildren] = useState([]);
   const [cards, setCards] = useState({}); // { [childId]: { selected, openEntryId, entries: [] } }
   const [isFetching, setIsFetching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const perPage = 10;
 
   const visibleChildren = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -69,17 +77,37 @@ export default function SleepCheckPage() {
 
   const getCard = (id) => cards[id] ?? { selected: false, openEntryId: null, entries: [] };
 
-  const fetchSleepChecks = async () => {
-    if (!activeCentreId || !activeRoomId) return;
+  const fetchSleepChecks = useCallback(async () => {
+    if (isParent) {
+      if (!selectedChildId) return;
+    } else {
+      if (!activeCentreId || !activeRoomId) return;
+    }
     setIsFetching(true);
     try {
-      const res = await sleepChecksService.getSleepChecks({
-        centerid: activeCentreId,
-        roomid: activeRoomId,
-        date: date,
-      });
+      let params;
+      if (isParent) {
+        const selectedChild = parentChildren.find((c) => String(c.id) === String(selectedChildId));
+        params = {
+          centerid: selectedChild?.centerid,
+          date,
+          per_page: perPage,
+          page: currentPage,
+          child_id: selectedChildId,
+        };
+      } else {
+        params = {
+          centerid: activeCentreId,
+          roomid: activeRoomId,
+          date,
+          per_page: perPage,
+          page: currentPage,
+        };
+      }
+      const res = await sleepChecksService.getSleepChecks(params);
       if (res.data.status && res.data.children) {
         setFetchedChildren(res.data.children);
+        setTotalPages(res.data.pagination?.last_page || 1);
         const newCards = {};
         res.data.children.forEach((child) => {
           newCards[child.id] = {
@@ -104,11 +132,25 @@ export default function SleepCheckPage() {
     } finally {
       setIsFetching(false);
     }
-  };
+  }, [
+    isParent,
+    selectedChildId,
+    activeCentreId,
+    activeRoomId,
+    date,
+    perPage,
+    currentPage,
+    parentChildren,
+  ]);
 
   useEffect(() => {
     fetchSleepChecks();
-  }, [activeCentreId, activeRoomId, date]);
+  }, [fetchSleepChecks]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeCentreId, activeRoomId, date, selectedChildId]);
 
   const formatDateForSave = (dateStr) => {
     // Convert YYYY-MM-DD to DD-MM-YYYY
@@ -314,17 +356,19 @@ export default function SleepCheckPage() {
         }
       />
 
-      {/* Search */}
+      {/* Search — hidden for parents */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="relative w-full max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by child name…"
-            className="h-10 pl-9"
-          />
-        </div>
+        {!isParent && (
+          <div className="relative w-full max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter by child name…"
+              className="h-10 pl-9"
+            />
+          </div>
+        )}
         <Button variant="outline" size="sm">
           <Printer className="mr-1.5 h-4 w-4" />
           View / Print
@@ -342,10 +386,18 @@ export default function SleepCheckPage() {
         <div className="space-y-5">
           {visibleChildren.map((child) => {
             const card = getCard(child.id);
-            const initials = (child.name || "??")
+            const fullName = [child.name, child.lastname].filter(Boolean).join(" ") || "??";
+            const initials = fullName
               .split(" ")
               .map((n) => n[0])
-              .join("");
+              .join("")
+              .toUpperCase()
+              .slice(0, 2);
+            const avatarSrc = child.imageUrl
+              ? child.imageUrl.startsWith("http")
+                ? child.imageUrl
+                : `https://mydiaree.com.au/${child.imageUrl.replace(/^\/+/, "")}`
+              : null;
             return (
               <article
                 key={child.id}
@@ -355,12 +407,15 @@ export default function SleepCheckPage() {
                 <header className="flex items-center justify-between gap-3 border-b border-border bg-muted/30 px-5 py-4">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-11 w-11">
+                      {avatarSrc && (
+                        <AvatarImage src={avatarSrc} alt={fullName} className="object-cover" />
+                      )}
                       <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                         {initials}
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="text-base font-bold text-foreground">{child.name}</h3>
+                      <h3 className="text-base font-bold text-foreground">{fullName}</h3>
                       <p className="text-xs text-muted-foreground">
                         {rooms.find((r) => r.id === activeRoomId)?.name || "—"}
                       </p>
@@ -550,6 +605,17 @@ export default function SleepCheckPage() {
               </article>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex justify-center">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 
