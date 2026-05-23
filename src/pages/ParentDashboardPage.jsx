@@ -24,7 +24,6 @@ export default function ParentDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const children = useParentDashboardStore((s) => s.children);
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
-  const setChildren = useParentDashboardStore((s) => s.setChildren);
 
   useEffect(() => {
     const load = async () => {
@@ -33,7 +32,6 @@ export default function ParentDashboardPage() {
         const res = await parentDashboardService.getDashboard(activeCentreId || 1);
         if (res.status) {
           setData(res.data);
-          setChildren(res.data?.children || []);
         }
       } catch (error) {
         console.error("Failed to load parent dashboard:", error);
@@ -42,18 +40,12 @@ export default function ParentDashboardPage() {
       }
     };
     load();
-  }, [activeCentreId, setChildren]);
+  }, [activeCentreId]);
 
   const selectedChild = useMemo(() => {
     if (!selectedChildId) return null;
     return children.find((c) => String(c.id) === String(selectedChildId)) ?? null;
   }, [children, selectedChildId]);
-
-  useEffect(() => {
-    if (!activeCentreId) {
-      setChildren([]);
-    }
-  }, [activeCentreId, setChildren]);
 
   const reflections = useMemo(() => {
     const published = (data?.reflections || []).filter(

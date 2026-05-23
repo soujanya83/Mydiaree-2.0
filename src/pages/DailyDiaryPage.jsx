@@ -19,6 +19,7 @@ import { Pagination } from "@/components/common/Pagination";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
+import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { useEffect } from "react";
 
 const DAILY_DIARY_ACTIVITY_COUNT = 9;
@@ -34,6 +35,10 @@ export default function DailyDiaryPage() {
   const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
 
   const { isParent } = usePermissions();
+
+  const parentChildren = useParentDashboardStore((s) => s.children);
+  const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
+
   const [diaryChildren, setDiaryChildren] = useState([]);
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -87,17 +92,30 @@ export default function DailyDiaryPage() {
   const [isFetching, setIsFetching] = useState(false);
 
   const fetchDiary = useCallback(async () => {
-    if (!activeCentreId || !activeRoomId) return;
+    if (isParent) {
+      if (!selectedChildId) return;
+    } else {
+      if (!activeCentreId || !activeRoomId) return;
+    }
     setIsFetching(true);
     try {
-      const response = await dailyDiaryService.listDiary({
-        center_id: activeCentreId,
-        room_id: activeRoomId,
+      const params = {
         selected_date: date,
-        search: debouncedSearch || undefined,
         per_page: perPage,
         page: currentPage,
-      });
+      };
+
+      if (isParent) {
+        const selectedChild = parentChildren.find((c) => String(c.id) === String(selectedChildId));
+        params.center_id = selectedChild?.centerid;
+        params.child_id = selectedChildId;
+      } else {
+        params.center_id = activeCentreId;
+        params.room_id = activeRoomId;
+        if (debouncedSearch) params.search = debouncedSearch;
+      }
+
+      const response = await dailyDiaryService.listDiary(params);
 
       console.log("Daily dairy response ", response.data.data.children);
 
@@ -193,7 +211,17 @@ export default function DailyDiaryPage() {
     } finally {
       setIsFetching(false);
     }
-  }, [activeCentreId, activeRoomId, date, debouncedSearch, currentPage, perPage]);
+  }, [
+    activeCentreId,
+    activeRoomId,
+    date,
+    debouncedSearch,
+    currentPage,
+    perPage,
+    isParent,
+    selectedChildId,
+    parentChildren,
+  ]);
 
   useEffect(() => {
     fetchDiary();
@@ -397,15 +425,17 @@ export default function DailyDiaryPage() {
         </div>
 
         <div className="flex flex-col gap-3 border-t border-border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search children..."
-              className="h-10 bg-background pl-9"
-            />
-          </div>
+          {!isParent && (
+            <div className="relative w-full sm:max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search children..."
+                className="h-10 bg-background pl-9"
+              />
+            </div>
+          )}
           {!isParent && (
             <Button className="h-10 shrink-0" onClick={() => setModalOpen(true)}>
               <Plus className="mr-1.5 h-4 w-4" />

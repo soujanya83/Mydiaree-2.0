@@ -1,7 +1,12 @@
 import api from "@/api/api";
 
 export const parentDashboardService = {
+  async getParentChildren(parentId) {
+    const res = await api.get(`/global-parent-children/${parentId}`);
+    return res.data;
+  },
   async getDashboard(centerId) {
+    // kept for dashboard widget usage
     const res = await api.get("/parent-dashboard", {
       params: { centerid: centerId },
     });

@@ -45,7 +45,7 @@ export const useParentDashboardStore = create((set, get) => ({
   selectedChildId: loadSelectedChildId(),
   isLoadingChildren: false,
   isSavingSelectedChild: false,
-  lastLoadedCentreId: null,
+  lastLoadedParentId: null,
 
   setChildren: (children = [], preferredSelectedChildId) => {
     const nextChildren = Array.isArray(children) ? children : [];
@@ -60,6 +60,8 @@ export const useParentDashboardStore = create((set, get) => ({
     });
   },
 
+  // Called when the parent picks a different child in the dropdown.
+  // Optimistically updates the store then persists to the server.
   setSelectedChildId: async (selectedChildId) => {
     const nextValue = normalizeChildId(selectedChildId);
     const { children, selectedChildId: previousValue } = get();
@@ -77,6 +79,7 @@ export const useParentDashboardStore = create((set, get) => ({
         throw new Error(res.message || "Failed to save selected child");
       }
     } catch (error) {
+      // Roll back on failure
       persistSelectedChildId(previousValue);
       set({ selectedChildId: previousValue });
       console.error("Failed to save selected child:", error);
@@ -85,55 +88,51 @@ export const useParentDashboardStore = create((set, get) => ({
     }
   },
 
-  fetchChildren: async (centerId, force = false) => {
-    if (!centerId) return;
+  // Called once after login (from AppLayout).
+  // 1. GET /global-parent-children/{parentId}  — full children list for the dropdown
+  // 2. GET /parent-dashboard/selected-child    — server-persisted selected child
+  fetchChildren: async (parentId, force = false) => {
+    if (!parentId) return;
 
-    const { lastLoadedCentreId, isLoadingChildren, selectedChildId } = get();
-    if (!force && String(lastLoadedCentreId) === String(centerId) && !isLoadingChildren) {
+    const { lastLoadedParentId, isLoadingChildren, selectedChildId } = get();
+    // Only skip if already successfully loaded for this exact parentId
+    if (!force && lastLoadedParentId && String(lastLoadedParentId) === String(parentId)) {
       return;
     }
     if (isLoadingChildren) return;
 
     set({ isLoadingChildren: true });
     try {
-      const [dashboardRes, selectedChildRes] = await Promise.all([
-        parentDashboardService.getDashboard(centerId),
+      const [childrenRes, selectedChildRes] = await Promise.all([
+        parentDashboardService.getParentChildren(parentId),
         parentDashboardService.getSelectedChild(),
       ]);
 
-      if (dashboardRes.status) {
-        const nextChildren = dashboardRes.data?.children || [];
-        const apiSelectedChildId = selectedChildRes?.status
-          ? selectedChildRes?.data?.selectedchildreanid
-          : undefined;
+      if (childrenRes.status) {
+        const nextChildren = childrenRes.children || [];
+
+        // Prefer the server-persisted selected child, fall back to localStorage / first child
+        const serverSelectedId = selectedChildRes?.status
+          ? normalizeChildId(selectedChildRes?.data?.selectedchildreanid)
+          : "";
+
         const nextSelectedChildId = resolveSelectedChildId(
           nextChildren,
-          apiSelectedChildId || selectedChildId,
+          serverSelectedId || selectedChildId,
         );
 
         persistSelectedChildId(nextSelectedChildId);
         set({
           children: nextChildren,
           selectedChildId: nextSelectedChildId,
-          lastLoadedCentreId: centerId,
+          lastLoadedParentId: parentId,
           isLoadingChildren: false,
         });
-
-        if (
-          nextSelectedChildId &&
-          normalizeChildId(apiSelectedChildId) !== normalizeChildId(nextSelectedChildId)
-        ) {
-          try {
-            await parentDashboardService.saveSelectedChild(nextSelectedChildId);
-          } catch (error) {
-            console.error("Failed to sync selected child:", error);
-          }
-        }
       } else {
         set({ isLoadingChildren: false });
       }
     } catch (error) {
-      console.error("Failed to fetch parent dashboard children:", error);
+      console.error("Failed to fetch parent children:", error);
       set({ isLoadingChildren: false });
     }
   },
@@ -145,7 +144,7 @@ export const useParentDashboardStore = create((set, get) => ({
       selectedChildId: "",
       isLoadingChildren: false,
       isSavingSelectedChild: false,
-      lastLoadedCentreId: null,
+      lastLoadedParentId: null,
     });
   },
 }));

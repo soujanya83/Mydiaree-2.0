@@ -10,7 +10,7 @@ const dailyDiaryService = {
   storeLateSnacks: (data) => api.post("/activities/late-snacks", data),
   storeSunscreen: (data) => api.post("/dailyDiary/storeSunscreen", data),
   storeToileting: (data) => api.post("/dailyDiary/storeToileting", data),
-  listDiary: (data) => api.post("/mernDailyDiary/list", data),
+  listDiary: (params) => api.get("/mernDailyDiary/list", { params }),
 };
 
 export default dailyDiaryService;
