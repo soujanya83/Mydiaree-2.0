@@ -49,6 +49,7 @@ import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationM
 import { DoorOpen } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 import { Pagination } from "@/components/common/Pagination";
@@ -119,6 +120,8 @@ export default function DailyReflectionsPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
   const { can, isParent } = usePermissions();
+  const parentChildren = useParentDashboardStore((s) => s.children);
+  const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
   const {
     filteredStaff,
     filteredChildren,
@@ -156,21 +159,37 @@ export default function DailyReflectionsPage() {
   const [galleryReflection, setGalleryReflection] = useState(null);
 
   const fetchReflections = useCallback(async () => {
-    if (!activeCentreId) return;
+    if (isParent) {
+      if (!selectedChildId) return;
+    } else {
+      if (!activeCentreId) return;
+    }
     setIsLoadingReflections(true);
     try {
-      const response = await reflectionService.getAllReflections(activeCentreId, {
-        page,
-        perPage: PAGE_SIZE,
-        roomId: activeRoomId || undefined,
-        search,
-        status,
-        dateRange,
-        customFrom,
-        customTo,
-        childIds: childId !== "all" ? [childId] : [],
-        authorIds: author !== "all" ? [author] : [],
-      });
+      let response;
+      if (isParent) {
+        const selectedChild = parentChildren.find((c) => String(c.id) === String(selectedChildId));
+        const centerId = selectedChild?.centerid;
+        if (!centerId) return;
+        response = await reflectionService.getAllReflections(centerId, {
+          page,
+          perPage: PAGE_SIZE,
+          childIds: [selectedChildId],
+        });
+      } else {
+        response = await reflectionService.getAllReflections(activeCentreId, {
+          page,
+          perPage: PAGE_SIZE,
+          roomId: activeRoomId || undefined,
+          search,
+          status,
+          dateRange,
+          customFrom,
+          customTo,
+          childIds: childId !== "all" ? [childId] : [],
+          authorIds: author !== "all" ? [author] : [],
+        });
+      }
       if (response.status) {
         setItems(getReflectionItems(response));
         setReflectionPagination(getReflectionPagination(response));
@@ -181,6 +200,9 @@ export default function DailyReflectionsPage() {
       setIsLoadingReflections(false);
     }
   }, [
+    isParent,
+    selectedChildId,
+    parentChildren,
     activeCentreId,
     activeRoomId,
     page,
@@ -209,6 +231,7 @@ export default function DailyReflectionsPage() {
     customTo,
     childId,
     author,
+    selectedChildId,
   ]);
 
   useEffect(() => {
