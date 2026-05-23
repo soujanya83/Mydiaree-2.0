@@ -30,10 +30,8 @@ export function childPossessive(children = [], selectedChild = null) {
   return "your children's";
 }
 
-export function parentDashboardDescription(children = [], selectedChild = null) {
-  const phrase = childrenNamesPhrase(children, selectedChild);
-  const noun = childCountNoun(children.length, selectedChild);
-  return `Your family hub for ${phrase} — reflections, learning moments, and centre updates for your ${noun}.`;
+export function parentDashboardDescription() {
+  return "Your family hub for child reflections, learning moments and centre updates.";
 }
 
 export function itemMatchesChild(item, childId) {

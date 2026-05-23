@@ -10,11 +10,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useCentreStore } from "@/stores/centreStore";
 import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { parentDashboardService } from "@/services/parent/parentDashboardService";
-import {
-  childPossessive,
-  itemMatchesChild,
-  parentDashboardDescription,
-} from "@/utils/parentDashboardText";
+import { childPossessive, parentDashboardDescription } from "@/utils/parentDashboardText";
 
 export default function ParentDashboardPage() {
   const user = useAuthStore((s) => s.user);
@@ -26,10 +22,11 @@ export default function ParentDashboardPage() {
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
 
   useEffect(() => {
+    if (!selectedChildId) return;
     const load = async () => {
       setIsLoading(true);
       try {
-        const res = await parentDashboardService.getDashboard(activeCentreId || 1);
+        const res = await parentDashboardService.getDashboard(activeCentreId || 1, selectedChildId);
         if (res.status) {
           setData(res.data);
         }
@@ -40,33 +37,27 @@ export default function ParentDashboardPage() {
       }
     };
     load();
-  }, [activeCentreId]);
+  }, [activeCentreId, selectedChildId]);
 
   const selectedChild = useMemo(() => {
     if (!selectedChildId) return null;
     return children.find((c) => String(c.id) === String(selectedChildId)) ?? null;
   }, [children, selectedChildId]);
 
-  const reflections = useMemo(() => {
-    const published = (data?.reflections || []).filter(
-      (r) => String(r.status).toUpperCase() === "PUBLISHED",
-    );
-    return published.filter((r) => itemMatchesChild(r, selectedChildId));
-  }, [data, selectedChildId]);
+  const reflections = useMemo(
+    () => (data?.reflections || []).filter((r) => String(r.status).toUpperCase() === "PUBLISHED"),
+    [data],
+  );
 
-  const observations = useMemo(() => {
-    const published = (data?.observations || []).filter(
-      (o) => String(o.status).toLowerCase() === "published",
-    );
-    return published.filter((o) => itemMatchesChild(o, selectedChildId));
-  }, [data, selectedChildId]);
+  const observations = useMemo(
+    () => (data?.observations || []).filter((o) => String(o.status).toLowerCase() === "published"),
+    [data],
+  );
 
-  const snapshots = useMemo(() => {
-    const published = (data?.snapshots || []).filter(
-      (s) => String(s.status).toLowerCase() === "published",
-    );
-    return published.filter((s) => itemMatchesChild(s, selectedChildId));
-  }, [data, selectedChildId]);
+  const snapshots = useMemo(
+    () => (data?.snapshots || []).filter((s) => String(s.status).toLowerCase() === "published"),
+    [data],
+  );
 
   const possessive = childPossessive(children, selectedChild);
   const firstName = user?.name?.split(/\s+/)[0] || "";
@@ -78,8 +69,8 @@ export default function ParentDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Welcome back${firstName ? `, ${firstName}` : ""}`}
-        description={parentDashboardDescription(children, selectedChild)}
+        title={`Welcome ${firstName ? `, ${firstName}` : ""}`}
+        description={parentDashboardDescription()}
       />
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">

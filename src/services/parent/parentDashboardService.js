@@ -5,11 +5,10 @@ export const parentDashboardService = {
     const res = await api.get(`/global-parent-children/${parentId}`);
     return res.data;
   },
-  async getDashboard(centerId) {
-    // kept for dashboard widget usage
-    const res = await api.get("/parent-dashboard", {
-      params: { centerid: centerId },
-    });
+  async getDashboard(centerId, childId) {
+    const params = { centerid: centerId };
+    if (childId) params.child_id = childId;
+    const res = await api.get("/parent-dashboard", { params });
     return res.data;
   },
 
