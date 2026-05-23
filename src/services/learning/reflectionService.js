@@ -1,6 +1,6 @@
 import api from "../../api/api";
 
-const DEFAULT_PER_PAGE = 10;
+const DEFAULT_PER_PAGE = 8;
 
 const ADDED_DATE_MAP = {
   today: "Today",
