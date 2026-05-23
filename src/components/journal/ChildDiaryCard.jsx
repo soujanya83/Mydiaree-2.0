@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   Plus,
   Pencil,
+  Trash2,
   Coffee,
   CupSoda,
   Utensils,
@@ -18,6 +19,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { ActivityEditModal } from "./ActivityEditModal";
+import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 const MULTI_ENTRY_ACTIVITIES = new Set(["sleep", "sunscreen", "toileting", "bottle"]);
@@ -200,10 +202,12 @@ function EntryDetails({ def, entry }) {
   );
 }
 
-function ActivityTile({ def, entry, onSave, readOnly = false }) {
+function ActivityTile({ def, entry, onSave, onDelete, readOnly = false }) {
   const [editOpen, setEditOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [deleteModal, setDeleteModal] = useState({ open: false, entryId: null });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const Icon = def.icon;
   const status = statusFor(def, entry);
@@ -211,6 +215,7 @@ function ActivityTile({ def, entry, onSave, readOnly = false }) {
   const entries = Array.isArray(entry) ? entry : entry ? [entry] : [];
   const modalInitial = isMulti ? editingEntry : entry;
   const canEdit = !readOnly && !!onSave;
+  const canDelete = !readOnly && !!onDelete;
 
   const openAdd = () => {
     if (!canEdit) return;
@@ -222,6 +227,23 @@ function ActivityTile({ def, entry, onSave, readOnly = false }) {
     if (!canEdit) return;
     setEditingEntry(item);
     setEditOpen(true);
+  };
+
+  const openDelete = (entryId) => {
+    setDeleteModal({ open: true, entryId });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.entryId || !onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(def.key, deleteModal.entryId);
+      setDeleteModal({ open: false, entryId: null });
+    } catch {
+      // error already toasted in parent
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -261,7 +283,7 @@ function ActivityTile({ def, entry, onSave, readOnly = false }) {
             </div>
           </CollapsibleTrigger>
 
-          {canEdit && (
+          {(canEdit || canDelete) && (
             <div className="flex shrink-0 items-center gap-1">
               {isMulti ? (
                 <button
@@ -273,14 +295,26 @@ function ActivityTile({ def, entry, onSave, readOnly = false }) {
                   <Plus className="h-4 w-4" />
                 </button>
               ) : entry ? (
-                <button
-                  type="button"
-                  onClick={() => openEdit(entries[0])}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
-                  title={`Edit ${def.label}`}
-                >
-                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openEdit(entries[0])}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
+                    title={`Edit ${def.label}`}
+                  >
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                  {canDelete && entries[0]?.id && (
+                    <button
+                      type="button"
+                      onClick={() => openDelete(entries[0].id)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-destructive/30 bg-background shadow-sm hover:bg-destructive/10 hover:text-destructive"
+                      title={`Delete ${def.label}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive/70" />
+                    </button>
+                  )}
+                </>
               ) : (
                 <button
                   type="button"
@@ -306,14 +340,29 @@ function ActivityTile({ def, entry, onSave, readOnly = false }) {
                   <div className="flex-1 text-xs leading-relaxed text-muted-foreground min-w-0 overflow-hidden">
                     <EntryDetails def={def} entry={item} />
                   </div>
-                  {isMulti && canEdit && (
-                    <button
-                      type="button"
-                      onClick={() => openEdit(item)}
-                      className="mt-0.5 shrink-0 rounded border border-border bg-background p-1.5 text-muted-foreground shadow-sm transition hover:bg-primary/10 hover:text-primary"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
+                  {isMulti && (canEdit || canDelete) && (
+                    <div className="mt-0.5 flex shrink-0 items-center gap-1">
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => openEdit(item)}
+                          className="rounded border border-border bg-background p-1.5 text-muted-foreground shadow-sm transition hover:bg-primary/10 hover:text-primary"
+                          title="Edit"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      )}
+                      {canDelete && item.id && (
+                        <button
+                          type="button"
+                          onClick={() => openDelete(item.id)}
+                          className="rounded border border-destructive/30 bg-background p-1.5 text-destructive/70 shadow-sm transition hover:bg-destructive/10 hover:text-destructive"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               ))
@@ -335,6 +384,15 @@ function ActivityTile({ def, entry, onSave, readOnly = false }) {
           onSave={(payload) => onSave?.(def.key, payload)}
         />
       )}
+
+      <DeleteConfirmationModal
+        open={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, entryId: null })}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        title={`Delete ${def.label} entry?`}
+        description="This entry will be permanently removed and cannot be recovered."
+      />
     </>
   );
 }
@@ -351,7 +409,14 @@ function formatDob(dob) {
   });
 }
 
-export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry, readOnly = false }) {
+export function ChildDiaryCard({
+  child,
+  date,
+  entries = {},
+  onSaveEntry,
+  onDeleteEntry,
+  readOnly = false,
+}) {
   const isReadOnly = readOnly || !onSaveEntry;
   const initials = (child.name || "Child")
     .split(" ")
@@ -453,6 +518,7 @@ export function ChildDiaryCard({ child, date, entries = {}, onSaveEntry, readOnl
               entry={entries[def.key]}
               readOnly={isReadOnly}
               onSave={(key, payload) => onSaveEntry?.(child.id, key, payload)}
+              onDelete={(key, entryId) => onDeleteEntry?.(child.id, key, entryId)}
             />
           ))}
         </div>

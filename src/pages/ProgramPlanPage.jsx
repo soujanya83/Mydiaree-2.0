@@ -379,7 +379,7 @@ export default function ProgramPlanPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
   const user = useAuthStore((s) => s.user);
-  const { can, isParent } = usePermissions();
+  const { can, isParent, isSuperadmin } = usePermissions();
   const perms = ACTION_PERMISSIONS.programPlan;
 
   const [records, setRecords] = useState([]);
@@ -723,7 +723,7 @@ export default function ProgramPlanPage() {
                 </Button>
               )}
 
-              {user?.userType === "Superadmin" && (
+              {isSuperadmin && (
                 <Button
                   variant="outline"
                   onClick={() => navigate("/program-plan/recycle-bin")}

@@ -317,6 +317,37 @@ export default function DailyDiaryPage() {
     }
   };
 
+  const handleDeleteEntry = async (childId, activityKey, entryId) => {
+    try {
+      const res = await dailyDiaryService.deleteActivity(activityKey, entryId);
+      if (res.data?.status) {
+        setEntriesByChild((prev) => {
+          const childEntries = { ...(prev[childId] || {}) };
+          const current = childEntries[activityKey];
+          if (Array.isArray(current)) {
+            const filtered = current.filter((e) => String(e.id) !== String(entryId));
+            if (filtered.length === 0) {
+              delete childEntries[activityKey];
+            } else {
+              childEntries[activityKey] = filtered;
+            }
+          } else {
+            delete childEntries[activityKey];
+          }
+          return { ...prev, [childId]: childEntries };
+        });
+        toast.success("Entry deleted successfully");
+      } else {
+        toast.error(res.data?.message || "Failed to delete entry");
+        throw new Error(res.data?.message || "Delete failed");
+      }
+    } catch (error) {
+      console.error("Failed to delete entry", error);
+      toast.error("Failed to delete entry");
+      throw error;
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -461,6 +492,7 @@ export default function DailyDiaryPage() {
               entries={entriesByChild[c.id] || {}}
               readOnly={isParent}
               onSaveEntry={isParent ? undefined : handleSaveEntry}
+              onDeleteEntry={isParent ? undefined : handleDeleteEntry}
             />
           ))}
         </div>

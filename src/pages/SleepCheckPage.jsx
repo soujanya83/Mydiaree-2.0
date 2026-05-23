@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Trash2,
@@ -12,6 +13,8 @@ import {
   PenLine,
   Printer,
   ChevronDown,
+  Users,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -36,6 +39,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { sleepChecksService } from "@/services/daily-operations/sleepChecksService";
 import { Pagination } from "@/components/common/Pagination";
+import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 
 const BREATHING_OPTIONS = ["Regular", "Fast", "Difficult"];
 const TEMPERATURE_OPTIONS = ["Normal", "Warm", "Hot"];
@@ -62,6 +66,24 @@ export default function SleepCheckPage() {
   const [cards, setCards] = useState({}); // { [childId]: { selected, openEntryId, entries: [] } }
   const [isFetching, setIsFetching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const [deleteModal, setDeleteModal] = useState({
+    open: false,
+    childId: null,
+    entryId: null,
+    isNew: false,
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [bulkModal, setBulkModal] = useState(false);
+  const [bulkForm, setBulkForm] = useState({
+    time: "",
+    breathing: "Regular",
+    temperature: "Normal",
+    notes: "",
+    signature: "",
+  });
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -200,8 +222,9 @@ export default function SleepCheckPage() {
     }
   };
 
-  const handleDeleteEntry = async (childId, entryId, isNew) => {
+  const handleDeleteEntry = (childId, entryId, isNew) => {
     if (isNew) {
+      // New (unsaved) entry — remove locally, no confirmation needed
       setCards((p) => {
         const card = { ...p[childId] };
         card.entries = card.entries.filter((e) => e.id !== entryId);
@@ -209,18 +232,76 @@ export default function SleepCheckPage() {
       });
       return;
     }
+    // Persisted entry — open confirmation modal
+    setDeleteModal({ open: true, childId, entryId, isNew });
+  };
 
-    if (!window.confirm("Delete this sleep check entry?")) return;
-
+  const handleDeleteConfirm = async () => {
+    const { childId, entryId } = deleteModal;
+    setIsDeleting(true);
     try {
       const res = await sleepChecksService.deleteSleepCheck(toFormData({ id: entryId }));
       if (res.data.status) {
         toast.success("Entry deleted");
+        setDeleteModal({ open: false, childId: null, entryId: null, isNew: false });
         fetchSleepChecks();
+      } else {
+        toast.error(res.data.message || "Failed to delete");
       }
     } catch (error) {
       console.error("Delete failed", error);
       toast.error("Failed to delete sleep check");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkSave = async () => {
+    const selectedIds = fetchedChildren.filter((c) => cards[c.id]?.selected).map((c) => c.id);
+
+    const targetIds = selectedIds.length > 0 ? selectedIds : fetchedChildren.map((c) => c.id);
+
+    if (targetIds.length === 0) {
+      toast.info("No children to save.");
+      return;
+    }
+    if (!bulkForm.time) {
+      toast.error("Please enter a time.");
+      return;
+    }
+
+    setIsBulkSaving(true);
+    try {
+      const fd = new FormData();
+      targetIds.forEach((id) => fd.append("child_ids[]", id));
+      fd.append("diarydate", formatDateForSave(date));
+      fd.append("roomid", activeRoomId);
+      fd.append("time", bulkForm.time);
+      fd.append("breathing", bulkForm.breathing);
+      fd.append("temperature", bulkForm.temperature);
+      if (bulkForm.notes) fd.append("notes", bulkForm.notes);
+      if (bulkForm.signature) fd.append("signature", bulkForm.signature);
+
+      const res = await sleepChecksService.bulkSaveSleepChecks(fd);
+      if (res.data.success || res.data.status) {
+        toast.success(res.data.message || "Bulk entries saved successfully!");
+        setBulkModal(false);
+        setBulkForm({
+          time: "",
+          breathing: "Regular",
+          temperature: "Normal",
+          notes: "",
+          signature: "",
+        });
+        fetchSleepChecks();
+      } else {
+        toast.error(res.data.message || "Failed to save bulk entries");
+      }
+    } catch (error) {
+      console.error("Bulk save failed", error);
+      toast.error("Failed to save bulk entries");
+    } finally {
+      setIsBulkSaving(false);
     }
   };
 
@@ -622,12 +703,172 @@ export default function SleepCheckPage() {
       {/* Footer */}
       {!isParent && visibleChildren.length > 0 && (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-border pt-6">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const now = new Date();
+              const hh = String(now.getHours()).padStart(2, "0");
+              const mm = String(now.getMinutes()).padStart(2, "0");
+              setBulkForm((f) => ({ ...f, time: `${hh}:${mm}` }));
+              setBulkModal(true);
+            }}
+          >
+            <Users className="mr-1.5 h-4 w-4" />
+            Bulk Entry
+          </Button>
           <Button onClick={handleSaveAll} className="min-w-[200px]" disabled={isSaving}>
             <Save className="mr-1.5 h-4 w-4" />
             {isSaving ? "Saving..." : "Save All Sleep Checks"}
           </Button>
         </div>
       )}
+
+      {/* Delete confirmation modal */}
+      <DeleteConfirmationModal
+        open={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, childId: null, entryId: null, isNew: false })}
+        onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
+        title="Delete sleep check entry?"
+        description="This entry will be permanently removed and cannot be recovered."
+      />
+
+      {/* Bulk entry modal */}
+      {bulkModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl animate-in fade-in zoom-in duration-200">
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Bulk Sleep Check Entry</h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {(() => {
+                      const sel = fetchedChildren.filter((c) => cards[c.id]?.selected);
+                      const count = sel.length > 0 ? sel.length : fetchedChildren.length;
+                      return `Applies to ${count} child${count === 1 ? "" : "ren"}`;
+                    })()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setBulkModal(false)}
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted"
+                  disabled={isBulkSaving}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Form */}
+              <div className="space-y-4 px-6 py-5">
+                {/* Time */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                    <Clock className="h-3.5 w-3.5 text-primary" />
+                    Time <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    type="time"
+                    value={bulkForm.time}
+                    onChange={(e) => setBulkForm((f) => ({ ...f, time: e.target.value }))}
+                    className="h-9"
+                  />
+                </div>
+
+                {/* Breathing + Temperature */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                      <ActivityIcon className="h-3.5 w-3.5 text-primary" />
+                      Breathing
+                    </label>
+                    <Select
+                      value={bulkForm.breathing}
+                      onValueChange={(v) => setBulkForm((f) => ({ ...f, breathing: v }))}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BREATHING_OPTIONS.map((o) => (
+                          <SelectItem key={o} value={o}>
+                            {o}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                      <Thermometer className="h-3.5 w-3.5 text-primary" />
+                      Temperature
+                    </label>
+                    <Select
+                      value={bulkForm.temperature}
+                      onValueChange={(v) => setBulkForm((f) => ({ ...f, temperature: v }))}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TEMPERATURE_OPTIONS.map((o) => (
+                          <SelectItem key={o} value={o}>
+                            {o}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                    <StickyNote className="h-3.5 w-3.5 text-primary" />
+                    Notes
+                  </label>
+                  <Textarea
+                    value={bulkForm.notes}
+                    onChange={(e) => setBulkForm((f) => ({ ...f, notes: e.target.value }))}
+                    placeholder="Optional notes…"
+                    rows={2}
+                    className="resize-none text-sm"
+                  />
+                </div>
+
+                {/* Signature */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
+                    <PenLine className="h-3.5 w-3.5 text-primary" />
+                    Signature
+                  </label>
+                  <Input
+                    value={bulkForm.signature}
+                    onChange={(e) => setBulkForm((f) => ({ ...f, signature: e.target.value }))}
+                    placeholder="Optional signature…"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-3 border-t border-border bg-muted/30 px-6 py-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setBulkModal(false)}
+                  disabled={isBulkSaving}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleBulkSave} disabled={isBulkSaving}>
+                  <Save className="mr-1.5 h-4 w-4" />
+                  {isBulkSaving ? "Saving..." : "Save Bulk Entry"}
+                </Button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

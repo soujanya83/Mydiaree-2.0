@@ -126,6 +126,23 @@ export const reflectionService = {
     });
     return res.data;
   },
+
+  async getRecycleBin(centerId) {
+    const res = await api.get("/recycle/reflections", {
+      params: { centerid: centerId },
+    });
+    return res.data;
+  },
+
+  async restoreReflection(id) {
+    const res = await api.post(`/recycle/reflections/${id}/restore`);
+    return res.data;
+  },
+
+  async permanentlyDeleteReflection(id) {
+    const res = await api.delete(`/recycle/reflections/${id}`);
+    return res.data;
+  },
 };
 
 export { DEFAULT_PER_PAGE as REFLECTION_DEFAULT_PER_PAGE };

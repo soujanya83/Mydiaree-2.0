@@ -5,4 +5,5 @@ export const sleepChecksService = {
   saveSleepCheck: (data) => api.post("/sleepcheck/save", data),
   updateSleepCheck: (data) => api.post("/sleepcheck/update", data),
   deleteSleepCheck: (data) => api.post("/sleepcheck/delete", data),
+  bulkSaveSleepChecks: (data) => api.post("/sleepcheck/bulk-save", data),
 };

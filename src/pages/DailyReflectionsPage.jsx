@@ -119,7 +119,7 @@ export default function DailyReflectionsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { can, isParent } = usePermissions();
+  const { can, isParent, isSuperadmin } = usePermissions();
   const parentChildren = useParentDashboardStore((s) => s.children);
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
   const {
@@ -308,7 +308,7 @@ export default function DailyReflectionsPage() {
                 Filters
               </Button>
             )}
-            {can(perms.delete) && (
+            {isSuperadmin && (
               <Button variant="outline" onClick={() => navigate("/daily-reflections/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
                 Recycle Bin
