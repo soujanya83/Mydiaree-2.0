@@ -49,7 +49,9 @@ export const useChildrenStore = create((set, get) => ({
         await get().fetchChildren(currentFilters);
         return response;
       }
-      throw new Error(response.message || "Failed to add child");
+      const err = new Error(response.message || "Failed to add child");
+      err.errors = response.errors;
+      throw err;
     } catch (error) {
       set({ isLoading: false, error: error.message });
       throw error;
@@ -64,7 +66,9 @@ export const useChildrenStore = create((set, get) => ({
         await get().fetchChildren(currentFilters);
         return response;
       }
-      throw new Error(response.message || "Failed to update child");
+      const err = new Error(response.message || "Failed to update child");
+      err.errors = response.errors;
+      throw err;
     } catch (error) {
       set({ isLoading: false, error: error.message });
       throw error;

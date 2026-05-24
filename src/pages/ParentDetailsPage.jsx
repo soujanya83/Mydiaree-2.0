@@ -8,6 +8,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { parentService } from "@/services/admin/parentService";
 
+function getImageUrl(imageUrl) {
+  if (!imageUrl) return "";
+  return imageUrl.startsWith("http") ? imageUrl : `https://mydiaree.com.au/${imageUrl}`;
+}
+
 function getInitials(name = "") {
   return name
     .split(" ")
@@ -38,11 +43,22 @@ export default function ParentDetailsPage() {
     const fetchDetails = async () => {
       try {
         setLoading(true);
-        const res = await parentService.getParentDetails(id);
-        if (res.status === "success" || res.status === true || res.success) {
-          setData(res);
+        const [detailsRes, childrenRes] = await Promise.all([
+          parentService.getParentDetails(id),
+          parentService.getGlobalParentChildren(id).catch((error) => {
+            console.error("Error fetching linked children:", error);
+            toast.error("Parent loaded, but linked children could not be refreshed.");
+            return null;
+          }),
+        ]);
+
+        if (detailsRes.status === "success" || detailsRes.status === true || detailsRes.success) {
+          setData({
+            ...detailsRes,
+            children: childrenRes?.status === true ? childrenRes.children || [] : detailsRes.children || [],
+          });
         } else {
-          toast.error(res.message || "Failed to load parent details.");
+          toast.error(detailsRes.message || "Failed to load parent details.");
           navigate("/parent-settings");
         }
       } catch (error) {
@@ -78,11 +94,7 @@ export default function ParentDetailsPage() {
   }
 
   const { parent, children } = data;
-  const avatarUrl = parent.imageUrl
-    ? parent.imageUrl.startsWith("http")
-      ? parent.imageUrl
-      : `https://mydiaree.com.au/${parent.imageUrl}`
-    : "";
+  const avatarUrl = getImageUrl(parent.imageUrl);
 
   return (
     <div className="space-y-6">
@@ -235,21 +247,29 @@ export default function ParentDetailsPage() {
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {children.map((child, index) => (
-                  <div 
-                    key={index} 
-                    onClick={() => navigate(`/children/${child.childid || child.id}`)}
+                  <div
+                    key={child.id || child.childid || index}
+                    onClick={() => navigate(`/children/${child.id || child.childid}`)}
                     className="flex items-center gap-4 rounded-2xl border border-border/50 bg-background/50 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer group"
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-primary/20 to-indigo-500/20 text-primary ring-2 ring-background">
-                      <User className="h-5 w-5" />
-                    </div>
-                    <div className="flex flex-col overflow-hidden">
+                    <Avatar className="h-14 w-14 shrink-0 border-2 border-background shadow-sm">
+                      <AvatarImage src={getImageUrl(child.imageUrl)} alt={child.full_name || child.name} className="object-cover" />
+                      <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                        {getInitials(child.full_name || `${child.name || ""} ${child.lastname || ""}`)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                       <span className="truncate text-sm font-bold text-foreground group-hover:text-primary transition-colors">
-                        Child Profile (ID: {child.childid})
+                        {child.full_name || `${child.name || ""} ${child.lastname || ""}`.trim() || "Unnamed Child"}
                       </span>
-                      <span className="mt-0.5 inline-flex w-fit items-center rounded-md bg-secondary/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
-                        {child.relation || "Unknown Relation"}
-                      </span>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        <span className="inline-flex w-fit items-center rounded-md bg-secondary/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
+                          {child.gender || "Gender unknown"}
+                        </span>
+                        <span className="inline-flex w-fit items-center rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary/90">
+                          {child.relation || "Unknown Relation"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}

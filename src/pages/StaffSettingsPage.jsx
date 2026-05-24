@@ -3,7 +3,6 @@ import {
   Plus,
   Search,
   Pencil,
-  Trash2,
   Filter,
   Users,
   Shield,
@@ -13,6 +12,8 @@ import {
   Phone,
   Briefcase,
   User,
+  Loader2,
+  CalendarClock,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -25,20 +26,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { staffService } from "@/services/admin/staffService";
 import { AddStaffModal } from "@/components/staff/AddStaffModal";
-import { Loader2 } from "lucide-react";
 import { useCentreStore } from "@/stores/centreStore";
 import { Pagination } from "@/components/common/Pagination";
 
@@ -54,7 +44,8 @@ function getInitials(name = "") {
 
 function formatExpiry(iso) {
   if (!iso) return null;
-  const d = new Date(iso);
+  const d = new Date(String(iso).replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString("en-US", {
     day: "2-digit",
     month: "short",
@@ -63,6 +54,10 @@ function formatExpiry(iso) {
     minute: "2-digit",
     hour12: true,
   });
+}
+
+function getWifiAccessUntil(staffMember) {
+  return staffMember?.wifi_access_until || staffMember?.wifi_access_untill || null;
 }
 
 export default function StaffSettingsPage() {
@@ -82,25 +77,31 @@ export default function StaffSettingsPage() {
   });
   const searchTimerRef = useRef(null);
   const [modal, setModal] = useState({ open: false, initial: null });
-  const [confirm, setConfirm] = useState({ open: false, id: null });
+  const [accessUpdatingId, setAccessUpdatingId] = useState(null);
 
-  // Fallback options for mock access, assuming API might not have this yet
   const ACCESS_OPTIONS = [
-    { label: "1 Hour", value: "1h", ms: 3600000 },
-    { label: "1 Day", value: "1d", ms: 86400000 },
-    { label: "1 Week", value: "1w", ms: 604800000 },
+    { label: "1 Hour", value: 1 },
+    { label: "4 Hours", value: 4 },
+    { label: "8 Hours", value: 8 },
+    { label: "1 Week", value: 168 },
+    { label: "30 Days", value: 720 },
+    { label: "1 Year", value: 8760 },
   ];
+
+  const mapStaffMember = (s) => ({
+    ...s,
+    avatar: s.imageUrl
+      ? s.imageUrl.startsWith("http")
+        ? s.imageUrl
+        : `https://mydiaree.com.au/${s.imageUrl}`
+      : "",
+    contact: s.contactNo || "",
+    active: s.status === "ACTIVE",
+  });
 
   const mapStaff = (staffArray) =>
     (staffArray || []).map((s) => ({
-      ...s,
-      avatar: s.imageUrl
-        ? s.imageUrl.startsWith("http")
-          ? s.imageUrl
-          : `https://mydiaree.com.au/${s.imageUrl}`
-        : "",
-      contact: s.contactNo || "",
-      active: s.status === "ACTIVE",
+      ...mapStaffMember(s),
     }));
 
   const fetchStaff = useCallback(async (cId, search = "", pg = 1) => {
@@ -176,7 +177,6 @@ export default function StaffSettingsPage() {
   const activeCenter = storeCenters.find((c) => c.id === centerId);
 
   const totalPages = pagination.last_page || 1;
-  const totalRecords = pagination.total || 0;
 
   const handleSave = async (data) => {
     try {
@@ -210,28 +210,35 @@ export default function StaffSettingsPage() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm.id) return;
+  const updateAccess = async (staffMember, opt) => {
+    const userId = staffMember.userid || staffMember.id;
+    const action = opt ? "grant" : "revoke";
+    const formData = new FormData();
+    formData.append("user_id", userId);
+    formData.append("action", action);
+    if (opt) formData.append("hours", opt.value);
+
+    setAccessUpdatingId(staffMember.id);
     try {
-      const res = await staffService.deleteStaff(confirm.id);
+      const res = await staffService.updateWifiAccess(formData);
       if (res.status) {
-        toast.success(res.message || "Staff deleted successfully");
-        fetchStaff(centerId, query, page);
+        const updatedStaff = mapStaffMember(res.data);
+        setStaff((arr) =>
+          arr.map((s) =>
+            s.id === staffMember.id || s.userid === userId ? { ...s, ...updatedStaff } : s
+          )
+        );
+        toast.success(res.message || (opt ? "Staff access granted successfully" : "Staff access revoked successfully"));
       } else {
-        toast.error(res.message || "Failed to delete staff");
+        toast.error(res.message || "Failed to update staff access");
       }
     } catch (error) {
-      toast.error("Failed to delete staff");
+      const res = error?.response?.data || error;
+      toast.error(res.message || "Failed to update staff access");
       console.error(error);
     } finally {
-      setConfirm({ open: false, id: null });
+      setAccessUpdatingId(null);
     }
-  };
-
-  const setAccess = (id, opt) => {
-    const expiresAt = opt ? new Date(Date.now() + opt.ms).toISOString() : null;
-    setStaff((arr) => arr.map((s) => (s.id === id ? { ...s, accessExpiresAt: expiresAt } : s)));
-    toast.success(opt ? `Access granted for ${opt.label}` : "Access revoked");
   };
 
   const toggleActive = (id) => {
@@ -309,8 +316,10 @@ export default function StaffSettingsPage() {
         <>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {staff.map((s) => {
-              const hasAccess = !!s.accessExpiresAt && new Date(s.accessExpiresAt) > new Date();
+              const hasAccess = Number(s.wifi_status) === 1;
+              const isUpdatingAccess = accessUpdatingId === s.id;
               const isAdmin = s.admin === "1";
+              const wifiAccessUntil = getWifiAccessUntil(s);
               
               return (
                 <div
@@ -348,26 +357,42 @@ export default function StaffSettingsPage() {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
+                          disabled={isUpdatingAccess}
                           className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 ${
                             hasAccess
                               ? "bg-success/15 text-success hover:bg-success/25"
                               : "bg-destructive/10 text-destructive hover:bg-destructive/20"
                           }`}
                         >
-                          <Shield className="h-3.5 w-3.5" />
+                          {isUpdatingAccess ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Shield className="h-3.5 w-3.5" />
+                          )}
                           {hasAccess ? "Access" : "No Access"}
                           <ChevronDown className="h-3 w-3" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-40 rounded-xl">
+                        {hasAccess && wifiAccessUntil && (
+                          <div className="border-b border-border/60 px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                            <div className="flex items-center gap-1.5">
+                              <CalendarClock className="h-3 w-3 shrink-0" />
+                              <span>Expires</span>
+                            </div>
+                            <div className="mt-1 normal-case tracking-normal text-foreground">
+                              {formatExpiry(wifiAccessUntil)}
+                            </div>
+                          </div>
+                        )}
                         {ACCESS_OPTIONS.map((opt) => (
-                          <DropdownMenuItem key={opt.value} onClick={() => setAccess(s.id, opt)} className="font-medium cursor-pointer">
+                          <DropdownMenuItem key={opt.value} onClick={() => updateAccess(s, opt)} className="font-medium cursor-pointer">
                             Grant for {opt.label}
                           </DropdownMenuItem>
                         ))}
                         {hasAccess && (
                           <DropdownMenuItem
-                            onClick={() => setAccess(s.id, null)}
+                            onClick={() => updateAccess(s, null)}
                             className="text-destructive font-bold cursor-pointer"
                           >
                             Revoke Access
@@ -403,14 +428,6 @@ export default function StaffSettingsPage() {
                         <span className="truncate text-xs font-medium capitalize">{s.gender?.toLowerCase() || "Not Specified"}</span>
                       </div>
                     </div>
-
-                    {hasAccess && (
-                      <div className="mt-4 w-full rounded-lg bg-destructive/10 py-1.5 px-2 text-center border border-destructive/20">
-                        <p className="text-[10px] font-bold uppercase text-destructive tracking-wide">
-                          Expires: {formatExpiry(s.accessExpiresAt)}
-                        </p>
-                      </div>
-                    )}
                   </div>
 
                   <div className="mt-6 flex items-center justify-between gap-2 border-t border-border/50 pt-4 relative z-10">
@@ -437,14 +454,6 @@ export default function StaffSettingsPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirm({ open: true, id: s.id })}
-                        title="Delete Staff"
-                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700 active:scale-95 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-900/40"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
                     </div>
                   </div>
                 </div>
@@ -467,26 +476,6 @@ export default function StaffSettingsPage() {
         initial={modal.initial}
         onSave={handleSave}
       />
-
-      <AlertDialog open={confirm.open} onOpenChange={(o) => setConfirm((c) => ({ ...c, open: o }))}>
-        <AlertDialogContent className="rounded-3xl p-6">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl">Delete this staff member?</AlertDialogTitle>
-            <AlertDialogDescription className="font-medium text-muted-foreground">
-              This action cannot be undone. The staff member will be permanently removed.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4">
-            <AlertDialogCancel className="rounded-xl font-semibold">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete}
-              className="rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-semibold shadow-md shadow-rose-500/20 hover:shadow-lg hover:shadow-rose-500/30"
-            >
-              Delete Staff
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

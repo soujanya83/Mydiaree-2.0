@@ -103,7 +103,7 @@ export const navConfig = [
       { label: "IP Management", to: "/ip-management", icon: Monitor },
       { label: "Center Settings", to: "/settings", icon: Building },
       { label: "Staff Settings", to: "/staff-settings", icon: UserCog },
-      { label: "Super Admin Settings", to: "/super-admin-settings", icon: ShieldAlert },
+      // { label: "Super Admin Settings", to: "/super-admin-settings", icon: ShieldAlert },
       { label: "Parent Settings", to: "/parent-settings", icon: Users },
       { label: "Manage Permissions", to: "/permissions", icon: KeyRound },
     ],

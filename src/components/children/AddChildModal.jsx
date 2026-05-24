@@ -34,6 +34,33 @@ const blank = {
 
 
 
+const parseDaysAttending = (initial, defaultDays) => {
+  if (!initial) return [...defaultDays];
+  const rawDays = initial.daysAttending ?? initial.dayAttending ?? initial.days_attending ?? initial.days;
+  if (!rawDays) return [...defaultDays];
+
+  if (Array.isArray(rawDays)) {
+    return rawDays
+      .map((d) => defaultDays.find((day) => day.toLowerCase() === String(d).toLowerCase()))
+      .filter(Boolean);
+  }
+
+  if (typeof rawDays === "string") {
+    if (/^[01]+$/.test(rawDays)) {
+      return Array.from(rawDays)
+        .map((v, i) => (v === '1' ? defaultDays[i] : null))
+        .filter(Boolean);
+    }
+    return rawDays
+      .split(",")
+      .map((d) => d.trim())
+      .map((d) => defaultDays.find((day) => day.toLowerCase() === d.toLowerCase()))
+      .filter(Boolean);
+  }
+
+  return [...defaultDays];
+};
+
 export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving }) {
   const [form, setForm] = useState(blank);
   const [preview, setPreview] = useState("");
@@ -50,7 +77,7 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
           imageFile: null,
           status: initial.status ? (initial.status.charAt(0).toUpperCase() + initial.status.slice(1).toLowerCase()) : "Active",
           gender: initial.gender ? (initial.gender.charAt(0).toUpperCase() + initial.gender.slice(1).toLowerCase()) : "Male",
-          days: initial.daysAttending ? Array.from(initial.daysAttending).map((v, i) => v === '1' ? DAYS[i] : null).filter(Boolean) : [...DAYS],
+          days: parseDaysAttending(initial, DAYS),
         });
         setPreview(initial.imageUrl ? (initial.imageUrl.startsWith("http") ? initial.imageUrl : `https://mydiaree.com.au/${initial.imageUrl}`) : "");
       } else {

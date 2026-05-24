@@ -23,6 +23,16 @@ export const parentService = {
     }
   },
 
+  async getGlobalParentChildren(parentId) {
+    try {
+      const res = await api.get(`/global-parent-children/${parentId}`);
+      return res.data;
+    } catch (error) {
+      console.error("Error fetching parent children:", error);
+      throw error;
+    }
+  },
+
   async createParent(formData) {
     try {
       const res = await api.post(`/settings/parent/store`, formData, {

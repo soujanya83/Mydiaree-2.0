@@ -37,7 +37,9 @@ export const childrenService = {
     try {
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
+        if (key === "days" && Array.isArray(value)) {
+          value.forEach((day) => formData.append("days[]", day));
+        } else if (value !== null && value !== undefined) {
           formData.append(key, value);
         }
       });

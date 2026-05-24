@@ -116,7 +116,7 @@ export function PermissionCard({
             {allOn ? (
               <>
                 <CircleDashed className="h-3.5 w-3.5" />
-                Deselect
+                Unselect All
               </>
             ) : (
               <>

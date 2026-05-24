@@ -250,6 +250,7 @@ export default function PermissionsPage() {
   };
 
   const selectAll = () => setSelectedKeys(allKeys);
+  const unselectAll = () => setSelectedKeys([]);
 
   const permissionsMap = useMemo(() => {
     const map = {};
@@ -532,6 +533,16 @@ export default function PermissionsPage() {
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Select All
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={unselectAll}
+                  disabled={selectedKeys.length === 0}
+                  className="h-9 px-3 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:bg-muted/50 disabled:pointer-events-none disabled:opacity-40"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Unselect All
                 </Button>
                 <Button
                   variant="ghost"

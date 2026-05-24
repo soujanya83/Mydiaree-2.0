@@ -6,18 +6,20 @@ const multipartHeaders = {
   },
 };
 
-const toFormData = ({ ip, name, location, status }) => {
+const toFormData = ({ ip, name, location, status, center_id }) => {
   const formData = new FormData();
   formData.append("wifi_ip", ip);
   formData.append("wifi_name", name);
   formData.append("wifi_address", location || "");
   formData.append("status", status);
+  if (center_id) formData.append("center_id", center_id);
   return formData;
 };
 
 export const ipManagementService = {
-  async getIps() {
-    const res = await api.get("/settings/ip-manage");
+  async getIps(centerId) {
+    const params = centerId ? { center_id: centerId } : {};
+    const res = await api.get("/settings/ip-manage", { params });
     return res.data;
   },
 
@@ -31,8 +33,10 @@ export const ipManagementService = {
     return res.data;
   },
 
-  async toggleIpStatus(id) {
-    const res = await api.post(`/settings/ip-manage/${id}/toggle`);
+  async toggleIpStatus(id, centerId) {
+    const formData = new FormData();
+    if (centerId) formData.append("center_id", centerId);
+    const res = await api.post(`/settings/ip-manage/${id}/toggle`, formData, multipartHeaders);
     return res.data;
   },
 

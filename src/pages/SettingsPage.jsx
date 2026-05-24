@@ -1,28 +1,17 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Filter, Building, MapPin, Loader2 } from "lucide-react";
+import { Plus, Search, Pencil, Filter, Building, MapPin } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCentreStore } from "@/stores/centreStore";
 import { AddCenterModal } from "@/components/centers/AddCenterModal";
 import { centerService } from "@/services/admin/centerService";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
   const { centres, isLoading, fetchCentres } = useCentreStore();
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState({ open: false, initial: null });
-  const [confirm, setConfirm] = useState({ open: false, id: null });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -55,24 +44,6 @@ export default function SettingsPage() {
       const res = error?.response?.data || error;
       toast.error(res.message || "An error occurred while saving the center.");
       throw res;
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm.id) return;
-    try {
-      const res = await centerService.deleteCenter(confirm.id);
-      if (res.status) {
-        toast.success(res.message || "Center deleted successfully.");
-        fetchCentres();
-      } else {
-        toast.error(res.message || "Failed to delete center.");
-      }
-    } catch (error) {
-      toast.error("An error occurred while deleting the center.");
-      console.error(error);
-    } finally {
-      setConfirm({ open: false, id: null });
     }
   };
 
@@ -166,14 +137,6 @@ export default function SettingsPage() {
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirm({ open: true, id: c.id })}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-rose-50 px-4 text-xs font-bold text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700 active:scale-95 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-900/40"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete
-                </button>
               </div>
             </div>
           ))}
@@ -186,26 +149,6 @@ export default function SettingsPage() {
         initial={modal.initial}
         onSave={handleSave}
       />
-
-      <AlertDialog open={confirm.open} onOpenChange={(o) => setConfirm((c) => ({ ...c, open: o }))}>
-        <AlertDialogContent className="rounded-3xl p-6">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl">Delete this center?</AlertDialogTitle>
-            <AlertDialogDescription className="font-medium text-muted-foreground">
-              This action cannot be undone. All data associated with this center will be permanently removed.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-4">
-            <AlertDialogCancel className="rounded-xl font-semibold">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDelete}
-              className="rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-semibold shadow-md shadow-rose-500/20 hover:shadow-lg hover:shadow-rose-500/30"
-            >
-              Delete Center
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

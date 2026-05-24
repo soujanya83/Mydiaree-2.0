@@ -35,6 +35,16 @@ import { childrenService } from "@/services/centre/childrenService";
 import { roomService } from "@/services/centre/roomService";
 import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const imageBase = "https://mydiaree.com.au/";
 
@@ -99,6 +109,14 @@ export default function RoomDetailsPage() {
   const [addChildOpen, setAddChildOpen] = useState(false);
   const [educatorIds, setEducatorIds] = useState([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const selectedChildrenNames = useMemo(() => {
+    const childrenArray = Array.isArray(children) ? children : [];
+    return childrenArray
+      .filter((child) => selectedChildren.includes(child.id))
+      .map((child) => displayName(child));
+  }, [children, selectedChildren]);
 
   const room = useMemo(
     () =>
@@ -185,6 +203,7 @@ export default function RoomDetailsPage() {
         `${selectedChildren.length} child${selectedChildren.length === 1 ? "" : "ren"} deleted`,
       );
       setSelectedChildren([]);
+      setIsDeleteDialogOpen(false);
       await refreshRoomData();
     } catch (error) {
       toast.error(error?.response?.data?.message || error?.message || "Failed to delete children");
@@ -230,7 +249,18 @@ export default function RoomDetailsPage() {
       setAddChildOpen(false);
       await refreshRoomData();
     } catch (error) {
-      toast.error(error?.response?.data?.message || error?.message || "Failed to add child");
+      const backendErrors = error?.response?.data?.errors || error?.errors;
+      if (backendErrors && typeof backendErrors === "object") {
+        Object.values(backendErrors).forEach((errArray) => {
+          if (Array.isArray(errArray)) {
+            errArray.forEach((msg) => toast.error(msg));
+          } else if (typeof errArray === "string") {
+            toast.error(errArray);
+          }
+        });
+      } else {
+        toast.error(error?.response?.data?.message || error?.message || "Failed to add child");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -348,7 +378,7 @@ export default function RoomDetailsPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={handleDeleteChildren}
+                onClick={() => setIsDeleteDialogOpen(true)}
                 disabled={!selectedChildren.length || isSaving}
                 className="gap-2 border-rose-300 text-rose-700 hover:bg-rose-50"
               >
@@ -425,6 +455,59 @@ export default function RoomDetailsPage() {
         onSubmit={handleCreateChild}
         isSaving={isSaving}
       />
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => !isSaving && setIsDeleteDialogOpen(open)}
+      >
+        <AlertDialogContent className="rounded-3xl p-6">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl">
+              Delete {selectedChildrenNames.length === 1 ? "this child" : `${selectedChildrenNames.length} children`}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="font-medium text-muted-foreground space-y-3">
+              <span>
+                Are you sure you want to delete {selectedChildrenNames.length === 1 ? "the following child profile" : "the following child profiles"}?
+              </span>
+              {selectedChildrenNames.length > 0 && (
+                <ul className="mt-2 max-h-32 overflow-y-auto rounded-xl border border-border bg-muted/40 p-3 text-sm space-y-1.5 font-semibold text-foreground">
+                  {selectedChildrenNames.map((name, index) => (
+                    <li key={index} className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                      <span className="truncate">{name}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <span>
+                This action cannot be undone. The child profile(s) and all associated diary records, observations, and progress reports will be permanently deleted.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4">
+            <AlertDialogCancel disabled={isSaving} className="rounded-xl font-semibold">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteChildren();
+              }}
+              disabled={isSaving}
+              className="rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-semibold shadow-md shadow-rose-500/20 hover:shadow-lg hover:shadow-rose-500/30"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Child"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

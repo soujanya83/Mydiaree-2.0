@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableHeader,
   TableBody,
@@ -26,6 +33,7 @@ import {
 import { cn } from "@/lib/utils";
 import { AddIpModal } from "@/components/ipmanagement/AddIpModal";
 import { ipManagementService } from "@/services/admin/ipManagementService";
+import { useCentreStore } from "@/stores/centreStore";
 
 const normalizeStatus = (status) => {
   if (status === 1 || status === "1" || String(status).toLowerCase() === "active") {
@@ -46,6 +54,10 @@ const getErrorMessage = (error, fallback) =>
   error?.response?.data?.message || error?.message || fallback;
 
 export default function IpManagementPage() {
+  const centres = useCentreStore((s) => s.centres);
+  const activeCentreId = useCentreStore((s) => s.activeCentreId);
+  const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
+
   const [ips, setIps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,14 +79,14 @@ export default function IpManagementPage() {
   const fetchIps = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await ipManagementService.getIps();
+      const res = await ipManagementService.getIps(activeCentreId);
       setIps(Array.isArray(res.data) ? res.data.map(normalizeIp) : []);
     } catch (error) {
       toast.error(getErrorMessage(error, "Failed to load IP list"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeCentreId]);
 
   useEffect(() => {
     fetchIps();
@@ -93,9 +105,10 @@ export default function IpManagementPage() {
   const handleSave = async (data) => {
     setSaving(true);
     try {
+      const payload = { ...data, center_id: activeCentreId };
       const res = data.id
-        ? await ipManagementService.updateIp(data.id, data)
-        : await ipManagementService.createIp(data);
+        ? await ipManagementService.updateIp(data.id, payload)
+        : await ipManagementService.createIp(payload);
 
       if (res.data) {
         const saved = normalizeIp(res.data);
@@ -134,7 +147,7 @@ export default function IpManagementPage() {
   const toggleStatus = async (row) => {
     setTogglingId(row.id);
     try {
-      const res = await ipManagementService.toggleIpStatus(row.id);
+      const res = await ipManagementService.toggleIpStatus(row.id, activeCentreId);
       if (res.data) {
         const updated = normalizeIp(res.data);
         setIps((arr) => arr.map((x) => (x.id === updated.id ? updated : x)));
@@ -157,14 +170,28 @@ export default function IpManagementPage() {
         description="Configure allowed static networks, office hotspots, and system connection restrictions"
         breadcrumbs={[{ label: "Setting" }, { label: "IP Restrictions" }]}
         actions={
-          <Button
-            onClick={openAdd}
-            disabled={loading}
-            className="rounded-xl bg-primary px-5 font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
-          >
-            <Plus className="mr-1.5 h-4.5 w-4.5" />
-            Add Allowed IP
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={activeCentreId} onValueChange={setActiveCentre}>
+              <SelectTrigger className="h-9 w-[200px] rounded-xl">
+                <SelectValue placeholder="Select Centre" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                {centres.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={openAdd}
+              disabled={loading}
+              className="rounded-xl bg-primary px-5 font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform"
+            >
+              <Plus className="mr-1.5 h-4.5 w-4.5" />
+              Add Allowed IP
+            </Button>
+          </div>
         }
       />
 

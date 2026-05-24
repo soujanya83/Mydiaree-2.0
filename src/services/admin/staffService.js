@@ -27,6 +27,15 @@ export const staffService = {
     return res.data;
   },
 
+  async updateWifiAccess(formData) {
+    const res = await api.post("/settings/staff/wifi-access", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data;
+  },
+
   async deleteStaff(id) {
     const res = await api.delete(`/settings/staff/destroy/${id}`);
     return res.data;

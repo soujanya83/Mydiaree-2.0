@@ -224,7 +224,18 @@ export default function ChildrenPage() {
       setEditing(null);
       setChosenRoom(null);
     } catch (error) {
-      toast.error(error?.message || "Failed to save child");
+      const backendErrors = error?.response?.data?.errors || error?.errors;
+      if (backendErrors && typeof backendErrors === "object") {
+        Object.values(backendErrors).forEach((errArray) => {
+          if (Array.isArray(errArray)) {
+            errArray.forEach((msg) => toast.error(msg));
+          } else if (typeof errArray === "string") {
+            toast.error(errArray);
+          }
+        });
+      } else {
+        toast.error(error?.response?.data?.message || error?.message || "Failed to save child");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -389,19 +400,6 @@ export default function ChildrenPage() {
         onClose={() => setSelectRoomOpen(false)}
         rooms={rooms}
         onContinue={handleRoomChosen}
-      />
-
-      <AddChildModal
-        open={addOpen}
-        onClose={() => {
-          setAddOpen(false);
-          setEditing(null);
-          setChosenRoom(null);
-        }}
-        room={chosenRoom}
-        initial={editing}
-        onSubmit={handleSubmit}
-        isSaving={isSaving}
       />
 
       <AddChildModal
