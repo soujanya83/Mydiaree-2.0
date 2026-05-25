@@ -44,14 +44,20 @@ function extractParentChildren(response) {
   const candidates = [
     response?.children,
     response?.data?.children,
+    response?.data?.data?.children,
     response?.data,
+    response?.data?.data,
     response?.parent?.children,
   ];
   return candidates.find(Array.isArray) || [];
 }
 
+function isSuccessStatus(response) {
+  return response?.status === true || response?.status === "success" || response?.success === true;
+}
+
 function extractServerSelectedChildId(response) {
-  if (!response?.status) return "";
+  if (!isSuccessStatus(response)) return "";
 
   const data = response.data || {};
   return normalizeChildId(
@@ -139,12 +145,22 @@ export const useParentDashboardStore = create((set, get) => ({
 
     set({ isLoadingChildren: true });
     try {
-      const [childrenRes, selectedChildRes] = await Promise.all([
+      const [childrenResult, selectedChildResult] = await Promise.allSettled([
         parentDashboardService.getParentChildren(parentId),
         parentDashboardService.getSelectedChild(),
       ]);
 
-      if (childrenRes.status) {
+      if (childrenResult.status !== "fulfilled") {
+        throw childrenResult.reason;
+      }
+
+      const childrenRes = childrenResult.value;
+      const selectedChildRes =
+        selectedChildResult.status === "fulfilled"
+          ? selectedChildResult.value
+          : selectedChildResult.reason?.response?.data;
+
+      if (isSuccessStatus(childrenRes)) {
         const nextChildren = extractParentChildren(childrenRes);
 
         // Prefer the server-persisted selected child. If none exists, select
