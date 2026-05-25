@@ -67,6 +67,7 @@ export const programPlanService = {
     status = "",
     month = "",
     year = "",
+    child_id = "",
     page = 1,
     per_page = 10,
   }) {
@@ -77,10 +78,11 @@ export const programPlanService = {
     if (status) formData.append("status", status);
     if (month) formData.append("month", month);
     if (year) formData.append("year", year);
+    if (child_id) formData.append("child_id", child_id);
     formData.append("page", page);
     formData.append("per_page", per_page);
 
-    const res = await api.post("/LessonPlanList/filter-program-plans", formData, {
+    const res = await api.post("/LessonPlanList/mernfilter-program-plans", formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return res.data;

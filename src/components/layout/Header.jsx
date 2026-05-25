@@ -67,7 +67,7 @@ export function Header() {
       </div> */}
 
       <div className="ml-auto flex items-center gap-2">
-        {isParent && parentChildren.length > 0 && (
+        {isParent && (
           <ParentChildSelect
             children={parentChildren}
             value={selectedChildId}

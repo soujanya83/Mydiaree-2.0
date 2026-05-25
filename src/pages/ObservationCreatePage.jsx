@@ -37,6 +37,8 @@ import { observationService } from "@/services/learning/observationService";
 import { childrenService } from "@/services/centre/childrenService";
 import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
+import { StatusTriangle } from "@/components/lessonplan/StatusTriangle";
+import { nextStatus } from "@/components/lessonplan/progressData";
 
 const TABS = [
   { id: "observations", label: "Observations", Icon: Eye },
@@ -49,6 +51,20 @@ const ASSESS_TABS = [
   { id: "eylf", label: "EYLF", Icon: ListChecks },
   { id: "development", label: "Developmental Milestone", Icon: Layers },
 ];
+
+const UI_TO_API_ASSESSMENT = {
+  introduced: "Introduced",
+  practicing: "Working",
+  completed: "Completed",
+};
+
+const API_TO_UI_ASSESSMENT = {
+  Introduced: "introduced",
+  Working: "practicing",
+  Completed: "completed",
+};
+
+const DEV_MILESTONE_STATUSES = ["Introduced", "Working towards", "Achieved"];
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.15)_1px,transparent_0)] [background-size:16px_16px]";
@@ -82,6 +98,7 @@ export default function ObservationCreatePage() {
 
   const [obsData, setObsData] = useState(null);
   const [isLoading, setIsLoading] = useState(isEdit);
+  const [savedObservationId, setSavedObservationId] = useState(id || null);
 
   const initialTitle = search.get("title") || "";
 
@@ -117,12 +134,28 @@ export default function ObservationCreatePage() {
   const [media, setMedia] = useState([]); // { file, preview, isExisting, url }
 
   // Assessment state
-  const [montSubject, setMontSubject] = useState("math");
+  const [montessoriSubjects, setMontessoriSubjects] = useState([]);
+  const [montessoriModules, setMontessoriModules] = useState([]);
+  const [montessoriSubmodules, setMontessoriSubmodules] = useState([]);
+  const [montSubjectId, setMontSubjectId] = useState("");
+  const [montModuleId, setMontModuleId] = useState("");
   const [montSelected, setMontSelected] = useState({});
+  const [isMontSubjectsLoading, setIsMontSubjectsLoading] = useState(false);
+  const [isMontModulesLoading, setIsMontModulesLoading] = useState(false);
+  const [isMontSubmodulesLoading, setIsMontSubmodulesLoading] = useState(false);
+  const [isMontessoriSaving, setIsMontessoriSaving] = useState(false);
   const [eylfOutcome, setEylfOutcome] = useState("Outcome 1");
   const [eylfSelected, setEylfSelected] = useState(new Set());
-  const [devAge, setDevAge] = useState("4 to 8 months");
-  const [devValues, setDevValues] = useState({});
+  const [devAgeGroups, setDevAgeGroups] = useState([]);
+  const [devModules, setDevModules] = useState([]);
+  const [devSubmodules, setDevSubmodules] = useState([]);
+  const [devAgeId, setDevAgeId] = useState("");
+  const [devModuleId, setDevModuleId] = useState("");
+  const [devSelected, setDevSelected] = useState({});
+  const [isDevAgeGroupsLoading, setIsDevAgeGroupsLoading] = useState(false);
+  const [isDevModulesLoading, setIsDevModulesLoading] = useState(false);
+  const [isDevSubmodulesLoading, setIsDevSubmodulesLoading] = useState(false);
+  const [isDevSaving, setIsDevSaving] = useState(false);
 
   // Link state
   const [linkObs, setLinkObs] = useState([]);
@@ -220,6 +253,161 @@ export default function ObservationCreatePage() {
     setChildrenPage(1);
     fetchChildren(1, childrenSearch, rooms);
   }, [fetchChildren, childrenSearch, rooms]);
+
+  useEffect(() => {
+    const loadSubjects = async () => {
+      setIsMontSubjectsLoading(true);
+      try {
+        const res = await observationService.getAssessmentSubjects("montessori");
+        if (res.status) {
+          setMontessoriSubjects(res.data || []);
+        } else {
+          toast.error(res.message || "Failed to load Montessori subjects");
+        }
+      } catch (error) {
+        console.error("Failed to load Montessori subjects:", error);
+        toast.error("Failed to load Montessori subjects");
+      } finally {
+        setIsMontSubjectsLoading(false);
+      }
+    };
+    loadSubjects();
+  }, []);
+
+  useEffect(() => {
+    const loadModules = async () => {
+      if (!montSubjectId) {
+        setMontessoriModules([]);
+        setMontModuleId("");
+        return;
+      }
+      setIsMontModulesLoading(true);
+      try {
+        const res = await observationService.getAssessmentModules({
+          framework: "montessori",
+          subjectId: montSubjectId,
+        });
+        if (res.status) {
+          setMontessoriModules(res.data || []);
+          setMontModuleId("");
+          setMontessoriSubmodules([]);
+          setMontSelected({});
+        } else {
+          toast.error(res.message || "Failed to load Montessori modules");
+        }
+      } catch (error) {
+        console.error("Failed to load Montessori modules:", error);
+        toast.error("Failed to load Montessori modules");
+      } finally {
+        setIsMontModulesLoading(false);
+      }
+    };
+    loadModules();
+  }, [montSubjectId]);
+
+  useEffect(() => {
+    const loadSubmodules = async () => {
+      if (!montModuleId) {
+        setMontessoriSubmodules([]);
+        return;
+      }
+      setIsMontSubmodulesLoading(true);
+      try {
+        const res = await observationService.getAssessmentSubmodules({
+          framework: "montessori",
+          moduleId: montModuleId,
+        });
+        if (res.status) {
+          setMontessoriSubmodules(res.data || []);
+          setMontSelected({});
+        } else {
+          toast.error(res.message || "Failed to load Montessori submodules");
+        }
+      } catch (error) {
+        console.error("Failed to load Montessori submodules:", error);
+        toast.error("Failed to load Montessori submodules");
+      } finally {
+        setIsMontSubmodulesLoading(false);
+      }
+    };
+    loadSubmodules();
+  }, [montModuleId]);
+
+  useEffect(() => {
+    const loadDevelopmentAgeGroups = async () => {
+      setIsDevAgeGroupsLoading(true);
+      try {
+        const res = await observationService.getDevelopmentMilestoneSubjects();
+        if (res.status) {
+          setDevAgeGroups(res.data || []);
+        } else {
+          toast.error(res.message || "Failed to load developmental milestone age groups");
+        }
+      } catch (error) {
+        console.error("Failed to load developmental milestone age groups:", error);
+        toast.error("Failed to load developmental milestone age groups");
+      } finally {
+        setIsDevAgeGroupsLoading(false);
+      }
+    };
+    loadDevelopmentAgeGroups();
+  }, []);
+
+  useEffect(() => {
+    const loadDevelopmentModules = async () => {
+      if (!devAgeId) {
+        setDevModules([]);
+        setDevModuleId("");
+        setDevSubmodules([]);
+        setDevSelected({});
+        return;
+      }
+      setIsDevModulesLoading(true);
+      try {
+        const res = await observationService.getDevelopmentMilestoneModules(devAgeId);
+        if (res.status) {
+          setDevModules(res.data || []);
+          setDevModuleId("");
+          setDevSubmodules([]);
+          setDevSelected({});
+        } else {
+          toast.error(res.message || "Failed to load developmental milestone modules");
+        }
+      } catch (error) {
+        console.error("Failed to load developmental milestone modules:", error);
+        toast.error("Failed to load developmental milestone modules");
+      } finally {
+        setIsDevModulesLoading(false);
+      }
+    };
+    loadDevelopmentModules();
+  }, [devAgeId]);
+
+  useEffect(() => {
+    const loadDevelopmentSubmodules = async () => {
+      if (!devModuleId) {
+        setDevSubmodules([]);
+        setDevSelected({});
+        return;
+      }
+      setIsDevSubmodulesLoading(true);
+      try {
+        const res = await observationService.getDevelopmentMilestoneSubmodules(devModuleId);
+        if (res.status) {
+          setDevSubmodules(res.data || []);
+          setDevSelected({});
+        } else {
+          toast.error(res.message || "Failed to load developmental milestone submodules");
+        }
+      } catch (error) {
+        console.error("Failed to load developmental milestone submodules:", error);
+        toast.error("Failed to load developmental milestone submodules");
+      } finally {
+        setIsDevSubmodulesLoading(false);
+      }
+    };
+    loadDevelopmentSubmodules();
+  }, [devModuleId]);
 
   const loadMoreEducators = () => {
     if (isEducatorsLoading || educatorsPage >= educatorsTotalPages) return;
@@ -330,7 +518,10 @@ export default function ObservationCreatePage() {
       const res = await observationService.saveObservation(payload);
       if (res.status) {
         toast.success(res.message || "Observation saved successfully");
-        navigate("/observation");
+        const nextObservationId = res.id || id;
+        setSavedObservationId(nextObservationId);
+        setTab("assessment");
+        setAssessTab("montessori");
       } else {
         toast.error(res.message || "Failed to save observation");
       }
@@ -339,6 +530,108 @@ export default function ObservationCreatePage() {
       toast.error("An error occurred while saving the observation");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleMainTabChange = (nextTab) => {
+    if (nextTab !== "observations" && !savedObservationId) {
+      toast.error("Please save the observation before moving to assessments or links");
+      return;
+    }
+    setTab(nextTab);
+  };
+
+  const toggleMontessoriSubmodule = (submoduleId) => {
+    setMontSelected((prev) => {
+      const key = String(submoduleId);
+      if (prev[key]) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: "introduced" };
+    });
+  };
+
+  const cycleMontessoriStatus = (submoduleId) => {
+    setMontSelected((prev) => {
+      const key = String(submoduleId);
+      const current = prev[key] || "introduced";
+      return { ...prev, [key]: nextStatus(current) };
+    });
+  };
+
+  const handleSaveMontessori = async () => {
+    if (!savedObservationId) {
+      toast.error("Please save the observation first");
+      setTab("observations");
+      return;
+    }
+
+    const subactivities = Object.entries(montSelected).map(([idSubActivity, uiStatus]) => ({
+      idSubActivity: Number(idSubActivity),
+      assesment: UI_TO_API_ASSESSMENT[uiStatus] || "Introduced",
+    }));
+
+    if (subactivities.length === 0) {
+      toast.error("Please select at least one Montessori submodule");
+      return;
+    }
+
+    setIsMontessoriSaving(true);
+    try {
+      const res = await observationService.saveMontessoriAssessment({
+        observationId: Number(savedObservationId),
+        subactivities,
+      });
+      if (res.status) {
+        toast.success(res.message || "Montessori data saved successfully");
+        setSavedObservationId(res.id || savedObservationId);
+        setAssessTab("eylf");
+      } else {
+        toast.error(res.message || "Failed to save Montessori data");
+      }
+    } catch (error) {
+      console.error("Failed to save Montessori assessment:", error);
+      toast.error("Failed to save Montessori data");
+    } finally {
+      setIsMontessoriSaving(false);
+    }
+  };
+
+  const handleSaveDevelopmentMilestone = async () => {
+    if (!savedObservationId) {
+      toast.error("Please save the observation first");
+      setTab("observations");
+      return;
+    }
+
+    const selections = Object.entries(devSelected).map(([idSub, assessment]) => ({
+      idSub: Number(idSub),
+      assessment,
+    }));
+
+    if (selections.length === 0) {
+      toast.error("Please select at least one developmental milestone");
+      return;
+    }
+
+    setIsDevSaving(true);
+    try {
+      const res = await observationService.saveDevelopmentMilestone({
+        observationId: Number(savedObservationId),
+        selections,
+      });
+      if (res.status) {
+        toast.success(res.message || "Developmental milestone data saved successfully");
+      } else {
+        toast.error(res.message || "Failed to save developmental milestone data");
+      }
+    } catch (error) {
+      console.error("Failed to save developmental milestone:", error);
+      toast.error("Failed to save developmental milestone data");
+    } finally {
+      setIsDevSaving(false);
     }
   };
 
@@ -378,12 +671,6 @@ export default function ObservationCreatePage() {
             <div className="hidden items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1.5 text-xs font-bold text-muted-foreground md:flex">
               <Calendar className="h-3.5 w-3.5" /> {today}
             </div>
-            <Button
-              variant="outline"
-              className="h-9 rounded-full border-sky-500/30 text-sky-600 hover:bg-sky-50"
-            >
-              <Eye className="mr-1.5 h-4 w-4" /> Preview
-            </Button>
             <div className="flex items-center gap-2">
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger
@@ -416,18 +703,18 @@ export default function ObservationCreatePage() {
 
       {/* Main Tabs */}
       <div className="mx-auto max-w-5xl">
-        <div className="mb-8 grid grid-cols-3 gap-2 rounded-2xl border border-border bg-card p-1.5 shadow-sm">
+        <div className="mb-8 grid grid-cols-3 gap-2 rounded-2xl border border-sidebar-border bg-sidebar p-1.5 shadow-sm">
           {TABS.map((t) => {
             const Icon = t.Icon;
             const active = tab === t.id;
             return (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => handleMainTabChange(t.id)}
                 className={`group relative flex items-center justify-center gap-2.5 rounded-xl py-3.5 text-sm font-bold uppercase tracking-wider transition-all ${
                   active
-                    ? "bg-foreground text-background shadow-lg"
-                    : "text-muted-foreground hover:bg-muted"
+                    ? "bg-primary text-primary-foreground shadow-glow"
+                    : "text-sidebar-foreground/90 hover:bg-primary/15 hover:text-sidebar-foreground"
                 }`}
               >
                 <Icon
@@ -435,7 +722,7 @@ export default function ObservationCreatePage() {
                 />
                 {t.label}
                 {active && (
-                  <span className="absolute -bottom-1.5 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-foreground" />
+                  <span className="absolute -bottom-1.5 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-primary" />
                 )}
               </button>
             );
@@ -541,7 +828,6 @@ export default function ObservationCreatePage() {
                         placeholder="Describe the child's actions, words, and interactions in detail..."
                         className="border-none bg-muted/30 focus-visible:ring-sky-500/50 resize-none"
                       />
-                      <RefineButton />
                     </FormGroup>
                   </div>
                 </section>
@@ -567,7 +853,6 @@ export default function ObservationCreatePage() {
                         placeholder="Interpret the learning through the lens of developmental milestones or EYLF outcomes..."
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
                       />
-                      <RefineButton />
                     </FormGroup>
 
                     <FormGroup
@@ -676,16 +961,16 @@ export default function ObservationCreatePage() {
             </div>
 
             {/* Bottom Actions */}
-            <div className="mt-12 space-y-4 border-t border-border pt-8">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
-                <div className="w-full sm:w-64">
+            <div className="mt-12 border-t border-border pt-8">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-end">
+                <div className="w-full sm:w-56">
                   <FormGroup
                     label="Status"
                     info="Choose whether to keep as draft or publish to families"
                   >
                     <Select value={status} onValueChange={setStatus}>
                       <SelectTrigger
-                        className={`h-12 w-full rounded-2xl border-none font-bold uppercase tracking-wider text-xs ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
+                        className={`h-12 w-full rounded-xl border-none font-bold uppercase tracking-wider text-xs ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                       >
                         <SelectValue placeholder="Select Status" />
                       </SelectTrigger>
@@ -700,7 +985,7 @@ export default function ObservationCreatePage() {
                 <Button
                   size="lg"
                   onClick={() => handleSave()}
-                  className="h-14 rounded-2xl bg-primary px-10 text-base font-bold text-white shadow-xl shadow-primary/20 hover:bg-primary/90 min-w-[200px]"
+                  className="h-12 min-w-[200px] rounded-xl bg-primary px-10 text-base font-bold text-white shadow-xl shadow-primary/20 hover:bg-primary/90"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
@@ -718,7 +1003,6 @@ export default function ObservationCreatePage() {
         {/* Assessment & Link tabs remain functional but wrapped in similar premium containers */}
         {tab === "assessment" && (
           <div className="rounded-2xl border border-border bg-card p-6 shadow-sm animate-in fade-in slide-in-from-bottom-4">
-            {/* Content similar to before but with improved styling */}
             <div className="flex flex-wrap items-center gap-2 mb-6">
               {ASSESS_TABS.map((t) => {
                 const Icon = t.Icon;
@@ -739,7 +1023,72 @@ export default function ObservationCreatePage() {
                 );
               })}
             </div>
-            {/* ... Rest of Assessment Tab UI with Select and List ... */}
+
+            {assessTab === "montessori" && (
+              <MontessoriAssessmentPanel
+                observationId={savedObservationId}
+                subjects={montessoriSubjects}
+                modules={montessoriModules}
+                submodules={montessoriSubmodules}
+                subjectId={montSubjectId}
+                moduleId={montModuleId}
+                selected={montSelected}
+                isSubjectsLoading={isMontSubjectsLoading}
+                isModulesLoading={isMontModulesLoading}
+                isSubmodulesLoading={isMontSubmodulesLoading}
+                isSaving={isMontessoriSaving}
+                onSubjectChange={setMontSubjectId}
+                onModuleChange={setMontModuleId}
+                onToggleSubmodule={toggleMontessoriSubmodule}
+                onCycleStatus={cycleMontessoriStatus}
+                onStatusChange={(submoduleId, apiStatus) =>
+                  setMontSelected((prev) => ({
+                    ...prev,
+                    [String(submoduleId)]: API_TO_UI_ASSESSMENT[apiStatus] || "introduced",
+                  }))
+                }
+                onSave={handleSaveMontessori}
+              />
+            )}
+
+            {assessTab === "eylf" && (
+              <AssessmentPlaceholder
+                title="EYLF"
+                description="Montessori has been saved. EYLF assessment can be completed next."
+              />
+            )}
+
+            {assessTab === "development" && (
+              <DevelopmentMilestonePanel
+                observationId={savedObservationId}
+                ageGroups={devAgeGroups}
+                modules={devModules}
+                submodules={devSubmodules}
+                ageId={devAgeId}
+                moduleId={devModuleId}
+                selected={devSelected}
+                isAgeGroupsLoading={isDevAgeGroupsLoading}
+                isModulesLoading={isDevModulesLoading}
+                isSubmodulesLoading={isDevSubmodulesLoading}
+                isSaving={isDevSaving}
+                onAgeChange={setDevAgeId}
+                onModuleChange={setDevModuleId}
+                onStatusChange={(submoduleId, status) =>
+                  setDevSelected((prev) => ({
+                    ...prev,
+                    [String(submoduleId)]: status,
+                  }))
+                }
+                onClear={(submoduleId) =>
+                  setDevSelected((prev) => {
+                    const next = { ...prev };
+                    delete next[String(submoduleId)];
+                    return next;
+                  })
+                }
+                onSave={handleSaveDevelopmentMilestone}
+              />
+            )}
           </div>
         )}
       </div>
@@ -897,12 +1246,399 @@ function FormGroup({ label, children, info }) {
   );
 }
 
-function RefineButton() {
+function MontessoriAssessmentPanel({
+  observationId,
+  subjects,
+  modules,
+  submodules,
+  subjectId,
+  moduleId,
+  selected,
+  isSubjectsLoading,
+  isModulesLoading,
+  isSubmodulesLoading,
+  isSaving,
+  onSubjectChange,
+  onModuleChange,
+  onToggleSubmodule,
+  onCycleStatus,
+  onStatusChange,
+  onSave,
+}) {
+  const selectedCount = Object.keys(selected).length;
+
   return (
-    <div className="mt-2 flex justify-end">
-      <button className="group flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-1.5 text-[11px] font-bold text-white shadow-lg shadow-sky-500/20 transition-all hover:scale-105 active:scale-95">
-        <Sparkles className="h-3.5 w-3.5 animate-pulse" /> Refine with AI Documentation
-      </button>
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+              Montessori Assessment
+            </p>
+            <h3 className="mt-1 text-xl font-black text-foreground">
+              Select activities and mark progress
+            </h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Use the triangle indicator or status dropdown to mark each selected submodule.
+            </p>
+          </div>
+          <div className="rounded-full border border-emerald-500/30 bg-background px-3 py-1.5 text-xs font-bold text-emerald-700">
+            Observation #{observationId || "-"}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <FormGroup label="Subject">
+          <Select value={subjectId} onValueChange={onSubjectChange} disabled={isSubjectsLoading}>
+            <SelectTrigger className="h-12 rounded-xl bg-muted/30">
+              <SelectValue
+                placeholder={
+                  isSubjectsLoading ? "Loading subjects..." : "Select Montessori subject"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {subjects.map((subject) => (
+                <SelectItem key={subject.id} value={String(subject.id)}>
+                  {subject.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormGroup>
+
+        <FormGroup label="Module">
+          <Select
+            value={moduleId}
+            onValueChange={onModuleChange}
+            disabled={!subjectId || isModulesLoading}
+          >
+            <SelectTrigger className="h-12 rounded-xl bg-muted/30">
+              <SelectValue
+                placeholder={
+                  !subjectId
+                    ? "Select subject first"
+                    : isModulesLoading
+                      ? "Loading modules..."
+                      : "Select module"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {modules.map((module) => (
+                <SelectItem key={module.id} value={String(module.id)}>
+                  {module.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormGroup>
+      </div>
+
+      <MontessoriLegend />
+
+      <div className="rounded-2xl border border-border bg-muted/10">
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <h4 className="text-sm font-bold text-foreground">Submodules</h4>
+            <p className="text-xs text-muted-foreground">
+              {selectedCount} selected for this observation
+            </p>
+          </div>
+          <Button onClick={onSave} disabled={isSaving || selectedCount === 0}>
+            {isSaving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-1.5 h-4 w-4" />
+            )}
+            Save Montessori
+          </Button>
+        </div>
+
+        <div className="max-h-[460px] overflow-y-auto p-3">
+          {isSubmodulesLoading ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              Loading submodules...
+            </div>
+          ) : !moduleId ? (
+            <EmptyAssessmentState label="Select a subject and module to see submodules." />
+          ) : submodules.length === 0 ? (
+            <EmptyAssessmentState label="No submodules found for this module." />
+          ) : (
+            <div className="grid gap-2">
+              {submodules.map((submodule) => {
+                const key = String(submodule.id);
+                const uiStatus = selected[key] || "introduced";
+                const isSelected = Boolean(selected[key]);
+                return (
+                  <div
+                    key={submodule.id}
+                    className={`grid gap-3 rounded-xl border bg-card p-3 transition md:grid-cols-[auto_1fr_auto] md:items-center ${
+                      isSelected ? "border-primary/40 shadow-sm" : "border-border"
+                    }`}
+                  >
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => onToggleSubmodule(submodule.id)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      <StatusTriangle
+                        status={uiStatus}
+                        onClick={() =>
+                          isSelected ? onCycleStatus(submodule.id) : onToggleSubmodule(submodule.id)
+                        }
+                        size={42}
+                      />
+                    </label>
+
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 text-sm font-semibold text-foreground">
+                        {submodule.title}
+                      </p>
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        Submodule ID: {submodule.id}
+                      </p>
+                    </div>
+
+                    <Select
+                      value={UI_TO_API_ASSESSMENT[uiStatus]}
+                      onValueChange={(value) => {
+                        if (!isSelected) onToggleSubmodule(submodule.id);
+                        onStatusChange(submodule.id, value);
+                      }}
+                    >
+                      <SelectTrigger className="h-10 w-full rounded-xl md:w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Introduced">Introduced</SelectItem>
+                        <SelectItem value="Working">Working</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MontessoriLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-3 text-sm">
+      <span className="font-semibold text-muted-foreground">Legend:</span>
+      <div className="flex items-center gap-2">
+        <StatusTriangle status="introduced" onClick={() => {}} size={28} />
+        <span>Introduced</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <StatusTriangle status="practicing" onClick={() => {}} size={28} />
+        <span>Working</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <StatusTriangle status="completed" onClick={() => {}} size={28} />
+        <span>Completed</span>
+      </div>
+    </div>
+  );
+}
+
+function EmptyAssessmentState({ label }) {
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-background p-10 text-center text-sm text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
+function DevelopmentMilestonePanel({
+  observationId,
+  ageGroups,
+  modules,
+  submodules,
+  ageId,
+  moduleId,
+  selected,
+  isAgeGroupsLoading,
+  isModulesLoading,
+  isSubmodulesLoading,
+  isSaving,
+  onAgeChange,
+  onModuleChange,
+  onStatusChange,
+  onClear,
+  onSave,
+}) {
+  const selectedCount = Object.keys(selected).length;
+  const moduleTitle =
+    modules.find((module) => String(module.id) === String(moduleId))?.name ||
+    "Developmental Milestones";
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-orange-600">
+              Developmental Milestone
+            </p>
+            <h3 className="mt-1 text-xl font-black text-foreground">
+              Select milestones and mark assessment
+            </h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Choose an age group and developmental area, then mark each milestone status.
+            </p>
+          </div>
+          <div className="rounded-full border border-orange-500/30 bg-background px-3 py-1.5 text-xs font-bold text-orange-700">
+            Observation #{observationId || "-"}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <FormGroup label="Age Group">
+          <Select value={ageId} onValueChange={onAgeChange} disabled={isAgeGroupsLoading}>
+            <SelectTrigger className="h-12 rounded-xl bg-muted/30">
+              <SelectValue
+                placeholder={isAgeGroupsLoading ? "Loading age groups..." : "Select age group"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {ageGroups.map((ageGroup) => (
+                <SelectItem key={ageGroup.id} value={String(ageGroup.id)}>
+                  {ageGroup.ageGroup}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormGroup>
+
+        <FormGroup label="Development Area">
+          <Select
+            value={moduleId}
+            onValueChange={onModuleChange}
+            disabled={!ageId || isModulesLoading}
+          >
+            <SelectTrigger className="h-12 rounded-xl bg-muted/30">
+              <SelectValue
+                placeholder={
+                  !ageId
+                    ? "Select age group first"
+                    : isModulesLoading
+                      ? "Loading areas..."
+                      : "Select development area"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {modules.map((module) => (
+                <SelectItem key={module.id} value={String(module.id)}>
+                  {module.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormGroup>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
+          <div>
+            <h4 className="text-sm font-black text-orange-600">{moduleTitle}</h4>
+            <p className="text-xs text-muted-foreground">
+              {selectedCount} selected for this observation
+            </p>
+          </div>
+          <Button onClick={onSave} disabled={isSaving || selectedCount === 0}>
+            {isSaving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-1.5 h-4 w-4" />
+            )}
+            Save Milestones
+          </Button>
+        </div>
+
+        <div className="max-h-[560px] overflow-y-auto bg-muted/10 p-3">
+          {isSubmodulesLoading ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              Loading milestones...
+            </div>
+          ) : !moduleId ? (
+            <EmptyAssessmentState label="Select an age group and development area to see milestones." />
+          ) : submodules.length === 0 ? (
+            <EmptyAssessmentState label="No milestones found for this development area." />
+          ) : (
+            <div className="space-y-2">
+              {submodules.map((submodule) => (
+                <DevelopmentMilestoneRow
+                  key={submodule.id}
+                  submodule={submodule}
+                  value={selected[String(submodule.id)]}
+                  onChange={(status) => onStatusChange(submodule.id, status)}
+                  onClear={() => onClear(submodule.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DevelopmentMilestoneRow({ submodule, value, onChange, onClear }) {
+  return (
+    <div className="grid gap-3 rounded-xl border-l-4 border-orange-400 bg-background px-4 py-3 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
+      <p className="text-sm font-bold leading-snug text-foreground">{submodule.name}</p>
+      <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+        {DEV_MILESTONE_STATUSES.map((status) => (
+          <label
+            key={status}
+            className="inline-flex cursor-pointer items-center gap-2 text-sm font-bold text-foreground"
+          >
+            <input
+              type="radio"
+              name={`dev-milestone-${submodule.id}`}
+              value={status}
+              checked={value === status}
+              onChange={() => onChange(status)}
+              className="h-5 w-5 accent-blue-500"
+            />
+            {status}
+          </label>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onClear}
+          disabled={!value}
+          className="border-red-300 text-red-500 hover:bg-red-50 hover:text-red-600"
+        >
+          <X className="mr-1 h-3.5 w-3.5" />
+          Clear
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function AssessmentPlaceholder({ title, description }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-border bg-muted/10 p-12 text-center">
+      <ListChecks className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
+      <h3 className="text-lg font-bold text-foreground">{title}</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }

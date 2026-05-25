@@ -524,7 +524,9 @@ export default function SleepCheckPage() {
                 <div className="divide-y divide-border">
                   {card.entries.length === 0 && (
                     <div className="px-5 py-6 text-center text-sm text-muted-foreground">
-                      No entries yet. Tap “Add 10-min Entry” to begin.
+                      {isParent
+                        ? "No sleep check entries found for this child."
+                        : "No entries yet. Tap “Add 10-min Entry” to begin."}
                     </div>
                   )}
 

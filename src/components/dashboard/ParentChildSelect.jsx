@@ -17,34 +17,39 @@ function childImageUrl(url) {
 }
 
 export function ParentChildSelect({ children = [], value, onChange, className }) {
-  if (children.length === 0) return null;
+  const hasChildren = children.length > 0;
+  const selectedValue = hasChildren ? value || String(children[0].id) : undefined;
 
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={selectedValue} onValueChange={onChange}>
       <SelectTrigger className={className ?? "h-10 w-full min-w-[200px] sm:w-[240px]"}>
         <div className="flex items-center gap-2">
           <Baby className="h-4 w-4 shrink-0 text-primary" />
-          <SelectValue placeholder="Select child" />
+          <SelectValue placeholder={hasChildren ? "Select child" : "No child found"} />
         </div>
       </SelectTrigger>
       <SelectContent>
-        {children.map((child) => {
-          const name = childDisplayName(child);
-          const img = childImageUrl(child.imageUrl);
-          return (
-            <SelectItem key={child.id} value={String(child.id)}>
-              <span className="flex items-center gap-2">
-                <Avatar className="h-6 w-6">
-                  {img && <AvatarImage src={img} alt={name} />}
-                  <AvatarFallback className="text-[9px]">
-                    {name.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                {name}
-              </span>
-            </SelectItem>
-          );
-        })}
+        {hasChildren ? (
+          children.map((child) => {
+            const name = childDisplayName(child);
+            const img = childImageUrl(child.imageUrl);
+            return (
+              <SelectItem key={child.id} value={String(child.id)}>
+                <span className="flex items-center gap-2">
+                  <Avatar className="h-6 w-6">
+                    {img && <AvatarImage src={img} alt={name} />}
+                    <AvatarFallback className="text-[9px]">
+                      {name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {name}
+                </span>
+              </SelectItem>
+            );
+          })
+        ) : (
+          <div className="px-3 py-2 text-sm text-muted-foreground">No child found</div>
+        )}
       </SelectContent>
     </Select>
   );

@@ -5,12 +5,30 @@ const DEFAULT_PER_PAGE = 13;
 const ADDED_DATE_MAP = {
   today: "Today",
   "this-week": "This Week",
-  "last-week": "Last Week",
   "this-month": "This Month",
   custom: "Custom",
 };
 
-function buildObservationListParams(centerId, options = {}) {
+const STATUS_MAP = {
+  draft: "Draft",
+  published: "Published",
+};
+
+function appendIfPresent(formData, key, value) {
+  if (value !== null && value !== undefined && value !== "") {
+    formData.append(key, value);
+  }
+}
+
+function appendArray(formData, key, values = []) {
+  const normalizedValues = (Array.isArray(values) ? values : [values])
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  normalizedValues.forEach((value) => formData.append(key, value));
+}
+
+function buildObservationListFormData(centerId, options = {}) {
   const {
     page = 1,
     perPage = DEFAULT_PER_PAGE,
@@ -22,47 +40,46 @@ function buildObservationListParams(centerId, options = {}) {
     customTo,
     childIds = [],
     authorIds = [],
+    childSearch = "",
+    createdBySearch = "",
+    childId,
   } = options;
 
-  const params = {
-    center_id: centerId,
-    per_page: perPage,
-    page,
-  };
+  const formData = new FormData();
 
-  if (roomId) params.room_id = roomId;
-  if (search?.trim()) params.search = search.trim();
+  formData.append("center_id", centerId);
+  formData.append("per_page", perPage);
+  formData.append("page", page);
+
+  appendIfPresent(formData, "room_id", roomId);
+  appendIfPresent(formData, "search", search?.trim());
 
   if (status && status !== "all") {
-    params["observations[]"] = String(status).toUpperCase();
+    appendArray(formData, "observations[]", STATUS_MAP[status] || status);
   }
 
   if (dateRange && dateRange !== "all") {
     const added = ADDED_DATE_MAP[dateRange];
     if (added) {
-      params["added[]"] = added;
+      appendArray(formData, "added[]", added);
       if (added === "Custom") {
-        if (customFrom) params.fromDate = customFrom;
-        if (customTo) params.toDate = customTo;
+        appendIfPresent(formData, "fromDate", customFrom);
+        appendIfPresent(formData, "toDate", customTo);
       }
     }
   }
 
-  const normalizedChildIds = (Array.isArray(childIds) ? childIds : [childIds])
-    .map((id) => String(id).trim())
-    .filter(Boolean);
-  if (normalizedChildIds.length > 0) {
-    params["childs[]"] = normalizedChildIds;
+  if (childId) {
+    formData.append("child_id", childId);
+  } else {
+    appendArray(formData, "childs[]", childIds);
   }
 
-  const normalizedAuthorIds = (Array.isArray(authorIds) ? authorIds : [authorIds])
-    .map((id) => String(id).trim())
-    .filter(Boolean);
-  if (normalizedAuthorIds.length > 0) {
-    params["authors[]"] = normalizedAuthorIds;
-  }
+  appendArray(formData, "authors[]", authorIds);
+  appendIfPresent(formData, "child_search", childSearch?.trim());
+  appendIfPresent(formData, "created_by_search", createdBySearch?.trim());
 
-  return params;
+  return formData;
 }
 
 const postObservationMultipart = async (url, fields) => {
@@ -98,6 +115,62 @@ export const observationService = {
     return response.data;
   },
 
+  getAssessmentSubjects: async (framework) => {
+    const response = await api.get("/observation-api/subjects", {
+      params: { framework },
+    });
+    return response.data;
+  },
+
+  getAssessmentModules: async ({ framework, subjectId }) => {
+    const response = await api.get("/observation-api/modules", {
+      params: { framework, subject_id: subjectId },
+    });
+    return response.data;
+  },
+
+  getAssessmentSubmodules: async ({ framework, moduleId }) => {
+    const response = await api.get("/observation-api/submodules", {
+      params: { framework, module_id: moduleId },
+    });
+    return response.data;
+  },
+
+  saveMontessoriAssessment: async ({ observationId, subactivities }) => {
+    const response = await api.post("/observation-api/montessori", {
+      observationId,
+      subactivities,
+    });
+    return response.data;
+  },
+
+  getDevelopmentMilestoneSubjects: async () => {
+    const response = await api.get("/observation-api/devmilestone/subjects");
+    return response.data;
+  },
+
+  getDevelopmentMilestoneModules: async (ageId) => {
+    const response = await api.get("/observation-api/devmilestone/modules", {
+      params: { age_id: ageId },
+    });
+    return response.data;
+  },
+
+  getDevelopmentMilestoneSubmodules: async (milestoneId) => {
+    const response = await api.get("/observation-api/devmilestone/submodules", {
+      params: { milestone_id: milestoneId },
+    });
+    return response.data;
+  },
+
+  saveDevelopmentMilestone: async ({ observationId, selections }) => {
+    const response = await api.post("/observation-api/development-milestone", {
+      observationId,
+      selections,
+    });
+    return response.data;
+  },
+
   /** FormData: idSubject, title, center_id */
   addActivity: async (payload) => postObservationMultipart("/Observation/addActivity", payload),
 
@@ -124,9 +197,13 @@ export const observationService = {
   // 1. List of the Observation
   getObservations: async (centerId, options = {}) => {
     try {
-      const response = await api.get("/observation/index", {
-        params: buildObservationListParams(centerId, options),
-      });
+      const response = await api.post(
+        "/observation/filters",
+        buildObservationListFormData(centerId, options),
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
       return response.data;
     } catch (error) {
       console.error("Error fetching observations:", error);

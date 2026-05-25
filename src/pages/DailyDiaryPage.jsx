@@ -21,9 +21,22 @@ import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { useEffect } from "react";
+import { childDisplayName } from "@/utils/parentDashboardText";
 
 const DAILY_DIARY_ACTIVITY_COUNT = 9;
 const MULTI_ENTRY_ACTIVITIES = new Set(["sleep", "sunscreen", "toileting", "bottle"]);
+
+function getChildCenterId(child) {
+  return (
+    child?.center_id ??
+    child?.centerid ??
+    child?.centre_id ??
+    child?.centreid ??
+    child?.center?.id ??
+    child?.centre?.id ??
+    ""
+  );
+}
 
 export default function DailyDiaryPage() {
   const centres = useCentreStore((s) => s.centres);
@@ -65,6 +78,19 @@ export default function DailyDiaryPage() {
     return diaryChildren;
   }, [diaryChildren]);
 
+  const selectedParentChild = useMemo(() => {
+    if (!selectedChildId) return null;
+    return parentChildren.find((c) => String(c.id) === String(selectedChildId)) ?? null;
+  }, [parentChildren, selectedChildId]);
+
+  const selectedParentChildName = selectedParentChild
+    ? childDisplayName(selectedParentChild)
+    : "this child";
+
+  const emptyDiaryMessage = isParent
+    ? `For ${selectedParentChildName} no Daily diary exists or found.`
+    : "No children found in this room.";
+
   const diaryStats = useMemo(() => {
     const totalChildren = diaryChildren.length;
     const totalExpected = totalChildren * DAILY_DIARY_ACTIVITY_COUNT;
@@ -92,8 +118,18 @@ export default function DailyDiaryPage() {
   const [isFetching, setIsFetching] = useState(false);
 
   const fetchDiary = useCallback(async () => {
+    const clearDiary = () => {
+      setDiaryChildren([]);
+      setEntriesByChild({});
+      setTotalPages(1);
+    };
+
     if (isParent) {
-      if (!selectedChildId) return;
+      const selectedChildCenterId = getChildCenterId(selectedParentChild);
+      if (!selectedChildId || !selectedParentChild || !selectedChildCenterId) {
+        clearDiary();
+        return;
+      }
     } else {
       if (!activeCentreId || !activeRoomId) return;
     }
@@ -106,8 +142,7 @@ export default function DailyDiaryPage() {
       };
 
       if (isParent) {
-        const selectedChild = parentChildren.find((c) => String(c.id) === String(selectedChildId));
-        params.center_id = selectedChild?.centerid;
+        params.center_id = getChildCenterId(selectedParentChild);
         params.child_id = selectedChildId;
       } else {
         params.center_id = activeCentreId;
@@ -116,12 +151,11 @@ export default function DailyDiaryPage() {
       }
 
       const response = await dailyDiaryService.listDiary(params);
+      const responseData = response.data;
+      const childrenObj = responseData?.data?.children;
 
-      console.log("Daily dairy response ", response.data.data.children);
-
-      if (response.data.status && response.data.data.children) {
-        const childrenObj = response.data.data.children;
-        const rawChildren = childrenObj.data || [];
+      if (responseData?.status && childrenObj) {
+        const rawChildren = Array.isArray(childrenObj) ? childrenObj : childrenObj.data || [];
 
         setTotalPages(childrenObj.last_page || 1);
 
@@ -130,6 +164,7 @@ export default function DailyDiaryPage() {
 
         rawChildren.forEach((item) => {
           const c = item.child;
+          if (!c) return;
           const baseName = (c.first_name || c.name || "").trim();
           const familyName = (c.last_name || c.lastname || "").trim();
           const fullName =
@@ -204,10 +239,17 @@ export default function DailyDiaryPage() {
 
         setEntriesByChild(normalized);
         setDiaryChildren(extracted);
+      } else {
+        clearDiary();
       }
     } catch (error) {
       console.error("Failed to fetch diary", error);
-      toast.error("Failed to load diary entries");
+      setDiaryChildren([]);
+      setEntriesByChild({});
+      setTotalPages(1);
+      if (!isParent) {
+        toast.error("Failed to load diary entries");
+      }
     } finally {
       setIsFetching(false);
     }
@@ -220,7 +262,7 @@ export default function DailyDiaryPage() {
     perPage,
     isParent,
     selectedChildId,
-    parentChildren,
+    selectedParentChild,
   ]);
 
   useEffect(() => {
@@ -229,7 +271,7 @@ export default function DailyDiaryPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeCentreId, activeRoomId, date, debouncedSearch]);
+  }, [activeCentreId, activeRoomId, date, debouncedSearch, selectedChildId]);
 
   const toFormData = (payload) => {
     const fd = new FormData();
@@ -480,7 +522,7 @@ export default function DailyDiaryPage() {
         <PageLoader label="Loading diary entries…" />
       ) : visibleChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
-          No children found in this room.
+          {emptyDiaryMessage}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-3">

@@ -40,6 +40,40 @@ function resolveSelectedChildId(children = [], preferredId) {
   return nextChildren[0] ? String(nextChildren[0].id) : "";
 }
 
+function extractParentChildren(response) {
+  const candidates = [
+    response?.children,
+    response?.data?.children,
+    response?.data,
+    response?.parent?.children,
+  ];
+  return candidates.find(Array.isArray) || [];
+}
+
+function extractServerSelectedChildId(response) {
+  if (!response?.status) return "";
+
+  const data = response.data || {};
+  return normalizeChildId(
+    data.selectedchildreanid ||
+      data.selected_children_id ||
+      data.selected_child_id ||
+      data.child_id ||
+      data.childid ||
+      data.id,
+  );
+}
+
+async function persistSelectedChildToServer(childId) {
+  const normalizedChildId = normalizeChildId(childId);
+  if (!normalizedChildId) return;
+
+  const res = await parentDashboardService.saveSelectedChild(normalizedChildId);
+  if (!res.status) {
+    throw new Error(res.message || "Failed to save selected child");
+  }
+}
+
 export const useParentDashboardStore = create((set, get) => ({
   children: [],
   selectedChildId: loadSelectedChildId(),
@@ -74,10 +108,7 @@ export const useParentDashboardStore = create((set, get) => ({
     set({ selectedChildId: nextValue, isSavingSelectedChild: true });
 
     try {
-      const res = await parentDashboardService.saveSelectedChild(nextValue);
-      if (!res.status) {
-        throw new Error(res.message || "Failed to save selected child");
-      }
+      await persistSelectedChildToServer(nextValue);
     } catch (error) {
       // Roll back on failure
       persistSelectedChildId(previousValue);
@@ -94,9 +125,14 @@ export const useParentDashboardStore = create((set, get) => ({
   fetchChildren: async (parentId, force = false) => {
     if (!parentId) return;
 
-    const { lastLoadedParentId, isLoadingChildren, selectedChildId } = get();
+    const { children, lastLoadedParentId, isLoadingChildren } = get();
     // Only skip if already successfully loaded for this exact parentId
-    if (!force && lastLoadedParentId && String(lastLoadedParentId) === String(parentId)) {
+    if (
+      !force &&
+      children.length > 0 &&
+      lastLoadedParentId &&
+      String(lastLoadedParentId) === String(parentId)
+    ) {
       return;
     }
     if (isLoadingChildren) return;
@@ -109,17 +145,15 @@ export const useParentDashboardStore = create((set, get) => ({
       ]);
 
       if (childrenRes.status) {
-        const nextChildren = childrenRes.children || [];
+        const nextChildren = extractParentChildren(childrenRes);
 
-        // Prefer the server-persisted selected child, fall back to localStorage / first child
-        const serverSelectedId = selectedChildRes?.status
-          ? normalizeChildId(selectedChildRes?.data?.selectedchildreanid)
-          : "";
+        // Prefer the server-persisted selected child. If none exists, select
+        // the first available child and create the server selection.
+        const serverSelectedId = extractServerSelectedChildId(selectedChildRes);
 
-        const nextSelectedChildId = resolveSelectedChildId(
-          nextChildren,
-          serverSelectedId || selectedChildId,
-        );
+        const nextSelectedChildId = resolveSelectedChildId(nextChildren, serverSelectedId);
+        const shouldSaveDefaultSelection =
+          Boolean(nextSelectedChildId) && nextSelectedChildId !== serverSelectedId;
 
         persistSelectedChildId(nextSelectedChildId);
         set({
@@ -128,6 +162,14 @@ export const useParentDashboardStore = create((set, get) => ({
           lastLoadedParentId: parentId,
           isLoadingChildren: false,
         });
+
+        if (shouldSaveDefaultSelection) {
+          try {
+            await persistSelectedChildToServer(nextSelectedChildId);
+          } catch (error) {
+            console.error("Failed to save default selected child:", error);
+          }
+        }
       } else {
         set({ isLoadingChildren: false });
       }

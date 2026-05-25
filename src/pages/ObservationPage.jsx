@@ -40,6 +40,7 @@ import { CustomDateFilter } from "@/components/common/CustomDateFilter";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
+import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import {
   STATUS_FILTERS,
   DATE_FILTERS,
@@ -58,8 +59,8 @@ const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
 
 const PAGE_SIZE = 13;
-const OBSERVATION_DATE_FILTERS = DATE_FILTERS.filter(
-  (option) => option.value !== "yesterday" && option.value !== "last-month",
+const OBSERVATION_DATE_FILTERS = DATE_FILTERS.filter((option) =>
+  ["all", "today", "this-week", "this-month"].includes(option.value),
 );
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
@@ -81,11 +82,52 @@ function stripHtml(value = "") {
     .trim();
 }
 
+function getChildCenterId(child) {
+  return (
+    child?.center_id ??
+    child?.centerid ??
+    child?.centre_id ??
+    child?.centreid ??
+    child?.center?.id ??
+    child?.centre?.id ??
+    ""
+  );
+}
+
+function isSuccessResponse(response) {
+  return response?.success || response?.status === true || response?.status === "success";
+}
+
+function getObservationRows(response) {
+  const observations = response?.observations ?? response?.data?.observations ?? response?.data;
+  const rows = observations?.data ?? observations;
+  return Array.isArray(rows) ? rows : [];
+}
+
+function getObservationTotal(response) {
+  const observations = response?.observations ?? response?.data?.observations ?? {};
+  const pagination = response?.pagination ?? response?.data?.pagination ?? {};
+  return Number(pagination.total || observations.total || response?.count || 0);
+}
+
+function normalizeObservationItem(item) {
+  const media = Array.isArray(item.media) ? item.media : item.media ? [item.media] : [];
+
+  return {
+    ...item,
+    media,
+    obestitle: item.obestitle || item.title || "",
+    user: item.user || { name: item.userName || "Unknown" },
+  };
+}
+
 export default function ObservationPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
   const { can, isParent, isSuperadmin } = usePermissions();
+  const parentChildren = useParentDashboardStore((s) => s.children);
+  const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
   const {
     filteredStaff,
     filteredChildren,
@@ -114,28 +156,58 @@ export default function ObservationPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchObservations = useCallback(async () => {
-    if (!activeCentreId) return;
+    if (isParent) {
+      if (!selectedChildId) {
+        setItems([]);
+        setTotal(0);
+        return;
+      }
+    } else if (!activeCentreId) {
+      return;
+    }
     setIsLoading(true);
     try {
-      const res = await observationService.getObservations(activeCentreId, {
+      const selectedChild = parentChildren.find((c) => String(c.id) === String(selectedChildId));
+      const centerId = isParent ? getChildCenterId(selectedChild) : activeCentreId;
+
+      if (!centerId) {
+        setItems([]);
+        setTotal(0);
+        return;
+      }
+
+      const res = await observationService.getObservations(centerId, {
         page,
         perPage: PAGE_SIZE,
-        roomId: activeRoomId || undefined,
-        search,
-        status,
-        dateRange,
-        customFrom,
-        customTo,
-        childIds: childId !== "all" ? [childId] : [],
-        authorIds: author !== "all" ? [author] : [],
+        ...(isParent
+          ? {
+              childId: selectedChildId,
+            }
+          : {
+              roomId: activeRoomId || undefined,
+              search,
+              status,
+              dateRange,
+              customFrom,
+              customTo,
+              childIds: childId !== "all" ? [childId] : [],
+              authorIds: author !== "all" ? [author] : [],
+              childSearch: childrenSearch,
+              createdBySearch: staffSearch,
+            }),
       });
-      if (res.success) {
-        setItems(res.observations.data || []);
-        setTotal(res.observations.total || 0);
+      if (isSuccessResponse(res)) {
+        setItems(getObservationRows(res).map(normalizeObservationItem));
+        setTotal(getObservationTotal(res));
       } else {
+        setItems([]);
+        setTotal(0);
         toast.error("Failed to fetch observations");
       }
     } catch (error) {
+      console.error("Error loading observations:", error);
+      setItems([]);
+      setTotal(0);
       toast.error("Error loading observations");
     } finally {
       setIsLoading(false);
@@ -151,6 +223,11 @@ export default function ObservationPage() {
     dateRange,
     customFrom,
     customTo,
+    isParent,
+    selectedChildId,
+    parentChildren,
+    childrenSearch,
+    staffSearch,
   ]);
 
   useEffect(() => {
@@ -169,6 +246,7 @@ export default function ObservationPage() {
     customFrom,
     customTo,
     activeCentreId,
+    selectedChildId,
   ]);
 
   useEffect(() => {

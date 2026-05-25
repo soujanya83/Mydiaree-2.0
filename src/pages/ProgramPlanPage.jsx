@@ -46,6 +46,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuthStore } from "@/stores/authStore";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
+import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { ProgramPlanForm } from "@/components/programplan/ProgramPlanForm";
 import { ProgramPlanView } from "@/components/programplan/ProgramPlanView";
 import { MONTHS, YEARS } from "@/components/programplan/data";
@@ -380,6 +381,7 @@ export default function ProgramPlanPage() {
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
   const user = useAuthStore((s) => s.user);
   const { can, isParent, isSuperadmin } = usePermissions();
+  const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
   const perms = ACTION_PERMISSIONS.programPlan;
 
   const [records, setRecords] = useState([]);
@@ -416,6 +418,10 @@ export default function ProgramPlanPage() {
 
   const loadProgramPlans = useCallback(async () => {
     if (!activeCentreId) return;
+    if (isParent && !selectedChildId) {
+      setRecords([]);
+      return;
+    }
     setIsLoadingPlans(true);
     try {
       const response = await programPlanService.filterProgramPlans({
@@ -425,6 +431,7 @@ export default function ProgramPlanPage() {
         status: filters.status || "",
         month: filters.month || "",
         year: filters.year || "",
+        child_id: isParent ? selectedChildId : "",
         page,
       });
       if (response.status) {
@@ -452,7 +459,7 @@ export default function ProgramPlanPage() {
     } finally {
       setIsLoadingPlans(false);
     }
-  }, [activeCentreId, page, filters]);
+  }, [activeCentreId, page, filters, isParent, selectedChildId]);
 
   useEffect(() => {
     loadProgramPlans();
