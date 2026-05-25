@@ -11,7 +11,6 @@ import {
   Thermometer,
   StickyNote,
   PenLine,
-  Printer,
   ChevronDown,
   Users,
   X,
@@ -450,10 +449,6 @@ export default function SleepCheckPage() {
             />
           </div>
         )}
-        <Button variant="outline" size="sm">
-          <Printer className="mr-1.5 h-4 w-4" />
-          View / Print
-        </Button>
       </div>
 
       {/* Children list */}
