@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PageLoader } from "@/components/common/PageLoader";
 import { useCentreStore } from "@/stores/centreStore";
 import { childrenService } from "@/services/centre/childrenService";
 import { reflectionService } from "@/services/learning/reflectionService";
@@ -72,6 +73,8 @@ export default function DailyReflectionCreatePage() {
   const { activeCentreId } = useCentreStore();
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isInitialDataLoading, setIsInitialDataLoading] = useState(false);
+  const [isEditLoading, setIsEditLoading] = useState(isEdit);
 
   const [availableRooms, setAvailableRooms] = useState([]);
   const [availableStaff, setAvailableStaff] = useState([]);
@@ -105,7 +108,12 @@ export default function DailyReflectionCreatePage() {
   // 1. Fetch Rooms and Staff on Centre Change
   useEffect(() => {
     const loadInitialData = async () => {
-      if (!activeCentreId) return;
+      if (!activeCentreId) {
+        setAvailableRooms([]);
+        setIsInitialDataLoading(false);
+        return;
+      }
+      setIsInitialDataLoading(true);
       try {
         const roomsData = await reflectionService.getRoomsAndStaff(activeCentreId);
         if (roomsData.status) {
@@ -113,6 +121,8 @@ export default function DailyReflectionCreatePage() {
         }
       } catch (error) {
         console.error("Failed to load rooms:", error);
+      } finally {
+        setIsInitialDataLoading(false);
       }
     };
     loadInitialData();
@@ -121,7 +131,15 @@ export default function DailyReflectionCreatePage() {
   // 2. Fetch Reflection in Edit Mode
   useEffect(() => {
     const loadReflection = async () => {
-      if (!isEdit || !id || !activeCentreId) return;
+      if (!isEdit) {
+        setIsEditLoading(false);
+        return;
+      }
+      if (!id || !activeCentreId) {
+        setIsEditLoading(true);
+        return;
+      }
+      setIsEditLoading(true);
       try {
         const reflRes = await reflectionService.getAllReflections(activeCentreId, {
           perPage: 100,
@@ -152,9 +170,14 @@ export default function DailyReflectionCreatePage() {
               })),
             );
           }
+        } else {
+          toast.error("Reflection not found");
         }
       } catch (error) {
         console.error("Failed to load reflection:", error);
+        toast.error("Failed to load reflection");
+      } finally {
+        setIsEditLoading(false);
       }
     };
     loadReflection();
@@ -352,6 +375,14 @@ export default function DailyReflectionCreatePage() {
   const today = new Date()
     .toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
     .toUpperCase();
+
+  if (isEdit && (isInitialDataLoading || isEditLoading)) {
+    return (
+      <div className="min-h-[60vh]">
+        <PageLoader label="Loading reflection..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-20">

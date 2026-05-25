@@ -503,7 +503,7 @@ export default function SnapshotsPage() {
         onClose={() => setDeleteModal({ open: false, id: null })}
         onConfirm={handleDelete}
         title="Delete Snapshot?"
-        description="This will permanently remove this snapshot and its shared media. Families will no longer be able to view it."
+        description="This will move the snapshot and its shared media to the recycle bin. Families will no longer be able to view it."
       />
 
       {gallerySnap && (

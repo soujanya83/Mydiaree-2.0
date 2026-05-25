@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PageLoader } from "@/components/common/PageLoader";
 import { snapshotService } from "@/services/learning/snapshotService";
 import { staffService } from "@/services/admin/staffService";
 import { childrenService } from "@/services/centre/childrenService";
@@ -71,6 +72,8 @@ export default function SnapshotCreatePage() {
   const { activeCentreId } = useCentreStore();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialDataLoading, setIsInitialDataLoading] = useState(false);
+  const [isEditLoading, setIsEditLoading] = useState(isEdit);
 
   const [availableRooms, setAvailableRooms] = useState([]);
   const [availableStaff, setAvailableStaff] = useState([]);
@@ -102,7 +105,12 @@ export default function SnapshotCreatePage() {
   // 1. Fetch Rooms
   useEffect(() => {
     const loadInitialData = async () => {
-      if (!activeCentreId) return;
+      if (!activeCentreId) {
+        setAvailableRooms([]);
+        setIsInitialDataLoading(false);
+        return;
+      }
+      setIsInitialDataLoading(true);
       try {
         const roomsData = await snapshotService.getRoomsAndStaff(activeCentreId);
         if (roomsData.status) {
@@ -110,6 +118,8 @@ export default function SnapshotCreatePage() {
         }
       } catch (error) {
         console.error("Failed to load rooms:", error);
+      } finally {
+        setIsInitialDataLoading(false);
       }
     };
     loadInitialData();
@@ -216,7 +226,15 @@ export default function SnapshotCreatePage() {
   // 3. Fetch Snapshot in Edit Mode
   useEffect(() => {
     const loadSnapshot = async () => {
-      if (!isEdit || !id || !activeCentreId) return;
+      if (!isEdit) {
+        setIsEditLoading(false);
+        return;
+      }
+      if (!id || !activeCentreId) {
+        setIsEditLoading(true);
+        return;
+      }
+      setIsEditLoading(true);
       try {
         const res = await snapshotService.getAllSnapshots(activeCentreId, { perPage: 1000 });
         const snapshots = Array.isArray(res.snapshots) ? res.snapshots : res.snapshots?.data || [];
@@ -241,9 +259,14 @@ export default function SnapshotCreatePage() {
               })),
             );
           }
+        } else {
+          toast.error("Snapshot not found");
         }
       } catch (error) {
         console.error("Failed to load snapshot:", error);
+        toast.error("Failed to load snapshot");
+      } finally {
+        setIsEditLoading(false);
       }
     };
     loadSnapshot();
@@ -341,6 +364,14 @@ export default function SnapshotCreatePage() {
   const today = new Date()
     .toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
     .toUpperCase();
+
+  if (isEdit && (isInitialDataLoading || isEditLoading)) {
+    return (
+      <div className="min-h-[60vh]">
+        <PageLoader label="Loading snapshot..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-20">

@@ -227,6 +227,38 @@ export const observationService = {
     }
   },
 
+  getRecycleBin: async (centerId) => {
+    try {
+      const response = await api.get("/recycle/observations", {
+        params: { centerid: centerId },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching observation recycle bin:", error);
+      throw error;
+    }
+  },
+
+  restoreObservation: async (id) => {
+    try {
+      const response = await api.post(`/recycle/observations/${id}/restore`);
+      return response.data;
+    } catch (error) {
+      console.error("Error restoring observation:", error);
+      throw error;
+    }
+  },
+
+  permanentlyDeleteObservation: async (id) => {
+    try {
+      const response = await api.delete(`/recycle/observations/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error permanently deleting observation:", error);
+      throw error;
+    }
+  },
+
   // 8. Print Observation
   printObservation: async (id) => {
     try {
