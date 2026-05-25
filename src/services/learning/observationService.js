@@ -144,6 +144,14 @@ export const observationService = {
     return response.data;
   },
 
+  saveEylfAssessment: async ({ observationId, subactivityIds }) => {
+    const response = await api.post("/observation-api/eylf", {
+      observationId,
+      subactivityIds,
+    });
+    return response.data;
+  },
+
   getDevelopmentMilestoneSubjects: async () => {
     const response = await api.get("/observation-api/devmilestone/subjects");
     return response.data;

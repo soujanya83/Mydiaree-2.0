@@ -144,8 +144,16 @@ export default function ObservationCreatePage() {
   const [isMontModulesLoading, setIsMontModulesLoading] = useState(false);
   const [isMontSubmodulesLoading, setIsMontSubmodulesLoading] = useState(false);
   const [isMontessoriSaving, setIsMontessoriSaving] = useState(false);
-  const [eylfOutcome, setEylfOutcome] = useState("Outcome 1");
-  const [eylfSelected, setEylfSelected] = useState(new Set());
+  const [eylfSubjects, setEylfSubjects] = useState([]);
+  const [eylfModules, setEylfModules] = useState([]);
+  const [eylfSubmodules, setEylfSubmodules] = useState([]);
+  const [eylfSubjectId, setEylfSubjectId] = useState("");
+  const [eylfModuleId, setEylfModuleId] = useState("");
+  const [eylfSelected, setEylfSelected] = useState({});
+  const [isEylfSubjectsLoading, setIsEylfSubjectsLoading] = useState(false);
+  const [isEylfModulesLoading, setIsEylfModulesLoading] = useState(false);
+  const [isEylfSubmodulesLoading, setIsEylfSubmodulesLoading] = useState(false);
+  const [isEylfSaving, setIsEylfSaving] = useState(false);
   const [devAgeGroups, setDevAgeGroups] = useState([]);
   const [devModules, setDevModules] = useState([]);
   const [devSubmodules, setDevSubmodules] = useState([]);
@@ -332,6 +340,88 @@ export default function ObservationCreatePage() {
     };
     loadSubmodules();
   }, [montModuleId]);
+
+  useEffect(() => {
+    const loadEylfSubjects = async () => {
+      setIsEylfSubjectsLoading(true);
+      try {
+        const res = await observationService.getAssessmentSubjects("eylf");
+        if (res.status) {
+          setEylfSubjects(res.data || []);
+        } else {
+          toast.error(res.message || "Failed to load EYLF subjects");
+        }
+      } catch (error) {
+        console.error("Failed to load EYLF subjects:", error);
+        toast.error("Failed to load EYLF subjects");
+      } finally {
+        setIsEylfSubjectsLoading(false);
+      }
+    };
+    loadEylfSubjects();
+  }, []);
+
+  useEffect(() => {
+    const loadEylfModules = async () => {
+      if (!eylfSubjectId) {
+        setEylfModules([]);
+        setEylfModuleId("");
+        setEylfSubmodules([]);
+        setEylfSelected({});
+        return;
+      }
+      setIsEylfModulesLoading(true);
+      try {
+        const res = await observationService.getAssessmentModules({
+          framework: "eylf",
+          subjectId: eylfSubjectId,
+        });
+        if (res.status) {
+          setEylfModules(res.data || []);
+          setEylfModuleId("");
+          setEylfSubmodules([]);
+          setEylfSelected({});
+        } else {
+          toast.error(res.message || "Failed to load EYLF modules");
+        }
+      } catch (error) {
+        console.error("Failed to load EYLF modules:", error);
+        toast.error("Failed to load EYLF modules");
+      } finally {
+        setIsEylfModulesLoading(false);
+      }
+    };
+    loadEylfModules();
+  }, [eylfSubjectId]);
+
+  useEffect(() => {
+    const loadEylfSubmodules = async () => {
+      if (!eylfModuleId) {
+        setEylfSubmodules([]);
+        setEylfSelected({});
+        return;
+      }
+      setIsEylfSubmodulesLoading(true);
+      try {
+        const res = await observationService.getAssessmentSubmodules({
+          framework: "eylf",
+          moduleId: eylfModuleId,
+        });
+        if (res.status) {
+          setEylfSubmodules(res.data || []);
+          setEylfSelected({});
+        } else {
+          toast.error(res.message || "Failed to load EYLF submodules");
+        }
+      } catch (error) {
+        console.error("Failed to load EYLF submodules:", error);
+        toast.error("Failed to load EYLF submodules");
+      } finally {
+        setIsEylfSubmodulesLoading(false);
+      }
+    };
+    loadEylfSubmodules();
+  }, [eylfModuleId]);
 
   useEffect(() => {
     const loadDevelopmentAgeGroups = async () => {
@@ -596,6 +686,53 @@ export default function ObservationCreatePage() {
       toast.error("Failed to save Montessori data");
     } finally {
       setIsMontessoriSaving(false);
+    }
+  };
+
+  const toggleEylfSubmodule = (submoduleId) => {
+    setEylfSelected((prev) => {
+      const key = String(submoduleId);
+      if (prev[key]) {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: true };
+    });
+  };
+
+  const handleSaveEylf = async () => {
+    if (!savedObservationId) {
+      toast.error("Please save the observation first");
+      setTab("observations");
+      return;
+    }
+
+    const subactivityIds = Object.keys(eylfSelected).map(Number);
+
+    if (subactivityIds.length === 0) {
+      toast.error("Please select at least one EYLF submodule");
+      return;
+    }
+
+    setIsEylfSaving(true);
+    try {
+      const res = await observationService.saveEylfAssessment({
+        observationId: Number(savedObservationId),
+        subactivityIds,
+      });
+      if (res.status) {
+        toast.success(res.message || "EYLF data saved successfully");
+        setSavedObservationId(res.id || savedObservationId);
+        setAssessTab("development");
+      } else {
+        toast.error(res.message || "Failed to save EYLF data");
+      }
+    } catch (error) {
+      console.error("Failed to save EYLF assessment:", error);
+      toast.error("Failed to save EYLF data");
+    } finally {
+      setIsEylfSaving(false);
     }
   };
 
@@ -1052,9 +1189,22 @@ export default function ObservationCreatePage() {
             )}
 
             {assessTab === "eylf" && (
-              <AssessmentPlaceholder
-                title="EYLF"
-                description="Montessori has been saved. EYLF assessment can be completed next."
+              <EylfAssessmentPanel
+                observationId={savedObservationId}
+                subjects={eylfSubjects}
+                modules={eylfModules}
+                submodules={eylfSubmodules}
+                subjectId={eylfSubjectId}
+                moduleId={eylfModuleId}
+                selected={eylfSelected}
+                isSubjectsLoading={isEylfSubjectsLoading}
+                isModulesLoading={isEylfModulesLoading}
+                isSubmodulesLoading={isEylfSubmodulesLoading}
+                isSaving={isEylfSaving}
+                onSubjectChange={setEylfSubjectId}
+                onModuleChange={setEylfModuleId}
+                onToggleSubmodule={toggleEylfSubmodule}
+                onSave={handleSaveEylf}
               />
             )}
 
@@ -1455,6 +1605,159 @@ function EmptyAssessmentState({ label }) {
   return (
     <div className="rounded-xl border border-dashed border-border bg-background p-10 text-center text-sm text-muted-foreground">
       {label}
+    </div>
+  );
+}
+
+function EylfAssessmentPanel({
+  observationId,
+  subjects,
+  modules,
+  submodules,
+  subjectId,
+  moduleId,
+  selected,
+  isSubjectsLoading,
+  isModulesLoading,
+  isSubmodulesLoading,
+  isSaving,
+  onSubjectChange,
+  onModuleChange,
+  onToggleSubmodule,
+  onSave,
+}) {
+  const selectedCount = Object.keys(selected).length;
+  const subjectName =
+    subjects.find((subject) => String(subject.id) === String(subjectId))?.name || "EYLF";
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-sky-500/20 bg-sky-500/5 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-sky-600">
+              EYLF Assessment
+            </p>
+            <h3 className="mt-1 text-xl font-black text-foreground">
+              Select outcomes and learning evidence
+            </h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Choose an outcome, select a module, then tick every submodule that applies.
+            </p>
+          </div>
+          <div className="rounded-full border border-sky-500/30 bg-background px-3 py-1.5 text-xs font-bold text-sky-700">
+            Observation #{observationId || "-"}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <FormGroup label="Outcome">
+          <Select value={subjectId} onValueChange={onSubjectChange} disabled={isSubjectsLoading}>
+            <SelectTrigger className="h-12 rounded-xl bg-muted/30">
+              <SelectValue
+                placeholder={isSubjectsLoading ? "Loading outcomes..." : "Select EYLF outcome"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {subjects.map((subject) => (
+                <SelectItem key={subject.id} value={String(subject.id)}>
+                  {subject.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormGroup>
+
+        <FormGroup label="Module">
+          <Select
+            value={moduleId}
+            onValueChange={onModuleChange}
+            disabled={!subjectId || isModulesLoading}
+          >
+            <SelectTrigger className="h-12 rounded-xl bg-muted/30">
+              <SelectValue
+                placeholder={
+                  !subjectId
+                    ? "Select outcome first"
+                    : isModulesLoading
+                      ? "Loading modules..."
+                      : "Select module"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {modules.map((module) => (
+                <SelectItem key={module.id} value={String(module.id)}>
+                  {module.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FormGroup>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-muted/30 px-4 py-3">
+          <div>
+            <h4 className="text-sm font-black text-sky-600">{subjectName}</h4>
+            <p className="text-xs text-muted-foreground">
+              {selectedCount} selected for this observation
+            </p>
+          </div>
+          <Button onClick={onSave} disabled={isSaving || selectedCount === 0}>
+            {isSaving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-1.5 h-4 w-4" />
+            )}
+            Save EYLF
+          </Button>
+        </div>
+
+        <div className="max-h-[560px] overflow-y-auto bg-muted/10 p-3">
+          {isSubmodulesLoading ? (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              Loading submodules...
+            </div>
+          ) : !moduleId ? (
+            <EmptyAssessmentState label="Select an outcome and module to see EYLF submodules." />
+          ) : submodules.length === 0 ? (
+            <EmptyAssessmentState label="No EYLF submodules found for this module." />
+          ) : (
+            <div className="space-y-2">
+              {submodules.map((submodule) => {
+                const key = String(submodule.id);
+                const isSelected = Boolean(selected[key]);
+                return (
+                  <label
+                    key={submodule.id}
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border bg-background px-4 py-3 shadow-sm transition ${
+                      isSelected ? "border-sky-400 ring-2 ring-sky-400/10" : "border-border"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onToggleSubmodule(submodule.id)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-sky-500"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold leading-snug text-foreground">
+                        {submodule.title}
+                      </p>
+                      <p className="mt-1 text-[11px] font-medium text-muted-foreground">
+                        Submodule ID: {submodule.id}
+                      </p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
