@@ -190,10 +190,10 @@ export default function DailyReflectionsPage() {
           authorIds: author !== "all" ? [author] : [],
         });
       }
-      if (response.status) {
-        setItems(getReflectionItems(response));
-        setReflectionPagination(getReflectionPagination(response));
-      }
+      // API returns status:false with an empty array when no reflections exist —
+      // always update state so the empty list is shown correctly.
+      setItems(getReflectionItems(response));
+      setReflectionPagination(getReflectionPagination(response));
     } catch (error) {
       console.error("Failed to fetch reflections:", error);
     } finally {

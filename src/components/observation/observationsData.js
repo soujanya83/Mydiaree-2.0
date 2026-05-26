@@ -11,22 +11,35 @@ export const STATUS_FILTERS = [
 export const DATE_FILTERS = [
   { value: "all", label: "All time" },
   { value: "today", label: "Today" },
-  { value: "yesterday", label: "Yesterday" },
   { value: "this-week", label: "This week" },
-  { value: "last-week", label: "Last week" },
   { value: "this-month", label: "This month" },
-  { value: "last-month", label: "Last month" },
 ];
 
 export const AUTHORS = ["Deepti", "Staff", "Sarah Lee", "Mia Chen", "Daniel Park"];
 
 const TITLES = [
-  "hjhgjggjh", "hgjhgjhvhj", "hgjhhj", "test", "testhh", "observation",
-  "fraxxra", "gu", "Painting at the easel", "Block tower play",
-  "Pouring practice", "Counting beads", "Story time reflection",
-  "Outdoor obstacle course", "Leaf sorting", "Sandpaper letters intro",
-  "Group greeting circle", "Fruit cutting station", "Water transfer work",
-  "Colour box matching", "Shoe polishing", "Bell sound work",
+  "hjhgjggjh",
+  "hgjhgjhvhj",
+  "hgjhhj",
+  "test",
+  "testhh",
+  "observation",
+  "fraxxra",
+  "gu",
+  "Painting at the easel",
+  "Block tower play",
+  "Pouring practice",
+  "Counting beads",
+  "Story time reflection",
+  "Outdoor obstacle course",
+  "Leaf sorting",
+  "Sandpaper letters intro",
+  "Group greeting circle",
+  "Fruit cutting station",
+  "Water transfer work",
+  "Colour box matching",
+  "Shoe polishing",
+  "Bell sound work",
 ];
 
 function daysAgo(n) {
@@ -47,18 +60,31 @@ export const mockObservations = TITLES.flatMap((title, i) => {
       title,
       author: AUTHORS[(i + j) % AUTHORS.length],
       childId: String(((i + j) % 8) + 1),
-      childName: ["Emma Johnson", "Liam Smith", "Olivia Brown", "Noah Davis", "Ava Wilson", "Mason Taylor", "Sophia Anderson", "James Thomas"][(i + j) % 8],
+      childName: [
+        "Emma Johnson",
+        "Liam Smith",
+        "Olivia Brown",
+        "Noah Davis",
+        "Ava Wilson",
+        "Mason Taylor",
+        "Sophia Anderson",
+        "James Thomas",
+      ][(i + j) % 8],
       roomId: ["r1", "r2", "r3", "r4"][(i + j) % 4],
       centreId: ["c1", "c1", "c2", "c3"][(i + j) % 4],
       status: i % 3 === 0 ? "published" : "draft",
       createdAt: daysAgo(offset),
-      observation: "Child engaged deeply with the activity, showing focused concentration and repeating the work several times.",
+      observation:
+        "Child engaged deeply with the activity, showing focused concentration and repeating the work several times.",
       reflection: "Demonstrated emerging fine motor control and independent problem-solving.",
       futurePlan: "Introduce the next level of complexity within the same material family.",
       childVoice: "“I did it all by myself!”",
-      learningAnalysis: "Builds on practical-life sequencing and order; supports concentration cycle.",
-      implementation: "Set out the work on the shelf at child height with accompanying control of error.",
-      criticalReflection: "Consider pairing with a peer next session to encourage grace & courtesy.",
+      learningAnalysis:
+        "Builds on practical-life sequencing and order; supports concentration cycle.",
+      implementation:
+        "Set out the work on the shelf at child height with accompanying control of error.",
+      criticalReflection:
+        "Consider pairing with a peer next session to encourage grace & courtesy.",
       tagEducators: ["Sarah Lee"],
       media: [],
       // Linked items
@@ -124,7 +150,6 @@ export function formatObsDate(iso) {
 }
 
 export function statusBadgeClasses(status) {
-  if (status === "published")
-    return "bg-emerald-500 text-white";
+  if (status === "published") return "bg-emerald-500 text-white";
   return "bg-amber-400 text-amber-950";
 }
