@@ -204,16 +204,20 @@ export default function SleepCheckPage() {
         signature: entry.signature,
       };
 
+      const isUpdate = entry.isNew === false;
       let res;
-      if (entry.isNew === false) {
+      if (isUpdate) {
         payload.id = entry.id;
         res = await sleepChecksService.updateSleepCheck(toFormData(payload));
       } else {
         res = await sleepChecksService.saveSleepCheck(toFormData(payload));
       }
 
-      if (res.data.status) {
-        toast.success(res.data.message || "Saved successfully");
+      if (res.data.status || res.data.success) {
+        toast.success(
+          res.data.message ||
+            (isUpdate ? "Sleep check updated successfully" : "Saved successfully"),
+        );
         fetchSleepChecks();
       }
     } catch (error) {
