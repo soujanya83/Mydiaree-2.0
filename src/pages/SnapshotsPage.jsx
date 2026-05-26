@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -40,8 +40,9 @@ import { PersonFilterPicker } from "@/components/common/PersonFilterPicker";
 import { useListFilterPeople } from "@/hooks/useListFilterPeople";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
+import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { snapshotService } from "@/services/learning/snapshotService";
-import { STATUS_FILTERS, DATE_FILTERS, inDateRange } from "@/components/snapshots/snapshotsData";
+import { STATUS_FILTERS, DATE_FILTERS } from "@/components/snapshots/snapshotsData";
 import { NewSnapshotTitleModal } from "@/components/snapshots/NewSnapshotTitleModal";
 import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 import { Pagination } from "@/components/common/Pagination";
@@ -61,6 +62,28 @@ const getMediaUrl = (url) => {
   if (!url) return "";
   return url.startsWith("http") ? url : `${IMG_BASE}${url.replace(/^\/+/, "")}`;
 };
+
+function stripHtml(value = "") {
+  return String(value)
+    .replace(/<[^>]*>/g, "")
+    .trim();
+}
+
+function getChildCenterId(child) {
+  return (
+    child?.center_id ??
+    child?.centerid ??
+    child?.centre_id ??
+    child?.centreid ??
+    child?.center?.id ??
+    child?.centre?.id ??
+    ""
+  );
+}
+
+function isSuccessResponse(response) {
+  return response?.success || response?.status === true || response?.status === "success";
+}
 
 const getPersonName = (person, fallback = "Unknown") =>
   [person?.name, person?.lastname].filter(Boolean).join(" ").trim() ||
@@ -93,10 +116,23 @@ const getSnapshotPagination = (response) => {
   };
 };
 
+function normalizeSnapshotItem(item) {
+  return {
+    ...item,
+    title: stripHtml(item.title),
+    about: stripHtml(item.about),
+    media: Array.isArray(item.media) ? item.media : item.media ? [item.media] : [],
+    rooms: Array.isArray(item.rooms) ? item.rooms : [],
+    children: Array.isArray(item.children) ? item.children : [],
+  };
+}
+
 export default function SnapshotsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const parentChildren = useParentDashboardStore((s) => s.children);
+  const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
   const {
     filteredStaff,
     filteredChildren,
@@ -130,28 +166,82 @@ export default function SnapshotsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [gallerySnap, setGallerySnap] = useState(null);
   const [isPrinting, setIsPrinting] = useState(null);
+  const { can, isParent, isSuperadmin } = usePermissions();
+  const perms = ACTION_PERMISSIONS.snapshots;
 
   const fetchSnapshots = useCallback(async () => {
-    if (!activeCentreId) return;
+    if (isParent) {
+      if (!selectedChildId) {
+        setItems([]);
+        setSnapshotPagination({
+          currentPage: 1,
+          perPage: PAGE_SIZE,
+          total: 0,
+          lastPage: 1,
+        });
+        return;
+      }
+    } else if (!activeCentreId) {
+      return;
+    }
     setIsLoadingSnapshots(true);
     try {
-      const response = await snapshotService.getAllSnapshots(activeCentreId, {
+      const selectedChild = parentChildren.find((c) => String(c.id) === String(selectedChildId));
+      const centerId = isParent ? getChildCenterId(selectedChild) : activeCentreId;
+
+      if (!centerId) {
+        setItems([]);
+        setSnapshotPagination({
+          currentPage: 1,
+          perPage: PAGE_SIZE,
+          total: 0,
+          lastPage: 1,
+        });
+        return;
+      }
+
+      const response = await snapshotService.getAllSnapshots(centerId, {
         page,
         perPage: PAGE_SIZE,
-        search,
-        status,
-        dateRange,
-        customFrom,
-        customTo,
-        childIds: childId !== "all" ? [childId] : [],
-        authorIds: author !== "all" ? [author] : [],
+        ...(isParent
+          ? {
+              childId: selectedChildId,
+              status: "Published",
+            }
+          : {
+              roomId: activeRoomId || undefined,
+              search,
+              status,
+              dateRange,
+              customFrom,
+              customTo,
+              childId: childId !== "all" ? childId : undefined,
+              author: author !== "all" ? author : undefined,
+            }),
       });
-      if (response.status) {
-        setItems(getSnapshotItems(response));
+      if (isSuccessResponse(response)) {
+        setItems(getSnapshotItems(response).map(normalizeSnapshotItem));
         setSnapshotPagination(getSnapshotPagination(response));
+      } else {
+        setItems([]);
+        setSnapshotPagination({
+          currentPage: 1,
+          perPage: PAGE_SIZE,
+          total: 0,
+          lastPage: 1,
+        });
+        toast.error(response?.message || "Failed to fetch snapshots");
       }
     } catch (error) {
       console.error("Failed to fetch snapshots:", error);
+      setItems([]);
+      setSnapshotPagination({
+        currentPage: 1,
+        perPage: PAGE_SIZE,
+        total: 0,
+        lastPage: 1,
+      });
+      toast.error("Error loading snapshots");
     } finally {
       setIsLoadingSnapshots(false);
     }
@@ -166,6 +256,9 @@ export default function SnapshotsPage() {
     customTo,
     childId,
     author,
+    isParent,
+    selectedChildId,
+    parentChildren,
   ]);
 
   useEffect(() => {
@@ -184,6 +277,7 @@ export default function SnapshotsPage() {
     customTo,
     childId,
     author,
+    selectedChildId,
   ]);
 
   useEffect(() => {
@@ -191,52 +285,9 @@ export default function SnapshotsPage() {
     setChildId("all");
   }, [activeRoomId]);
 
-  const selectedAuthorName = useMemo(() => {
-    if (author === "all") return undefined;
-    return filteredStaff.find((staff) => String(staff.id) === String(author))?.name;
-  }, [author, filteredStaff]);
-
-  const filtered = useMemo(() => {
-    return items.filter((s) => {
-      if (activeCentreId && String(s.centerid) !== String(activeCentreId)) return false;
-
-      if (status !== "all" && s.status.toLowerCase() !== status.toLowerCase()) return false;
-      if (selectedAuthorName && s.creator?.name !== selectedAuthorName) return false;
-      if (childId !== "all") {
-        const hasChild = s.children?.some((c) => String(c.childid) === String(childId));
-        if (!hasChild) return false;
-      }
-      if (dateRange === "custom") {
-        if (customFrom || customTo) {
-          const date = new Date(s.created_at);
-          if (customFrom && date < new Date(customFrom)) return false;
-          if (customTo) {
-            const toEnd = new Date(customTo);
-            toEnd.setHours(23, 59, 59, 999);
-            if (date > toEnd) return false;
-          }
-        }
-      } else if (!inDateRange(s.created_at, dateRange)) return false;
-
-      const cleanTitle = (s.title || "").replace(/<[^>]*>/g, "");
-      if (search && !cleanTitle.toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
-  }, [
-    items,
-    activeCentreId,
-    status,
-    selectedAuthorName,
-    childId,
-    dateRange,
-    customFrom,
-    customTo,
-    search,
-  ]);
-
   const totalPages = Math.max(1, snapshotPagination.lastPage);
   const safePage = Math.min(page, totalPages);
-  const pageItems = filtered;
+  const pageItems = items;
 
   const handleSubmitTitle = (title) => {
     setTitleModalOpen(false);
@@ -277,8 +328,6 @@ export default function SnapshotsPage() {
     }
   };
 
-  const activeCentre = centres.find((c) => c.id === activeCentreId);
-
   const resetFilters = () => {
     setStatus("all");
     setDateRange("all");
@@ -290,9 +339,6 @@ export default function SnapshotsPage() {
     clearPersonSearch();
   };
 
-  const { can, isParent } = usePermissions();
-  const perms = ACTION_PERMISSIONS.snapshots;
-
   return (
     <div>
       <PageHeader
@@ -301,7 +347,13 @@ export default function SnapshotsPage() {
         breadcrumbs={[{ label: "Snapshots" }]}
         actions={
           <>
-            {can(perms.delete) && (
+            {!isParent && (
+              <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
+                <Filter className="mr-1.5 h-4 w-4" />
+                Filters
+              </Button>
+            )}
+            {isSuperadmin && (
               <Button variant="outline" onClick={() => navigate("/snapshots/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
                 Recycle Bin
@@ -328,6 +380,19 @@ export default function SnapshotsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={activeRoomId} onValueChange={setActiveRoom}>
+                  <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                    <DoorOpen className="mr-1.5 h-4 w-4" />
+                    <SelectValue placeholder="Room" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rooms.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </>
             )}
           </>
@@ -340,6 +405,94 @@ export default function SnapshotsPage() {
           <Camera className="h-6 w-6" /> Snapshot Gallery
         </h2>
       </div>
+
+      {!isParent && filtersOpen && (
+        <div className="mb-5 rounded-xl border border-border bg-card p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Filter snapshots</h3>
+            <button
+              onClick={resetFilters}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Reset all
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Search</label>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by title..."
+                  className="h-9 pl-8"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_FILTERS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Date</label>
+              <CustomDateFilter
+                dateRange={dateRange}
+                setDateRange={setDateRange}
+                customFrom={customFrom}
+                setCustomFrom={setCustomFrom}
+                customTo={customTo}
+                setCustomTo={setCustomTo}
+                options={SNAPSHOT_DATE_FILTERS}
+              />
+            </div>
+            <div>
+              <PersonFilterPicker
+                label="Author"
+                value={author}
+                onChange={setAuthor}
+                items={filteredStaff}
+                search={staffSearch}
+                onSearchChange={setStaffSearch}
+                allLabel="All authors"
+                searchPlaceholder="Search staff..."
+                emptyMessage={
+                  activeRoomId ? "No educators in this room" : "Select a room to filter by educator"
+                }
+                maxVisibleRows={5}
+              />
+            </div>
+            <div>
+              <PersonFilterPicker
+                label="Child"
+                value={childId}
+                onChange={setChildId}
+                items={filteredChildren}
+                search={childrenSearch}
+                onSearchChange={setChildrenSearch}
+                isLoading={isChildrenLoading}
+                allLabel="All children"
+                searchPlaceholder="Search children..."
+                emptyMessage={
+                  activeRoomId ? "No children in this room" : "Select a room to filter by child"
+                }
+                maxVisibleRows={5}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoadingSnapshots ? (
         <PageLoader label="Loading snapshots…" />

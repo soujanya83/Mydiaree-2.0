@@ -179,6 +179,51 @@ export const observationService = {
     return response.data;
   },
 
+  getLinkedProgramPlans: async (obsId) => {
+    const response = await api.get("/observation-api/link/program-plan", {
+      params: { obsId },
+    });
+    return response.data;
+  },
+
+  saveLinkedProgramPlans: async ({ obsId, programplanids }) => {
+    const response = await api.post("/observation-api/link/program-plan", {
+      obsId,
+      programplanids,
+    });
+    return response.data;
+  },
+
+  getLinkedReflections: async (obsId) => {
+    const response = await api.get("/observation-api/link/reflection", {
+      params: { obsId },
+    });
+    return response.data;
+  },
+
+  saveLinkedReflections: async ({ obsId, reflection_ids }) => {
+    const response = await api.post("/observation-api/link/reflection", {
+      obsId,
+      reflection_ids,
+    });
+    return response.data;
+  },
+
+  getLinkedObservations: async (obsId) => {
+    const response = await api.get("/observation-api/link/observation", {
+      params: { obsId },
+    });
+    return response.data;
+  },
+
+  saveLinkedObservations: async ({ obsId, observation_ids }) => {
+    const response = await api.post("/observation-api/link/observation", {
+      obsId,
+      observation_ids,
+    });
+    return response.data;
+  },
+
   /** FormData: idSubject, title, center_id */
   addActivity: async (payload) => postObservationMultipart("/Observation/addActivity", payload),
 

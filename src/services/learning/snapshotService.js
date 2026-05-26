@@ -2,21 +2,87 @@ import api from "../../api/api";
 
 const DEFAULT_PER_PAGE = 12;
 
-function buildSnapshotListParams(centerId, options = {}) {
-  const { page = 1, perPage = DEFAULT_PER_PAGE } = options;
+const DATE_MAP = {
+  today: "Today",
+  "this-week": "This Week",
+  "this-month": "This month",
+  custom: "Custom",
+};
 
-  return {
-    centerid: centerId,
-    per_page: perPage,
-    page,
-  };
+const STATUS_MAP = {
+  draft: "Draft",
+  published: "Published",
+};
+
+function appendIfPresent(formData, key, value) {
+  if (value !== null && value !== undefined && value !== "") {
+    formData.append(key, value);
+  }
+}
+
+function appendArray(formData, key, values = []) {
+  const normalizedValues = (Array.isArray(values) ? values : [values])
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  normalizedValues.forEach((value) => formData.append(key, value));
+}
+
+function buildSnapshotListFormData(centerId, options = {}) {
+  const {
+    page = 1,
+    perPage = DEFAULT_PER_PAGE,
+    roomId,
+    search,
+    status,
+    dateRange,
+    customFrom,
+    customTo,
+    childId,
+    author,
+  } = options;
+
+  const formData = new FormData();
+
+  formData.append("center_id", centerId);
+  formData.append("page", page);
+  formData.append("per_page", perPage);
+
+  appendIfPresent(formData, "room_id", roomId);
+  appendIfPresent(formData, "search", search?.trim());
+
+  if (status && status !== "all") {
+    formData.append("status", STATUS_MAP[status] || status);
+  }
+
+  if (dateRange && dateRange !== "all") {
+    const dateValue = DATE_MAP[dateRange];
+    if (dateValue) {
+      appendArray(formData, "date[]", dateValue);
+      if (dateValue === "Custom") {
+        appendIfPresent(formData, "fromDate", customFrom);
+        appendIfPresent(formData, "toDate", customTo);
+      }
+    }
+  }
+
+  appendIfPresent(formData, "child_id", childId);
+  appendIfPresent(formData, "author", author);
+
+  return formData;
 }
 
 export const snapshotService = {
   async getAllSnapshots(centerId, options = {}) {
-    const res = await api.get("/snapshot/mernindex", {
-      params: buildSnapshotListParams(centerId, options),
-    });
+    const res = await api.post(
+      "/snapshot/mernsnapshotfilters",
+      buildSnapshotListFormData(centerId, options),
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
 
     return res.data;
   },
