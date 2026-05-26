@@ -143,6 +143,7 @@ export default function ObservationPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [titleModalOpen, setTitleModalOpen] = useState(false);
   const [commentModalId, setCommentModalId] = useState(null);
+  const [commentRefreshTicks, setCommentRefreshTicks] = useState({});
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [dateRange, setDateRange] = useState("all");
@@ -502,6 +503,7 @@ export default function ObservationPage() {
               canEdit={can(perms.edit)}
               canDelete={can(perms.delete)}
               canShare={isParent}
+              commentRefreshTick={commentRefreshTicks[o.id] || 0}
             />
           ))}
         </div>
@@ -523,7 +525,15 @@ export default function ObservationPage() {
       <ObservationCommentModal
         open={Boolean(commentModalId)}
         observationId={commentModalId}
-        onClose={() => setCommentModalId(null)}
+        onClose={() => {
+          if (commentModalId) {
+            setCommentRefreshTicks((prev) => ({
+              ...prev,
+              [commentModalId]: (prev[commentModalId] || 0) + 1,
+            }));
+          }
+          setCommentModalId(null);
+        }}
       />
 
       {galleryObservation && (
@@ -848,17 +858,34 @@ function ObservationCard({
   canEdit = true,
   canDelete = true,
   canShare = false,
+  commentRefreshTick = 0,
 }) {
   const images = obs.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [commentCount, setCommentCount] = useState(null);
 
   useEffect(() => {
     if (images.length <= 1) return;
     const interval = setInterval(() => {
       setCurrentIdx((prev) => (prev + 1) % images.length);
-    }, 3000); // Change image every 3 seconds
+    }, 3000);
     return () => clearInterval(interval);
   }, [images.length]);
+
+  useEffect(() => {
+    let cancelled = false;
+    observationService
+      .getComments(obs.id)
+      .then((res) => {
+        if (!cancelled && res.status) {
+          setCommentCount(res.comments?.length ?? 0);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [obs.id, commentRefreshTick]);
 
   const cover = images[currentIdx];
 
@@ -1004,11 +1031,16 @@ function ObservationCard({
               e.preventDefault();
               onComment();
             }}
-            title="Comments"
-            className={CARD_PRIMARY_ACTION_CLASSES}
+            title={`Comments${commentCount !== null ? ` (${commentCount})` : ""}`}
+            className={`relative ${CARD_PRIMARY_ACTION_CLASSES}`}
             style={CARD_PRIMARY_ACTION_STYLE}
           >
             <MessageSquare className="h-4 w-4" />
+            {commentCount !== null && commentCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold leading-none text-primary-foreground shadow">
+                {commentCount > 99 ? "99+" : commentCount}
+              </span>
+            )}
           </button>
           <button
             type="button"
