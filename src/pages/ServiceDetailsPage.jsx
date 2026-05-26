@@ -62,7 +62,12 @@ function Section({ icon: Icon, title, children, accent = "primary", tinted = fal
 function Field({ label, children, full = false, error }) {
   return (
     <div className={cn("space-y-2", full && "md:col-span-2")}>
-      <Label className={cn("text-[11px] font-bold uppercase tracking-wider text-muted-foreground", error && "text-destructive")}>
+      <Label
+        className={cn(
+          "text-[11px] font-bold uppercase tracking-wider text-muted-foreground",
+          error && "text-destructive",
+        )}
+      >
         {label}
       </Label>
       {children}
@@ -181,7 +186,7 @@ export default function ServiceDetailsPage() {
       try {
         const res = await serviceDetailsService.getServiceDetails(selectedCentreId);
         if (!ignore) {
-          setData(mapServiceDetails(res.data?.serviceDetails));
+          setData(mapServiceDetails(res.data?.serviceDetails ?? {}));
           setErrors({});
         }
       } catch (error) {
@@ -383,11 +388,17 @@ export default function ServiceDetailsPage() {
         <>
           <Section icon={Info} title="Service Information">
             <Field label="Service Name" error={errors.serviceName}>
-              <Textarea rows={2} value={data.serviceName} onChange={set("serviceName")} />
+              <Textarea
+                rows={2}
+                placeholder="Enter service name"
+                value={data.serviceName}
+                onChange={set("serviceName")}
+              />
             </Field>
             <Field label="Service Approval Number" error={errors.serviceApprovalNumber}>
               <Textarea
                 rows={2}
+                placeholder="e.g. SE-12345678"
                 value={data.serviceApprovalNumber}
                 onChange={set("serviceApprovalNumber")}
               />
@@ -396,83 +407,150 @@ export default function ServiceDetailsPage() {
 
           <Section icon={MapPin} title="Physical Location of Service">
             <Field label="Street Address" error={errors.physStreet}>
-              <Input value={data.physStreet} onChange={set("physStreet")} />
+              <Input
+                placeholder="e.g. 1 Capricorn Road"
+                value={data.physStreet}
+                onChange={set("physStreet")}
+              />
             </Field>
             <Field label="Suburb" error={errors.physSuburb}>
-              <Input value={data.physSuburb} onChange={set("physSuburb")} />
+              <Input
+                placeholder="e.g. Truganina"
+                value={data.physSuburb}
+                onChange={set("physSuburb")}
+              />
             </Field>
             <Field label="State/Territory" error={errors.physState}>
-              <Input value={data.physState} onChange={set("physState")} />
+              <Input placeholder="e.g. VIC" value={data.physState} onChange={set("physState")} />
             </Field>
             <Field label="Postcode" error={errors.physPostcode}>
-              <Input value={data.physPostcode} onChange={set("physPostcode")} />
+              <Input
+                placeholder="e.g. 3029"
+                value={data.physPostcode}
+                onChange={set("physPostcode")}
+              />
             </Field>
           </Section>
 
           <Section icon={Phone} title="Physical Location Contact Details">
             <Field label="Telephone" error={errors.telephone}>
-              <Input value={data.telephone} onChange={set("telephone")} />
+              <Input
+                placeholder="e.g. (03) 9000 0000"
+                value={data.telephone}
+                onChange={set("telephone")}
+              />
             </Field>
             <Field label="Mobile Phone" error={errors.mobilePhone}>
-              <Input value={data.mobilePhone} onChange={set("mobilePhone")} />
+              <Input
+                placeholder="e.g. 0400 000 000"
+                value={data.mobilePhone}
+                onChange={set("mobilePhone")}
+              />
             </Field>
             <Field label="Fax" error={errors.fax}>
-              <Input value={data.fax} onChange={set("fax")} />
+              <Input placeholder="e.g. (03) 9000 0001" value={data.fax} onChange={set("fax")} />
             </Field>
             <Field label="Email Address" error={errors.email}>
-              <Input type="email" value={data.email} onChange={set("email")} />
+              <Input
+                type="email"
+                placeholder="e.g. info@service.com.au"
+                value={data.email}
+                onChange={set("email")}
+              />
             </Field>
           </Section>
 
           <Section icon={UserCheck} title="Approved Provider">
             <Field label="Primary Contact" error={errors.apPrimaryContact}>
-              <Input value={data.apPrimaryContact} onChange={set("apPrimaryContact")} />
+              <Input
+                placeholder="Full name of primary contact"
+                value={data.apPrimaryContact}
+                onChange={set("apPrimaryContact")}
+              />
             </Field>
             <Field label="Telephone" error={errors.apTelephone}>
-              <Input value={data.apTelephone} onChange={set("apTelephone")} />
+              <Input
+                placeholder="e.g. (03) 9000 0000"
+                value={data.apTelephone}
+                onChange={set("apTelephone")}
+              />
             </Field>
             <Field label="Mobile" error={errors.apMobile}>
-              <Input value={data.apMobile} onChange={set("apMobile")} />
+              <Input
+                placeholder="e.g. 0400 000 000"
+                value={data.apMobile}
+                onChange={set("apMobile")}
+              />
             </Field>
             <Field label="Fax" error={errors.apFax}>
-              <Input value={data.apFax} onChange={set("apFax")} />
+              <Input placeholder="e.g. (03) 9000 0001" value={data.apFax} onChange={set("apFax")} />
             </Field>
             <Field label="Email Address" full error={errors.apEmail}>
-              <Input type="email" value={data.apEmail} onChange={set("apEmail")} />
+              <Input
+                type="email"
+                placeholder="e.g. provider@service.com.au"
+                value={data.apEmail}
+                onChange={set("apEmail")}
+              />
             </Field>
           </Section>
 
           <Section icon={UserCog} title="Nominated Supervisor">
             <Field label="Name" error={errors.nsName}>
-              <Input value={data.nsName} onChange={set("nsName")} />
+              <Input
+                placeholder="Full name of nominated supervisor"
+                value={data.nsName}
+                onChange={set("nsName")}
+              />
             </Field>
             <Field label="Telephone" error={errors.nsTelephone}>
               <Input
-                placeholder="Enter telephone number"
+                placeholder="e.g. (03) 9000 0000"
                 value={data.nsTelephone}
                 onChange={set("nsTelephone")}
               />
             </Field>
             <Field label="Mobile" error={errors.nsMobile}>
-              <Input value={data.nsMobile} onChange={set("nsMobile")} />
+              <Input
+                placeholder="e.g. 0400 000 000"
+                value={data.nsMobile}
+                onChange={set("nsMobile")}
+              />
             </Field>
             <Field label="Fax" error={errors.nsFax}>
-              <Input value={data.nsFax} onChange={set("nsFax")} />
+              <Input placeholder="e.g. (03) 9000 0001" value={data.nsFax} onChange={set("nsFax")} />
             </Field>
             <Field label="Email Address" full error={errors.nsEmail}>
-              <Input value={data.nsEmail} onChange={set("nsEmail")} />
+              <Input
+                type="email"
+                placeholder="e.g. supervisor@service.com.au"
+                value={data.nsEmail}
+                onChange={set("nsEmail")}
+              />
             </Field>
           </Section>
 
           <Section icon={Mail} title="Postal Address (if different from physical)">
             <Field label="Street Address" error={errors.postalStreet}>
-              <Input value={data.postalStreet} onChange={set("postalStreet")} />
+              <Input
+                placeholder="e.g. PO Box 123"
+                value={data.postalStreet}
+                onChange={set("postalStreet")}
+              />
             </Field>
             <Field label="Suburb" error={errors.postalSuburb}>
-              <Input value={data.postalSuburb} onChange={set("postalSuburb")} />
+              <Input
+                placeholder="e.g. Truganina"
+                value={data.postalSuburb}
+                onChange={set("postalSuburb")}
+              />
             </Field>
             <Field label="State/Territory" error={errors.postalState}>
-              <Input value={data.postalState} onChange={set("postalState")} />
+              <Input
+                placeholder="e.g. VIC"
+                value={data.postalState}
+                onChange={set("postalState")}
+              />
             </Field>
             <Field label="Postcode" error={errors.postalPostcode}>
               <Input
@@ -508,15 +586,32 @@ export default function ServiceDetailsPage() {
           </Section>
 
           <Section icon={ClipboardList} title="Additional Information About Your Service">
-            <Field label="Summary of strengths for Educational Program and practice" error={errors.strengths}>
-              <Textarea rows={4} value={data.strengths} onChange={set("strengths")} />
-            </Field>
-            <Field label="How are the children grouped at your service?" error={errors.groupedHow}>
-              <Textarea rows={4} value={data.groupedHow} onChange={set("groupedHow")} />
-            </Field>
-            <Field label="Name and position of person(s) responsible for submitting" error={errors.responsiblePerson}>
+            <Field
+              label="Summary of strengths for Educational Program and practice"
+              error={errors.strengths}
+            >
               <Textarea
                 rows={4}
+                placeholder="Describe the key strengths of your educational program and practice…"
+                value={data.strengths}
+                onChange={set("strengths")}
+              />
+            </Field>
+            <Field label="How are the children grouped at your service?" error={errors.groupedHow}>
+              <Textarea
+                rows={4}
+                placeholder="Describe how children are grouped (e.g. by age, mixed age groups)…"
+                value={data.groupedHow}
+                onChange={set("groupedHow")}
+              />
+            </Field>
+            <Field
+              label="Name and position of person(s) responsible for submitting"
+              error={errors.responsiblePerson}
+            >
+              <Textarea
+                rows={4}
+                placeholder="e.g. Jane Smith — Director"
                 value={data.responsiblePerson}
                 onChange={set("responsiblePerson")}
               />
@@ -524,6 +619,7 @@ export default function ServiceDetailsPage() {
             <Field label="Number of educators registered" error={errors.educatorsRegistered}>
               <Textarea
                 rows={4}
+                placeholder="List the number of registered educators at your service…"
                 value={data.educatorsRegistered}
                 onChange={set("educatorsRegistered")}
               />
@@ -575,7 +671,9 @@ export default function ServiceDetailsPage() {
               ) : (
                 <Save className="mr-2 h-5 w-5 transition-transform group-hover:scale-110" />
               )}
-              <span className="text-base font-semibold">{isSaving ? "Saving..." : "Save Changes"}</span>
+              <span className="text-base font-semibold">
+                {isSaving ? "Saving..." : "Save Changes"}
+              </span>
             </Button>
           </div>
         </>
