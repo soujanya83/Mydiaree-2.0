@@ -344,38 +344,19 @@ export default function ObservationPage() {
               </Button>
             )}
             {!isParent && (
-              <>
-                <Select value={activeCentreId} onValueChange={setActiveCentre}>
-                  <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                    <Building2 className="mr-1.5 h-4 w-4" />
-                    <SelectValue placeholder="Centre" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {centres.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={activeRoomId || "all"}
-                  onValueChange={(val) => setActiveRoom(val === "all" ? null : val)}
-                >
-                  <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                    <DoorOpen className="mr-1.5 h-4 w-4" />
-                    <SelectValue placeholder="Room" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Rooms</SelectItem>
-                    {rooms.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
+              <Select value={activeCentreId} onValueChange={setActiveCentre}>
+                <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
+                  <Building2 className="mr-1.5 h-4 w-4" />
+                  <SelectValue placeholder="Centre" />
+                </SelectTrigger>
+                <SelectContent>
+                  {centres.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </>
         }

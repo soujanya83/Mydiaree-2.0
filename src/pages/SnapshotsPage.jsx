@@ -138,7 +138,6 @@ export default function SnapshotsPage() {
       const response = await snapshotService.getAllSnapshots(activeCentreId, {
         page,
         perPage: PAGE_SIZE,
-        roomId: activeRoomId || undefined,
         search,
         status,
         dateRange,
@@ -302,12 +301,6 @@ export default function SnapshotsPage() {
         breadcrumbs={[{ label: "Snapshots" }]}
         actions={
           <>
-            {!isParent && (
-              <Button variant="outline" onClick={() => setFiltersOpen((v) => !v)}>
-                <Filter className="mr-1.5 h-4 w-4" />
-                Filters
-              </Button>
-            )}
             {can(perms.delete) && (
               <Button variant="outline" onClick={() => navigate("/snapshots/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
@@ -335,19 +328,6 @@ export default function SnapshotsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={activeRoomId} onValueChange={setActiveRoom}>
-                  <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                    <DoorOpen className="mr-1.5 h-4 w-4" />
-                    <SelectValue placeholder="Room" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rooms.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </>
             )}
           </>
@@ -360,94 +340,6 @@ export default function SnapshotsPage() {
           <Camera className="h-6 w-6" /> Snapshot Gallery
         </h2>
       </div>
-
-      {!isParent && filtersOpen && (
-        <div className="mb-5 rounded-xl border border-border bg-card p-4 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-foreground">Filter snapshots</h3>
-            <button
-              onClick={resetFilters}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Reset all
-            </button>
-          </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Search</label>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by title…"
-                  className="h-9 pl-8"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_FILTERS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Date</label>
-              <CustomDateFilter
-                dateRange={dateRange}
-                setDateRange={setDateRange}
-                customFrom={customFrom}
-                setCustomFrom={setCustomFrom}
-                customTo={customTo}
-                setCustomTo={setCustomTo}
-                options={SNAPSHOT_DATE_FILTERS}
-              />
-            </div>
-            <div>
-              <PersonFilterPicker
-                label="Author"
-                value={author}
-                onChange={setAuthor}
-                items={filteredStaff}
-                search={staffSearch}
-                onSearchChange={setStaffSearch}
-                allLabel="All authors"
-                searchPlaceholder="Search staff..."
-                emptyMessage={
-                  activeRoomId ? "No educators in this room" : "Select a room to filter by educator"
-                }
-                maxVisibleRows={5}
-              />
-            </div>
-            <div>
-              <PersonFilterPicker
-                label="Child"
-                value={childId}
-                onChange={setChildId}
-                items={filteredChildren}
-                search={childrenSearch}
-                onSearchChange={setChildrenSearch}
-                isLoading={isChildrenLoading}
-                allLabel="All children"
-                searchPlaceholder="Search children..."
-                emptyMessage={
-                  activeRoomId ? "No children in this room" : "Select a room to filter by child"
-                }
-                maxVisibleRows={5}
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
       {isLoadingSnapshots ? (
         <PageLoader label="Loading snapshots…" />
