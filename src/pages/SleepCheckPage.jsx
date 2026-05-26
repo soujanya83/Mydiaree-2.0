@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuthStore } from "@/stores/authStore";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
@@ -45,6 +46,8 @@ const TEMPERATURE_OPTIONS = ["Normal", "Warm", "Hot"];
 
 export default function SleepCheckPage() {
   const { isParent } = usePermissions();
+  const user = useAuthStore((s) => s.user);
+  const userName = user?.name || "";
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
@@ -80,7 +83,7 @@ export default function SleepCheckPage() {
     breathing: "Regular",
     temperature: "Normal",
     notes: "",
-    signature: "",
+    signature: userName,
   });
   const [isBulkSaving, setIsBulkSaving] = useState(false);
 
@@ -290,7 +293,7 @@ export default function SleepCheckPage() {
           breathing: "Regular",
           temperature: "Normal",
           notes: "",
-          signature: "",
+          signature: userName,
         });
         fetchSleepChecks();
       } else {
@@ -366,7 +369,7 @@ export default function SleepCheckPage() {
       breathing: "Regular",
       temperature: "Normal",
       notes: "",
-      signature: "",
+      signature: userName,
       isNew: true,
     };
     setCards((p) => {
@@ -706,7 +709,11 @@ export default function SleepCheckPage() {
               const now = new Date();
               const hh = String(now.getHours()).padStart(2, "0");
               const mm = String(now.getMinutes()).padStart(2, "0");
-              setBulkForm((f) => ({ ...f, time: `${hh}:${mm}` }));
+              setBulkForm((f) => ({
+                ...f,
+                time: `${hh}:${mm}`,
+                signature: f.signature || userName,
+              }));
               setBulkModal(true);
             }}
           >
@@ -786,7 +793,7 @@ export default function SleepCheckPage() {
                       <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[200]">
                         {BREATHING_OPTIONS.map((o) => (
                           <SelectItem key={o} value={o}>
                             {o}
@@ -807,7 +814,7 @@ export default function SleepCheckPage() {
                       <SelectTrigger className="h-9">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="z-[200]">
                         {TEMPERATURE_OPTIONS.map((o) => (
                           <SelectItem key={o} value={o}>
                             {o}
@@ -859,7 +866,13 @@ export default function SleepCheckPage() {
                 </Button>
                 <Button onClick={handleBulkSave} disabled={isBulkSaving}>
                   <Save className="mr-1.5 h-4 w-4" />
-                  {isBulkSaving ? "Saving..." : "Save Bulk Entry"}
+                  {isBulkSaving
+                    ? "Saving..."
+                    : (() => {
+                        const sel = fetchedChildren.filter((c) => cards[c.id]?.selected);
+                        const count = sel.length > 0 ? sel.length : fetchedChildren.length;
+                        return count > 1 ? "Save Bulk Entry" : "Save Entry";
+                      })()}
                 </Button>
               </div>
             </div>

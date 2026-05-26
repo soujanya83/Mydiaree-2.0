@@ -32,33 +32,74 @@ const blank = {
   days: [...DAYS],
 };
 
+const DAY_FLAG_KEYS = [
+  ["Monday", "mon"],
+  ["Tuesday", "tue"],
+  ["Wednesday", "wed"],
+  ["Thursday", "thu"],
+  ["Friday", "fri"],
+];
 
+const resolveDayName = (value, defaultDays) => {
+  const normalized = String(value).toLowerCase();
+  const matchedFlag = DAY_FLAG_KEYS.find(([, key]) => key === normalized);
+  if (matchedFlag) return matchedFlag[0];
+  return defaultDays.find((day) => day.toLowerCase() === normalized);
+};
 
 const parseDaysAttending = (initial, defaultDays) => {
   if (!initial) return [...defaultDays];
-  const rawDays = initial.daysAttending ?? initial.dayAttending ?? initial.days_attending ?? initial.days;
+  const rawDays =
+    initial.daysAttending ?? initial.dayAttending ?? initial.days_attending ?? initial.days;
+  const hasDayFlags = DAY_FLAG_KEYS.some(([, key]) => initial[key] !== undefined);
+
+  if (hasDayFlags) {
+    return DAY_FLAG_KEYS.filter(
+      ([, key]) => String(initial[key]) === "1" || initial[key] === true,
+    ).map(([day]) => day);
+  }
+
   if (!rawDays) return [...defaultDays];
 
   if (Array.isArray(rawDays)) {
-    return rawDays
-      .map((d) => defaultDays.find((day) => day.toLowerCase() === String(d).toLowerCase()))
-      .filter(Boolean);
+    return rawDays.map((d) => resolveDayName(d, defaultDays)).filter(Boolean);
   }
 
   if (typeof rawDays === "string") {
     if (/^[01]+$/.test(rawDays)) {
       return Array.from(rawDays)
-        .map((v, i) => (v === '1' ? defaultDays[i] : null))
+        .map((v, i) => (v === "1" ? defaultDays[i] : null))
         .filter(Boolean);
     }
     return rawDays
       .split(",")
       .map((d) => d.trim())
-      .map((d) => defaultDays.find((day) => day.toLowerCase() === d.toLowerCase()))
+      .map((d) => resolveDayName(d, defaultDays))
       .filter(Boolean);
   }
 
+  if (typeof rawDays === "object") {
+    return DAY_FLAG_KEYS.filter(
+      ([, key]) => String(rawDays[key]) === "1" || rawDays[key] === true,
+    ).map(([day]) => day);
+  }
+
   return [...defaultDays];
+};
+
+const buildAttendingDaysPayload = (selectedDays) => {
+  const selected = new Set(selectedDays);
+  return DAY_FLAG_KEYS.reduce((payload, [day, key]) => {
+    if (selected.has(day)) {
+      payload[key] = 1;
+    }
+    return payload;
+  }, {});
+};
+
+const buildSelectedDayKeys = (selectedDays) => {
+  const selected = new Set(selectedDays);
+  return DAY_FLAG_KEYS.filter(([day]) => selected.has(day)).map(([, key]) => key);
 };
 
 export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving }) {
@@ -75,19 +116,27 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
           startDate: initial.startDate || "",
           image: initial.imageUrl || "",
           imageFile: null,
-          status: initial.status ? (initial.status.charAt(0).toUpperCase() + initial.status.slice(1).toLowerCase()) : "Active",
-          gender: initial.gender ? (initial.gender.charAt(0).toUpperCase() + initial.gender.slice(1).toLowerCase()) : "Male",
+          status: initial.status
+            ? initial.status.charAt(0).toUpperCase() + initial.status.slice(1).toLowerCase()
+            : "Active",
+          gender: initial.gender
+            ? initial.gender.charAt(0).toUpperCase() + initial.gender.slice(1).toLowerCase()
+            : "Male",
           days: parseDaysAttending(initial, DAYS),
         });
-        setPreview(initial.imageUrl ? (initial.imageUrl.startsWith("http") ? initial.imageUrl : `https://mydiaree.com.au/${initial.imageUrl}`) : "");
+        setPreview(
+          initial.imageUrl
+            ? initial.imageUrl.startsWith("http")
+              ? initial.imageUrl
+              : `https://mydiaree.com.au/${initial.imageUrl}`
+            : "",
+        );
       } else {
         setForm(blank);
         setPreview("");
       }
     }
   }, [open, initial]);
-
-
 
   if (!open) return null;
 
@@ -108,7 +157,6 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
     reader.readAsDataURL(f);
   };
 
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.firstname.trim()) {
@@ -123,7 +171,7 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
       toast.error("Please select a gender");
       return;
     }
-    
+
     // Format payload for API
     const payload = {
       firstname: form.firstname,
@@ -132,19 +180,22 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
       startDate: form.startDate,
       gender: form.gender,
       status: form.status,
-      days: form.days,
     };
+    if (initial) {
+      payload.days = buildSelectedDayKeys(form.days);
+    } else {
+      Object.assign(payload, buildAttendingDaysPayload(form.days));
+    }
     if (form.imageFile) payload.file = form.imageFile;
-    
+
     onSubmit(payload);
   };
-
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
       <DialogContent className="sm:max-w-[750px] p-0 overflow-hidden rounded-3xl border-border/60 bg-card/95 backdrop-blur shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="absolute top-0 right-0 h-40 w-40 -translate-y-1/2 translate-x-1/3 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-        
+
         <DialogHeader className="px-6 pb-2 pt-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -156,7 +207,9 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
                   {initial ? "Edit Child Profile" : "Add New Child"}
                 </DialogTitle>
                 <p className="text-sm font-medium text-muted-foreground mt-0.5">
-                  {initial ? "Update details for this child" : "Create a new profile for enrollment"}
+                  {initial
+                    ? "Update details for this child"
+                    : "Create a new profile for enrollment"}
                 </p>
               </div>
             </div>
@@ -190,9 +243,7 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-bold text-foreground">
-                    Last Name
-                  </Label>
+                  <Label className="text-sm font-bold text-foreground">Last Name</Label>
                   <Input
                     value={form.lastname}
                     onChange={(e) => update("lastname", e.target.value)}
@@ -242,7 +293,7 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
                         <Upload className="h-6 w-6" />
                       </div>
                     )}
-                    
+
                     <div className="flex flex-col flex-1 gap-2">
                       <span className="text-sm font-medium text-foreground">
                         {preview ? "Image selected" : "Upload a profile picture"}
@@ -337,17 +388,17 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
           </div>
 
           <DialogFooter className="flex justify-end gap-2 border-t border-border/50 bg-muted/10 px-6 py-4">
-            <Button 
-              type="button" 
-              variant="ghost" 
-              onClick={onClose} 
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
               disabled={isSaving}
               className="rounded-xl font-semibold"
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={isSaving}
               className="rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30"
             >

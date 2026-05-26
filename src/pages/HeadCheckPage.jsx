@@ -1,10 +1,27 @@
 import { useCallback, useState } from "react";
-import { ClipboardCheck, Clock, PenLine, Plus, Printer, Save, Trash2, Users } from "lucide-react";
+import { useAuthStore } from "@/stores/authStore";
+import {
+  ClipboardCheck,
+  Clock,
+  Pencil,
+  PenLine,
+  Plus,
+  Printer,
+  Save,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -24,15 +41,18 @@ function nowHHMM() {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-const newRow = (time = "") => ({
+const newRow = (time = "", signature = "") => ({
   id: crypto.randomUUID(),
   time,
   count: "",
-  signature: "",
+  signature,
   isNew: true,
 });
 
 export default function HeadCheckPage() {
+  const user = useAuthStore((s) => s.user);
+  const userName = user?.name || "";
+
   const centres = useCentreStore((s) => s.centres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const setActiveCentre = useCentreStore((s) => s.setActiveCentre);
@@ -46,6 +66,9 @@ export default function HeadCheckPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null); // { id, isNew }
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
+  const [itemToUpdate, setItemToUpdate] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const fetchHeadChecks = useCallback(async () => {
     if (!activeCentreId || !activeRoomId) return;
@@ -70,32 +93,50 @@ export default function HeadCheckPage() {
             count: hc.headcount,
             signature: hc.signature,
             isNew: false,
+            isDirty: false,
           };
         });
-        setRows(mapped.length > 0 ? mapped : [newRow(nowHHMM())]);
+        setRows(mapped.length > 0 ? mapped : [newRow(nowHHMM(), userName)]);
       } else {
-        setRows([newRow(nowHHMM())]);
+        setRows([newRow(nowHHMM(), userName)]);
       }
     } catch (error) {
       console.error("Failed to fetch head checks", error);
       toast.error("Failed to load head checks");
-      setRows([newRow(nowHHMM())]);
+      setRows([newRow(nowHHMM(), userName)]);
     } finally {
       setIsLoading(false);
     }
-  }, [activeCentreId, activeRoomId, date]);
+  }, [activeCentreId, activeRoomId, date, userName]);
 
   useEffect(() => {
     fetchHeadChecks();
   }, [fetchHeadChecks]);
 
-  const addRow = () => setRows((p) => [...p, newRow(nowHHMM())]);
+  const addRow = () => setRows((p) => [...p, newRow(nowHHMM(), userName)]);
   const update = (id, patch) =>
-    setRows((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    setRows((p) =>
+      p.map((r) => {
+        if (r.id !== id) return r;
+        return { ...r, ...patch };
+      }),
+    );
+
+  const formatTime = (time) => {
+    const [h, m] = time.split(":");
+    return `${parseInt(h, 10)}h:${m}m`;
+  };
 
   const handleSave = async () => {
-    const incomplete = rows.some((r) => !r.time || !r.count || !r.signature);
-    if (incomplete) {
+    const newRows = rows.filter((r) => r.isNew);
+
+    if (newRows.length === 0) {
+      toast.info("No new head checks to save.");
+      return;
+    }
+
+    const incompleteNew = newRows.some((r) => !r.time || !r.count || !r.signature);
+    if (incompleteNew) {
       toast.error("Please fill in time, head count, and signature for every entry.");
       return;
     }
@@ -103,33 +144,71 @@ export default function HeadCheckPage() {
     setIsLoading(true);
     try {
       const fd = new FormData();
-      rows.forEach((r) => {
-        // Convert "12:53" back to "12h:53m" if needed,
-        // but user's example had 1h:54m.
-        // Let's format it as per their example: "Hh:mm"
-        const [h, m] = r.time.split(":");
-        const formattedTime = `${parseInt(h, 10)}h:${m}m`;
-
-        fd.append("timePicker[]", formattedTime);
+      newRows.forEach((r) => {
+        fd.append("timePicker[]", formatTime(r.time));
         fd.append("headCount[]", r.count);
         fd.append("signature[]", r.signature);
       });
       fd.append("roomid", activeRoomId);
       fd.append("centerid", activeCentreId);
       fd.append("diarydate", date);
-      // headcheck flag is optional, but common practice to set if replacing
-      // fd.append("headcheck", "1");
+      await headChecksService.storeHeadChecks(fd);
 
-      const res = await headChecksService.storeHeadChecks(fd);
-      if (res.data.status) {
-        toast.success(res.data.message || "Head check records saved successfully.");
-        fetchHeadChecks(); // Refresh to get real IDs
-      }
+      toast.success("Head check records saved successfully.");
+      fetchHeadChecks(); // Refresh to get real IDs + clear dirty flags
     } catch (error) {
       console.error("Save failed", error);
       toast.error("Failed to save head checks");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleOpenUpdate = (row) => {
+    setItemToUpdate({ ...row });
+    setUpdateModalOpen(true);
+  };
+
+  const patchUpdateItem = (patch) => {
+    setItemToUpdate((current) => (current ? { ...current, ...patch } : current));
+  };
+
+  const handleUpdateSubmit = async () => {
+    if (!itemToUpdate) return;
+    if (!itemToUpdate.time || !itemToUpdate.count || !itemToUpdate.signature) {
+      toast.error("Please fill in time, head count, and signature.");
+      return;
+    }
+    if (!activeCentreId || !activeRoomId) {
+      toast.error("Please select a centre and room first.");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const fd = new FormData();
+      fd.append("timePicker[]", formatTime(itemToUpdate.time));
+      fd.append("headCount[]", itemToUpdate.count);
+      fd.append("signature[]", itemToUpdate.signature);
+      fd.append("roomid", activeRoomId);
+      fd.append("centerid", activeCentreId);
+      fd.append("diarydate", date);
+      fd.append("headcheck", itemToUpdate.id);
+
+      const res = await headChecksService.storeHeadChecks(fd);
+      if (res.data?.status === "success" || res.data?.status === true || res.data?.success) {
+        toast.success(res.data?.message || "Head check updated successfully.");
+      } else {
+        toast.success("Head check updated successfully.");
+      }
+      setUpdateModalOpen(false);
+      setItemToUpdate(null);
+      fetchHeadChecks();
+    } catch (error) {
+      console.error("Update failed", error);
+      toast.error("Failed to update head check");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -282,7 +361,7 @@ export default function HeadCheckPage() {
           <div className="divide-y divide-border">
             {rows.map((row, idx) => (
               <div key={row.id} className="p-4 transition-colors hover:bg-muted/25 sm:p-5">
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[72px_1fr_1fr_1.1fr_42px] lg:items-end">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-[72px_1fr_1fr_1.1fr_90px] lg:items-end">
                   <div className="flex items-center gap-3 lg:block">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-sm font-bold text-foreground shadow-sm">
                       {String(idx + 1).padStart(2, "0")}
@@ -294,6 +373,7 @@ export default function HeadCheckPage() {
                       type="time"
                       value={row.time}
                       onChange={(e) => update(row.id, { time: e.target.value })}
+                      disabled={!row.isNew}
                       className="h-11 bg-background text-base font-semibold text-sky-700"
                     />
                   </FieldGroup>
@@ -304,6 +384,7 @@ export default function HeadCheckPage() {
                       min="0"
                       value={row.count}
                       onChange={(e) => update(row.id, { count: e.target.value })}
+                      disabled={!row.isNew}
                       placeholder="Enter count"
                       className="h-11 bg-background text-base"
                     />
@@ -313,20 +394,34 @@ export default function HeadCheckPage() {
                     <Input
                       value={row.signature}
                       onChange={(e) => update(row.id, { signature: e.target.value })}
+                      disabled={!row.isNew}
                       placeholder="Name or initials"
                       className="h-11 bg-background text-base"
                     />
                   </FieldGroup>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(row.id, row.isNew !== false)}
-                    className="justify-self-start text-muted-foreground hover:bg-destructive/10 hover:text-destructive lg:justify-self-end"
-                    aria-label="Remove head check entry"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1 justify-self-start lg:justify-self-end">
+                    {!row.isNew && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenUpdate(row)}
+                        className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                        aria-label="Update head check entry"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDelete(row.id, row.isNew !== false)}
+                      className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Remove head check entry"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -355,6 +450,60 @@ export default function HeadCheckPage() {
         title="Delete Head Check Record?"
         description="This will permanently remove this roll-call snapshot from the system."
       />
+
+      <Dialog
+        open={updateModalOpen}
+        onOpenChange={(open) => {
+          setUpdateModalOpen(open);
+          if (!open) setItemToUpdate(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Update Head Check</DialogTitle>
+          </DialogHeader>
+          {itemToUpdate && (
+            <div className="grid gap-4 py-2">
+              <FieldGroup icon={Clock} label="Time">
+                <Input
+                  type="time"
+                  value={itemToUpdate.time}
+                  onChange={(e) => patchUpdateItem({ time: e.target.value })}
+                />
+              </FieldGroup>
+              <FieldGroup icon={Users} label="Head count">
+                <Input
+                  type="number"
+                  min="0"
+                  value={itemToUpdate.count}
+                  onChange={(e) => patchUpdateItem({ count: e.target.value })}
+                  placeholder="Enter count"
+                />
+              </FieldGroup>
+              <FieldGroup icon={PenLine} label="Staff signature">
+                <Input
+                  value={itemToUpdate.signature}
+                  onChange={(e) => patchUpdateItem({ signature: e.target.value })}
+                  placeholder="Name or initials"
+                />
+              </FieldGroup>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setUpdateModalOpen(false)}
+              disabled={isUpdating}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleUpdateSubmit} disabled={isUpdating}>
+              {isUpdating ? "Updating..." : "Update"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

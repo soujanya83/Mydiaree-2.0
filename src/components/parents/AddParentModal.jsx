@@ -35,6 +35,7 @@ const empty = {
   contact: "",
   gender: "",
   avatar: "",
+  avatarFile: null,
   children: [{ childId: "", relation: "" }],
 };
 
@@ -192,6 +193,7 @@ export function AddParentModal({
   const handleFile = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    set("avatarFile", file);
     const reader = new FileReader();
     reader.onload = () => set("avatar", reader.result);
     reader.readAsDataURL(file);
@@ -350,11 +352,7 @@ export function AddParentModal({
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
                   {errors.password && (
@@ -470,14 +468,16 @@ export function AddParentModal({
                         <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                           Child Profile
                         </Label>
-                        <DropdownMenu onOpenChange={(open) => {
-                          if (open) {
-                            setChildrenPage(1);
-                            setChildrenSearch("");
-                            setChildrenHasMore(true);
-                            fetchChildrenForModal(1, "", false);
-                          }
-                        }}>
+                        <DropdownMenu
+                          onOpenChange={(open) => {
+                            if (open) {
+                              setChildrenPage(1);
+                              setChildrenSearch("");
+                              setChildrenHasMore(true);
+                              fetchChildrenForModal(1, "", false);
+                            }
+                          }}
+                        >
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="outline"

@@ -1,4 +1,4 @@
-import { Bell, LogOut, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LogOut, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ThemeSwitcher } from "@/components/common/ThemeSwitcher";
 import { useUiStore } from "@/stores/uiStore";
@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { NotificationDropdown } from "@/components/layout/NotificationDropdown";
 
 export function Header() {
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
@@ -79,13 +80,7 @@ export function Header() {
         <ThemeSwitcher />
 
         {/* Notifications */}
-        <button
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded-md text-foreground hover:bg-muted"
-          aria-label="Notifications"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive" />
-        </button>
+        <NotificationDropdown />
 
         {/* Profile */}
         <DropdownMenu>
