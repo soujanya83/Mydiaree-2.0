@@ -251,7 +251,7 @@ export const observationService = {
   getObservations: async (centerId, options = {}) => {
     try {
       const response = await api.post(
-        "/observation/filters",
+        "/observation/mernfilters",
         buildObservationListFormData(centerId, options),
         {
           headers: { "Content-Type": "multipart/form-data" },
