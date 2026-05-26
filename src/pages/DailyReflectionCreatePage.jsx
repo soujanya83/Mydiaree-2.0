@@ -196,7 +196,7 @@ export default function DailyReflectionCreatePage() {
           center_id: activeCentreId,
           search: searchQuery,
           page: pageNumber,
-          per_page: 10,
+          per_page: 50,
         });
         if (response.status) {
           const pageData = response.data?.staff?.data || response.data?.staff || [];
@@ -231,7 +231,7 @@ export default function DailyReflectionCreatePage() {
               center_id: activeCentreId,
               search: searchQuery,
               page: pageNumber,
-              per_page: 10,
+              per_page: 50,
             }),
           ),
         );

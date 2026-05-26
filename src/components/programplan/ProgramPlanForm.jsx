@@ -27,13 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import {
-  MONTHS,
-  YEARS,
-  ACTIVITY_SUBJECTS,
-  RICH_SUBJECTS,
-  ADDITIONAL_FIELDS,
-} from "./data";
+import { MONTHS, YEARS, ACTIVITY_SUBJECTS, RICH_SUBJECTS, ADDITIONAL_FIELDS } from "./data";
 import { ActivityPickerModal } from "./ActivityPickerModal";
 import { EylfPickerModal } from "./EylfPickerModal";
 import { useCentreStore } from "@/stores/centreStore";
@@ -232,7 +226,7 @@ export function ProgramPlanForm({
         center_id: centerId,
         search: search,
         page: page,
-        per_page: 10,
+        per_page: 50,
       });
       const pageData = response.data?.data || response.data || [];
       const lastPage = response.pagination?.last_page || response.data?.last_page || 1;
@@ -271,7 +265,7 @@ export function ProgramPlanForm({
         center_id: centerId,
         search: search,
         page: page,
-        per_page: 10,
+        per_page: 50,
       });
       if (response.status) {
         const staffData = response.data?.staff?.data || response.data?.staff || [];
@@ -657,7 +651,12 @@ export function ProgramPlanForm({
                       <span className="truncate">{label}</span>
                       <button
                         type="button"
-                        onClick={() => update("eylf", data.eylf.filter((_, j) => j !== i))}
+                        onClick={() =>
+                          update(
+                            "eylf",
+                            data.eylf.filter((_, j) => j !== i),
+                          )
+                        }
                         className="ml-0.5 shrink-0 hover:text-emerald-900 dark:hover:text-emerald-200"
                       >
                         <X className="h-3 w-3" />
