@@ -202,7 +202,15 @@ function EntryDetails({ def, entry }) {
   );
 }
 
-function ActivityTile({ def, entry, onSave, onDelete, readOnly = false }) {
+function ActivityTile({
+  def,
+  entry,
+  onSave,
+  onDelete,
+  readOnly = false,
+  canEdit: canEditProp,
+  canDelete: canDeleteProp,
+}) {
   const [editOpen, setEditOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -214,8 +222,8 @@ function ActivityTile({ def, entry, onSave, onDelete, readOnly = false }) {
   const isMulti = MULTI_ENTRY_ACTIVITIES.has(def.key);
   const entries = Array.isArray(entry) ? entry : entry ? [entry] : [];
   const modalInitial = isMulti ? editingEntry : entry;
-  const canEdit = !readOnly && !!onSave;
-  const canDelete = !readOnly && !!onDelete;
+  const canEdit = !readOnly && !!onSave && canEditProp !== false;
+  const canDelete = !readOnly && !!onDelete && canDeleteProp !== false;
 
   const openAdd = () => {
     if (!canEdit) return;
@@ -286,24 +294,28 @@ function ActivityTile({ def, entry, onSave, onDelete, readOnly = false }) {
           {(canEdit || canDelete) && (
             <div className="flex shrink-0 items-center gap-1">
               {isMulti ? (
-                <button
-                  type="button"
-                  onClick={openAdd}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/90"
-                  title={`Add ${def.label}`}
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              ) : entry ? (
-                <>
+                canEdit && (
                   <button
                     type="button"
-                    onClick={() => openEdit(entries[0])}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
-                    title={`Edit ${def.label}`}
+                    onClick={openAdd}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition hover:bg-primary/90"
+                    title={`Add ${def.label}`}
                   >
-                    <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Plus className="h-4 w-4" />
                   </button>
+                )
+              ) : entry ? (
+                <>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(entries[0])}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
+                      title={`Edit ${def.label}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  )}
                   {canDelete && entries[0]?.id && (
                     <button
                       type="button"
@@ -316,14 +328,16 @@ function ActivityTile({ def, entry, onSave, onDelete, readOnly = false }) {
                   )}
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={openAdd}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
-                  title={`Add ${def.label}`}
-                >
-                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
+                canEdit && (
+                  <button
+                    type="button"
+                    onClick={openAdd}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
+                    title={`Add ${def.label}`}
+                  >
+                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                )
               )}
             </div>
           )}
@@ -416,8 +430,12 @@ export function ChildDiaryCard({
   onSaveEntry,
   onDeleteEntry,
   readOnly = false,
+  canEditEntries,
+  canDeleteEntries,
 }) {
-  const isReadOnly = readOnly || !onSaveEntry;
+  const canEdit = !readOnly && (canEditEntries ?? Boolean(onSaveEntry));
+  const canDelete = !readOnly && (canDeleteEntries ?? Boolean(onDeleteEntry));
+  const isReadOnly = !canEdit && !canDelete;
   const initials = (child.name || "Child")
     .split(" ")
     .map((n) => n[0])
@@ -517,6 +535,8 @@ export function ChildDiaryCard({
               def={def}
               entry={entries[def.key]}
               readOnly={isReadOnly}
+              canEdit={canEdit}
+              canDelete={canDelete}
               onSave={(key, payload) => onSaveEntry?.(child.id, key, payload)}
               onDelete={(key, entryId) => onDeleteEntry?.(child.id, key, entryId)}
             />

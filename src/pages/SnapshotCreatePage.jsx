@@ -278,6 +278,11 @@ export default function SnapshotCreatePage() {
       return;
     }
 
+    if (media.length === 0) {
+      toast.error("At least one media is required");
+      return;
+    }
+
     setIsLoading(true);
     const formData = new FormData();
     if (isEdit) formData.append("id", id);

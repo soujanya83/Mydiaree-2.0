@@ -17,6 +17,7 @@ import { ChildDiaryCard } from "@/components/journal/ChildDiaryCard";
 import { NewEntryModal } from "@/components/journal/NewEntryModal";
 import { Pagination } from "@/components/common/Pagination";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useParentDashboardStore } from "@/stores/parentDashboardStore";
@@ -47,7 +48,9 @@ export default function DailyDiaryPage() {
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const setActiveRoom = useRoomStore((s) => s.setActiveRoom);
 
-  const { isParent } = usePermissions();
+  const { can, isParent } = usePermissions();
+  const canUpdateDiary = !isParent && can(ACTION_PERMISSIONS.dailyDiary.update);
+  const canDeleteDiaryEntry = !isParent;
 
   const parentChildren = useParentDashboardStore((s) => s.children);
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
@@ -509,7 +512,7 @@ export default function DailyDiaryPage() {
               />
             </div>
           )}
-          {!isParent && (
+          {canUpdateDiary && (
             <Button className="h-10 shrink-0" onClick={() => setModalOpen(true)}>
               <Plus className="mr-1.5 h-4 w-4" />
               Add Entry
@@ -533,8 +536,10 @@ export default function DailyDiaryPage() {
               date={date}
               entries={entriesByChild[c.id] || {}}
               readOnly={isParent}
-              onSaveEntry={isParent ? undefined : handleSaveEntry}
-              onDeleteEntry={isParent ? undefined : handleDeleteEntry}
+              canEditEntries={canUpdateDiary}
+              canDeleteEntries={canDeleteDiaryEntry}
+              onSaveEntry={canUpdateDiary ? handleSaveEntry : undefined}
+              onDeleteEntry={canDeleteDiaryEntry ? handleDeleteEntry : undefined}
             />
           ))}
         </div>

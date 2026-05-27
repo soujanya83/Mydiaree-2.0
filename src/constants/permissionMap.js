@@ -4,7 +4,7 @@
  * ROUTE_PERMISSIONS: Maps sidebar routes → permission keys.
  *   If a user has ANY of the listed permissions, the route is visible.
  *   Routes not listed here are either:
- *     - Always visible (Dashboard, Service Details, Ingredients, Forms, Sleep Check)
+ *     - Always visible (Dashboard, Service Details)
  *     - Superadmin-only (IP Management, Super Admin Settings)
  *
  * SUPERADMIN_ONLY_ROUTES: Routes only visible to Superadmin users.
@@ -23,7 +23,7 @@ export const ROUTE_PERMISSIONS = {
   // Daily Operations
   "/daily-diary": ["viewDailyDiary", "updateDailyDiary"],
   "/head-check": ["updateHeadChecks"],
-  "/sleep-check": [], // No permission in API — always visible
+  "/sleep-check": ["updateHeadChecks"],
   "/accident-form": ["updateAccidents"],
 
   // Learning & Documentation
@@ -43,6 +43,14 @@ export const ROUTE_PERMISSIONS = {
     "updateObservation",
     "viewAllObservation",
   ],
+  "/observation/activity": [
+    "addActivity",
+    "editActivity",
+    "deleteActivity",
+    "addsubActivity",
+    "editsubActivity",
+    "deletesubActivity",
+  ],
   "/snapshots": ["addSnapshots", "viewSnapshots", "editSnapshots", "deleteSnapshots"],
 
   // Centre Management
@@ -60,11 +68,11 @@ export const ROUTE_PERMISSIONS = {
   // Nutrition
   "/menu": ["addMenu", "approveMenu", "deleteMenu", "updateMenu"],
   "/recipe": ["addRecipe", "approveRecipe", "deleteRecipe", "updateRecipe"],
-  "/ingredients": [], // No permission in API — always visible
+  "/ingredients": ["addMenu", "approveMenu", "deleteMenu", "updateMenu"],
 
   // Quality & Compliance
   "/qip": ["addQip", "editQip", "deleteQip", "downloadQip", "printQip", "mailQip", "viewQip"],
-  "/forms": [], // No permission in API — always visible
+  "/forms": ["updateAccidents"],
   "/ptm": ["viewPtm", "createPtm", "reschedulePtm", "deletePtm", "editPtm"],
   "/lesson-plan": ["editLesson", "viewLesson", "printPdfLesson"],
 
@@ -79,10 +87,7 @@ export const ROUTE_PERMISSIONS = {
 // Superadmin-only routes — hidden from non-Superadmin users entirely.
 // These modules are NOT present in the permissions API.
 // ---------------------------------------------------------------------------
-export const SUPERADMIN_ONLY_ROUTES = [
-  "/ip-management",
-  "/super-admin-settings",
-];
+export const SUPERADMIN_ONLY_ROUTES = ["/ip-management", "/super-admin-settings"];
 
 // ---------------------------------------------------------------------------
 // Action → Permission key (page-level button guards)

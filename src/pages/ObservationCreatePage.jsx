@@ -288,6 +288,7 @@ export default function ObservationCreatePage() {
   const [criticalReflection, setCriticalReflection] = useState("");
   const [status, setStatus] = useState("draft");
   const [media, setMedia] = useState([]); // { file, preview, isExisting, url }
+  const observationSavedInFlow = !isEdit && Boolean(savedObservationId);
 
   // Assessment state
   const [montessoriSubjects, setMontessoriSubjects] = useState([]);
@@ -786,6 +787,8 @@ export default function ObservationCreatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSave = async () => {
+    if (observationSavedInFlow) return;
+
     if (!rooms.length || !children.length || !title || !observation) {
       toast.error("Please fill in all required fields (Rooms, Children, Title, Observation)");
       return;
@@ -1441,14 +1444,18 @@ export default function ObservationCreatePage() {
                   size="lg"
                   onClick={() => handleSave()}
                   className="h-12 min-w-[200px] rounded-xl bg-primary px-10 text-base font-bold text-white shadow-xl shadow-primary/20 hover:bg-primary/90"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || observationSavedInFlow}
                 >
                   {isSubmitting ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : (
                     <Save className="mr-2 h-5 w-5" />
                   )}
-                  {isEdit ? "Update Observation" : "Save Observation"}
+                  {observationSavedInFlow
+                    ? "Observation Saved"
+                    : isEdit
+                      ? "Update Observation"
+                      : "Save Observation"}
                 </Button>
               </div>
             </div>

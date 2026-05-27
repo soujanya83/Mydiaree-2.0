@@ -7,7 +7,6 @@ import {
   ChevronRight,
   DoorOpen,
   GraduationCap,
-  Pencil,
   Plus,
   Search,
   Trash2,
@@ -48,7 +47,6 @@ export default function RoomsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
 
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState({ open: false, ids: [] });
@@ -120,29 +118,18 @@ export default function RoomsPage() {
     }
   };
 
-  const handleEdit = (room) => {
-    setEditing(room);
-    setModalOpen(true);
-  };
-
   const handleNew = () => {
-    setEditing(null);
     setModalOpen(true);
   };
 
   const handleSubmit = async (data) => {
     try {
-      if (editing) {
-        toast.info("Update room functionality to be implemented if required by API");
-      } else {
-        await createRoom({
-          ...data,
-          centerId: activeCentreId,
-        });
-        toast.success("Room created successfully");
-      }
+      await createRoom({
+        ...data,
+        centerId: activeCentreId,
+      });
+      toast.success("Room created successfully");
       setModalOpen(false);
-      setEditing(null);
     } catch (error) {
       toast.error(error.message || "Operation failed");
     }
@@ -240,9 +227,7 @@ export default function RoomsPage() {
               checked={selected.includes(room.id)}
               onToggle={() => toggleSelect(room.id)}
               onOpen={() => navigate(`/rooms/${room.id}`)}
-              onEdit={() => handleEdit(room)}
               onDelete={() => handleDeleteOne(room.id)}
-              canEdit={can(perms.edit)}
               canDelete={can(perms.delete)}
             />
           ))}
@@ -253,10 +238,8 @@ export default function RoomsPage() {
         open={modalOpen}
         onClose={() => {
           setModalOpen(false);
-          setEditing(null);
         }}
         onSubmit={handleSubmit}
-        initial={editing}
       />
 
       <DeleteConfirmationModal
@@ -298,16 +281,7 @@ function RoomStat({ icon: Icon, label, value, tone }) {
   );
 }
 
-function RoomCard({
-  room,
-  checked,
-  onToggle,
-  onOpen,
-  onEdit,
-  onDelete,
-  canEdit = true,
-  canDelete = true,
-}) {
+function RoomCard({ room, checked, onToggle, onOpen, onDelete, canDelete = true }) {
   const isActive = String(room.status || "").toLowerCase() === "active";
   const educators = room.educators || [];
   const childCount = room.children?.length || 0;
@@ -361,18 +335,6 @@ function RoomCard({
           </div>
 
           <div className="flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-            {canEdit && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                }}
-                className="rounded-md p-1.5 text-primary transition-colors hover:bg-primary/10 hover:text-primary"
-                title="Edit"
-              >
-                <Pencil className="h-4 w-4" />
-              </button>
-            )}
             {canDelete && (
               <button
                 onClick={(e) => {

@@ -35,12 +35,23 @@ import { useRoomStore } from "@/stores/roomStore";
 import { observationService } from "@/services/learning/observationService";
 import { AddActivityModal } from "@/components/observation/AddActivityModal";
 import { AddSubActivityModal } from "@/components/observation/AddSubActivityModal";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
+import { usePermissions } from "@/hooks/usePermissions";
 import { toast } from "sonner";
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
 
 export default function ObservationActivityPage() {
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.activity;
+  const canAddActivity = can(perms.add);
+  const canEditActivity = can(perms.edit);
+  const canDeleteActivity = can(perms.delete);
+  const canAddSubActivity = can(perms.addSub);
+  const canEditSubActivity = can(perms.editSub);
+  const canDeleteSubActivity = can(perms.deleteSub);
+
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom, fetchRooms } = useRoomStore();
 
@@ -164,11 +175,13 @@ export default function ObservationActivityPage() {
   }, [selectedSubjectId, selectedActivityId, subjects, activities]);
 
   const openAddActivity = () => {
+    if (!canAddActivity) return;
     setEditingActivity(null);
     setAddActivityOpen(true);
   };
 
   const openEditActivity = (a) => {
+    if (!canEditActivity) return;
     setEditingActivity({
       idActivity: a.idActivity,
       title: a.title,
@@ -178,12 +191,16 @@ export default function ObservationActivityPage() {
   };
 
   const openAddSubActivity = () => {
+    if (!canAddSubActivity) return;
     setEditingSubActivity(null);
     setAddSubActivityOpen(true);
   };
 
   const openEditSubActivity = (sub) => {
-    const parentTitle = activities.find((a) => String(a.idActivity) === String(selectedActivityId))?.title;
+    if (!canEditSubActivity) return;
+    const parentTitle = activities.find(
+      (a) => String(a.idActivity) === String(selectedActivityId),
+    )?.title;
     setEditingSubActivity({
       idSubActivity: sub.idSubActivity,
       title: sub.title,
@@ -194,7 +211,7 @@ export default function ObservationActivityPage() {
   };
 
   const handleDeleteActivity = async () => {
-    if (!deleteActivityId) return;
+    if (!deleteActivityId || !canDeleteActivity) return;
     setIsDeleting(true);
     try {
       const res = await observationService.deleteActivity(deleteActivityId);
@@ -216,7 +233,7 @@ export default function ObservationActivityPage() {
   };
 
   const handleDeleteSubActivity = async () => {
-    if (!deleteSubActivityId) return;
+    if (!deleteSubActivityId || !canDeleteSubActivity) return;
     setIsDeleting(true);
     try {
       const res = await observationService.deleteSubActivity(deleteSubActivityId);
@@ -285,7 +302,11 @@ export default function ObservationActivityPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : activities.length === 0 ? (
-        <EmptyBlock label="No activities yet — add one to get started." />
+        <EmptyBlock
+          label={
+            canAddActivity ? "No activities yet - add one to get started." : "No activities yet."
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {activities.map((a) => (
@@ -301,28 +322,34 @@ export default function ObservationActivityPage() {
                 <span className="text-base font-bold text-primary">{a.title}</span>
                 <ChevronRight className="ml-2 h-5 w-5 shrink-0 text-muted-foreground/60" />
               </button>
-              <div className="flex shrink-0 flex-col border-l border-border bg-muted/20">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-12 w-12 rounded-none"
-                  title="Edit activity"
-                  onClick={() => openEditActivity(a)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-12 w-12 rounded-none text-destructive hover:text-destructive"
-                  title="Delete activity"
-                  onClick={() => setDeleteActivityId(a.idActivity)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {(canEditActivity || canDeleteActivity) && (
+                <div className="flex shrink-0 flex-col border-l border-border bg-muted/20">
+                  {canEditActivity && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-12 w-12 rounded-none"
+                      title="Edit activity"
+                      onClick={() => openEditActivity(a)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canDeleteActivity && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-12 w-12 rounded-none text-destructive hover:text-destructive"
+                      title="Delete activity"
+                      onClick={() => setDeleteActivityId(a.idActivity)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -343,7 +370,13 @@ export default function ObservationActivityPage() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : subActivities.length === 0 ? (
-        <EmptyBlock label="No sub-activities yet — add one using the button above." />
+        <EmptyBlock
+          label={
+            canAddSubActivity
+              ? "No sub-activities yet - add one using the button above."
+              : "No sub-activities yet."
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {subActivities.map((sub) => (
@@ -354,30 +387,38 @@ export default function ObservationActivityPage() {
               <div
                 className={`flex min-h-24 flex-1 items-center justify-center px-4 text-center ${PATTERN_BG}`}
               >
-                <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">{sub.title}</span>
+                <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                  {sub.title}
+                </span>
               </div>
-              <div className="flex shrink-0 flex-col border-l border-border bg-muted/20">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-12 w-12 rounded-none"
-                  title="Edit sub-activity"
-                  onClick={() => openEditSubActivity(sub)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-12 w-12 rounded-none text-destructive hover:text-destructive"
-                  title="Delete sub-activity"
-                  onClick={() => setDeleteSubActivityId(sub.idSubActivity)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {(canEditSubActivity || canDeleteSubActivity) && (
+                <div className="flex shrink-0 flex-col border-l border-border bg-muted/20">
+                  {canEditSubActivity && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-12 w-12 rounded-none"
+                      title="Edit sub-activity"
+                      onClick={() => openEditSubActivity(sub)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {canDeleteSubActivity && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-12 w-12 rounded-none text-destructive hover:text-destructive"
+                      title="Delete sub-activity"
+                      onClick={() => setDeleteSubActivityId(sub.idSubActivity)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -412,12 +453,16 @@ export default function ObservationActivityPage() {
         breadcrumbs={breadcrumbs}
         actions={
           <>
-            <Button variant="outline" onClick={openAddActivity}>
-              <PlusCircle className="mr-1.5 h-4 w-4 text-emerald-500" /> Add Activity
-            </Button>
-            <Button onClick={openAddSubActivity}>
-              <Plus className="mr-1.5 h-4 w-4" /> Add Sub-Activity
-            </Button>
+            {canAddActivity && (
+              <Button variant="outline" onClick={openAddActivity}>
+                <PlusCircle className="mr-1.5 h-4 w-4 text-emerald-500" /> Add Activity
+              </Button>
+            )}
+            {canAddSubActivity && (
+              <Button onClick={openAddSubActivity}>
+                <Plus className="mr-1.5 h-4 w-4" /> Add Sub-Activity
+              </Button>
+            )}
           </>
         }
       />
@@ -440,7 +485,10 @@ export default function ObservationActivityPage() {
         </div>
         <div className="flex items-center gap-2">
           <DoorOpen className="h-4 w-4 text-muted-foreground" />
-          <Select value={activeRoomId != null ? String(activeRoomId) : ""} onValueChange={setActiveRoom}>
+          <Select
+            value={activeRoomId != null ? String(activeRoomId) : ""}
+            onValueChange={setActiveRoom}
+          >
             <SelectTrigger className="h-9 w-[200px]">
               <SelectValue placeholder="Room" />
             </SelectTrigger>
@@ -484,7 +532,10 @@ export default function ObservationActivityPage() {
         }}
       />
 
-      <AlertDialog open={!!deleteActivityId} onOpenChange={(o) => !o && !isDeleting && setDeleteActivityId(null)}>
+      <AlertDialog
+        open={!!deleteActivityId}
+        onOpenChange={(o) => !o && !isDeleting && setDeleteActivityId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this activity?</AlertDialogTitle>
@@ -505,7 +556,10 @@ export default function ObservationActivityPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!deleteSubActivityId} onOpenChange={(o) => !o && !isDeleting && setDeleteSubActivityId(null)}>
+      <AlertDialog
+        open={!!deleteSubActivityId}
+        onOpenChange={(o) => !o && !isDeleting && setDeleteSubActivityId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this sub-activity?</AlertDialogTitle>
