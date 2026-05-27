@@ -17,12 +17,19 @@ import AccessDeniedPage from "@/pages/AccessDeniedPage";
  */
 export default function ProtectedRoute({ path, children }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const permissionsLoading = useAuthStore((s) => s.permissionsLoading);
+  const userPermissions = useAuthStore((s) => s.userPermissions);
   const { canAny, isSuperadmin, isParent } = usePermissions();
   const { pathname } = useLocation();
 
   // If not authenticated, redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Wait for permissions to load after refresh before denying access
+  if (!isSuperadmin && !isParent && permissionsLoading && !userPermissions) {
+    return null;
   }
 
   if (isParent) {

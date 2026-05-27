@@ -22,11 +22,18 @@ export default function AppLayout() {
   const fetchChildren = useChildrenStore((s) => s.fetchChildren);
 
   const user = useAuthStore((s) => s.user);
+  const refreshPermissions = useAuthStore((s) => s.refreshPermissions);
   const fetchParentChildren = useParentDashboardStore((s) => s.fetchChildren);
 
   useEffect(() => {
     fetchCentres();
   }, [fetchCentres]);
+
+  // Re-fetch permissions on page load (same as login) so access stays in sync
+  useEffect(() => {
+    if (!user) return;
+    refreshPermissions();
+  }, [user?.userid, refreshPermissions]);
 
   // Fetch rooms when centre changes
   useEffect(() => {

@@ -108,9 +108,9 @@ export default function EventsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {!isParent && centres.length > 0 && (
-              <Select value={String(activeCentreId || "")} onValueChange={setActiveCentre}>
+              <Select value={activeCentreId} onValueChange={setActiveCentre}>
                 <SelectTrigger className="h-9 w-[200px]">
-                  <SelectValue placeholder="Centre" />
+                  <SelectValue placeholder="Select Centre" />
                 </SelectTrigger>
                 <SelectContent>
                   {centres.map((c) => (
