@@ -24,7 +24,13 @@ export const menuService = {
       formData.append("center_id", data.centerId);
       formData.append("selected_date", data.selectedDate);
       formData.append("day", data.day);
-      formData.append("meal_type", data.mealType);
+      if(data.mealType === 'Morning Tea'){
+        formData.append("meal_type","MORNING_TEA");
+      } else if(data.mealType === 'Afternoon Tea'){
+        formData.append("meal_type","AFTERNOON_TEA");
+      } else {
+        formData.append("meal_type", data.mealType);
+      }
       
       if (Array.isArray(data.recipeIds)) {
         data.recipeIds.forEach((id) => formData.append("recipe_ids[]", id));

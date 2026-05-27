@@ -99,6 +99,11 @@ export default function SleepCheckPage() {
     });
   }, [fetchedChildren, search]);
 
+  const selectedSleepCheckCount = useMemo(
+    () => fetchedChildren.filter((c) => cards[c.id]?.selected).length,
+    [cards, fetchedChildren],
+  );
+
   const getCard = (id) => cards[id] ?? { selected: false, openEntryId: null, entries: [] };
 
   const fetchSleepChecks = useCallback(async () => {
@@ -504,11 +509,13 @@ export default function SleepCheckPage() {
                       </p>
                     </div>
                   </div>
-                  <Checkbox
-                    checked={card.selected}
-                    onCheckedChange={(v) => toggleSelect(child.id, v)}
-                    aria-label={`Select ${child.name}`}
-                  />
+                  {!isParent && (
+                    <Checkbox
+                      checked={card.selected}
+                      onCheckedChange={(v) => toggleSelect(child.id, v)}
+                      aria-label={`Select ${child.name}`}
+                    />
+                  )}
                 </header>
                 {/* ... rest of the card content stays same ... */}
 
@@ -539,8 +546,13 @@ export default function SleepCheckPage() {
                         {/* Summary row */}
                         <button
                           type="button"
-                          onClick={() => toggleOpen(child.id, entry.id)}
-                          className="grid w-full grid-cols-2 items-center gap-2 px-5 py-3 text-left text-sm hover:bg-muted/30 md:grid-cols-6 md:text-center"
+                          onClick={() => {
+                            if (!isParent) toggleOpen(child.id, entry.id);
+                          }}
+                          className={cn(
+                            "grid w-full grid-cols-2 items-center gap-2 px-5 py-3 text-left text-sm md:grid-cols-6 md:text-center",
+                            !isParent && "hover:bg-muted/30",
+                          )}
                         >
                           <div className="font-semibold text-primary md:font-medium md:text-foreground">
                             {entry.time || "—"}
@@ -568,12 +580,14 @@ export default function SleepCheckPage() {
                             >
                               {entry.isNew === false ? "Saved" : "New"}
                             </span>
-                            <ChevronDown
-                              className={cn(
-                                "ml-2 h-4 w-4 text-muted-foreground transition-transform",
-                                open && "rotate-180",
-                              )}
-                            />
+                            {!isParent && (
+                              <ChevronDown
+                                className={cn(
+                                  "ml-2 h-4 w-4 text-muted-foreground transition-transform",
+                                  open && "rotate-180",
+                                )}
+                              />
+                            )}
                           </div>
                         </button>
 
@@ -707,23 +721,25 @@ export default function SleepCheckPage() {
       {/* Footer */}
       {!isParent && visibleChildren.length > 0 && (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-border pt-6">
-          <Button
-            variant="outline"
-            onClick={() => {
-              const now = new Date();
-              const hh = String(now.getHours()).padStart(2, "0");
-              const mm = String(now.getMinutes()).padStart(2, "0");
-              setBulkForm((f) => ({
-                ...f,
-                time: `${hh}:${mm}`,
-                signature: f.signature || userName,
-              }));
-              setBulkModal(true);
-            }}
-          >
-            <Users className="mr-1.5 h-4 w-4" />
-            Bulk Entry
-          </Button>
+          {selectedSleepCheckCount === 2 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                const now = new Date();
+                const hh = String(now.getHours()).padStart(2, "0");
+                const mm = String(now.getMinutes()).padStart(2, "0");
+                setBulkForm((f) => ({
+                  ...f,
+                  time: `${hh}:${mm}`,
+                  signature: f.signature || userName,
+                }));
+                setBulkModal(true);
+              }}
+            >
+              <Users className="mr-1.5 h-4 w-4" />
+              Bulk Entry
+            </Button>
+          )}
           <Button onClick={handleSaveAll} className="min-w-[200px]" disabled={isSaving}>
             <Save className="mr-1.5 h-4 w-4" />
             {isSaving ? "Saving..." : "Save All Sleep Checks"}

@@ -1071,6 +1071,7 @@ export default function ObservationCreatePage() {
       });
       if (res.status) {
         toast.success(res.message || "Developmental milestone data saved successfully");
+        setTab("link");
       } else {
         toast.error(res.message || "Failed to save developmental milestone data");
       }
@@ -1123,7 +1124,7 @@ export default function ObservationCreatePage() {
               <Calendar className="h-3.5 w-3.5" /> {today}
             </div>
             <div className="flex items-center gap-2">
-              <Select value={status} onValueChange={setStatus}>
+              {/* <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger
                   className={`h-9 w-[120px] rounded-full border-none font-bold uppercase tracking-wider text-[10px] ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                 >
@@ -1133,19 +1134,14 @@ export default function ObservationCreatePage() {
                   <SelectItem value="draft">Draft</SelectItem>
                   <SelectItem value="published">Published</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select> */}
 
               <Button
-                onClick={() => handleSave()}
+                onClick={() => navigate("/observation")}
                 className="h-9 rounded-full bg-primary px-6 shadow-lg shadow-primary/20 hover:bg-primary/90"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-1.5 h-4 w-4" />
-                )}
-                {isEdit ? "Update" : "Save"}
+                Observation
               </Button>
             </div>
           </div>
@@ -2279,7 +2275,7 @@ function MontessoriAssessmentPanel({
           </Select>
         </FormGroup>
 
-        <FormGroup label="Module">
+        <FormGroup label="Activity">
           <Select
             value={moduleId}
             onValueChange={onModuleChange}
@@ -2291,8 +2287,8 @@ function MontessoriAssessmentPanel({
                   !subjectId
                     ? "Select subject first"
                     : isModulesLoading
-                      ? "Loading modules..."
-                      : "Select module"
+                      ? "Loading activities..."
+                      : "Select activity"
                 }
               />
             </SelectTrigger>
@@ -2315,7 +2311,7 @@ function MontessoriAssessmentPanel({
       <div className="rounded-2xl border border-border bg-muted/10">
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <div>
-            <h4 className="text-sm font-bold text-foreground">Submodules</h4>
+            <h4 className="text-sm font-bold text-foreground">Sub Activities</h4>
             <p className="text-xs text-muted-foreground">
               {selectedCount} selected for this observation
             </p>
@@ -2334,12 +2330,12 @@ function MontessoriAssessmentPanel({
           {isSubmodulesLoading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              Loading submodules...
+              Loading sub activities...
             </div>
           ) : !moduleId ? (
-            <EmptyAssessmentState label="Select a subject and module to see submodules." />
+            <EmptyAssessmentState label="Select a subject and activity to see sub activities." />
           ) : submodules.length === 0 ? (
-            <EmptyAssessmentState label="No submodules found for this module." />
+            <EmptyAssessmentState label="No sub activities found for this activity." />
           ) : (
             <div className="grid gap-2">
               {submodules.map((submodule) => {
@@ -2375,7 +2371,7 @@ function MontessoriAssessmentPanel({
                         {submodule.title}
                       </p>
                       <p className="text-[11px] font-medium text-muted-foreground">
-                        Submodule ID: {submoduleId}
+                        Sub Activity ID: {submoduleId}
                       </p>
                     </div>
 
@@ -2498,7 +2494,7 @@ function EylfAssessmentPanel({
           </Select>
         </FormGroup>
 
-        <FormGroup label="Module">
+        <FormGroup label="Activity">
           <Select
             value={moduleId}
             onValueChange={onModuleChange}
@@ -2510,8 +2506,8 @@ function EylfAssessmentPanel({
                   !subjectId
                     ? "Select outcome first"
                     : isModulesLoading
-                      ? "Loading modules..."
-                      : "Select module"
+                      ? "Loading activities..."
+                      : "Select activity"
                 }
               />
             </SelectTrigger>
@@ -2551,12 +2547,12 @@ function EylfAssessmentPanel({
           {isSubmodulesLoading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              Loading submodules...
+              Loading sub activities...
             </div>
           ) : !moduleId ? (
-            <EmptyAssessmentState label="Select an outcome and module to see EYLF submodules." />
+            <EmptyAssessmentState label="Select an outcome and activity to see sub activities." />
           ) : submodules.length === 0 ? (
-            <EmptyAssessmentState label="No EYLF submodules found for this module." />
+            <EmptyAssessmentState label="No sub activities found for this activity." />
           ) : (
             <div className="space-y-2">
               {submodules.map((submodule) => {

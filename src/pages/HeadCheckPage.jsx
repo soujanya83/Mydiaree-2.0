@@ -193,7 +193,7 @@ export default function HeadCheckPage() {
       fd.append("roomid", activeRoomId);
       fd.append("centerid", activeCentreId);
       fd.append("diarydate", date);
-      fd.append("headcheck", itemToUpdate.id);
+      fd.append("headcheck[]", itemToUpdate.id);
 
       const res = await headChecksService.storeHeadChecks(fd);
       if (res.data?.status === "success" || res.data?.status === true || res.data?.success) {

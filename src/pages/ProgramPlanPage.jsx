@@ -692,10 +692,11 @@ export default function ProgramPlanPage() {
     <div className="space-y-6 pb-10">
       {/* Header */}
       <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-primary/5 via-background to-background p-6 shadow-sm">
-        <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-purple-500/10 blur-3xl" />
 
         <PageHeader
+          className="relative z-10"
           title={
             <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               Program Plans

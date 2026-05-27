@@ -38,7 +38,7 @@ export const PARENT_QUICK_ACTION_POOL = [
   },
   {
     id: "observation",
-    label: "Observation & Reflection",
+    label: "Observation",
     icon: SlidersHorizontal,
     to: "/observation",
     color: "success",

@@ -452,24 +452,25 @@ export default function AccidentFormPage() {
         }
       />
 
-      {/* Search */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="relative w-full max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      {!isParent && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="relative w-full max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter by child name…"
+              className="h-10 pl-9"
+            />
+          </div>
           <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by child name…"
-            className="h-10 pl-9"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="h-10 w-[180px]"
           />
         </div>
-        <Input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="h-10 w-[180px]"
-        />
-      </div>
+      )}
 
       {isLoadingList || isLoadingDetails ? (
         <PageLoader label="Loading accident records…" />
