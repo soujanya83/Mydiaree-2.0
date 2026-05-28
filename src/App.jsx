@@ -58,6 +58,8 @@ import ProgramPlanRecycleBinPage from "@/pages/ProgramPlanRecycleBinPage";
 import ObservationRecycleBinPage from "@/pages/ObservationRecycleBinPage";
 import DailyReflectionsRecycleBinPage from "@/pages/DailyReflectionsRecycleBinPage";
 import SnapshotsRecycleBinPage from "@/pages/SnapshotsRecycleBinPage";
+import PrivacyPolicyPage from "@/pages/PrivacyPolicyPage";
+import TermsConditionsPage from "@/pages/TermsConditionsPage";
 
 export default function App() {
   return (
@@ -65,6 +67,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms-conditions" element={<TermsConditionsPage />} />
 
         <Route element={<AppLayout />}>
           {/* Dashboard — always accessible */}
