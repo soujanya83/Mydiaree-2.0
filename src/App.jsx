@@ -1,9 +1,10 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
 
 import LoginPage from "@/pages/LoginPage";
+import LandingPage from "@/pages/LandingPage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import DashboardPage from "@/pages/DashboardPage";
 import MyProfilePage from "@/pages/MyProfilePage";
@@ -65,7 +66,7 @@ export default function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/terms-conditions" element={<TermsConditionsPage />} />

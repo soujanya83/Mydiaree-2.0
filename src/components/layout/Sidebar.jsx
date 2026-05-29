@@ -7,6 +7,8 @@ import { parentNavConfig } from "@/constants/parentNav";
 import { useUiStore } from "@/stores/uiStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ROUTE_PERMISSIONS, SUPERADMIN_ONLY_ROUTES } from "@/constants/permissionMap";
+import logoLong from "@/assets/mydiaree_long_logo.png";
+import logoShort from "@/assets/mydiearee_short_logo.png";
 
 export function Sidebar() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
@@ -76,27 +78,23 @@ export function Sidebar() {
         )}
       >
         {/* Brand */}
-        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
-          <Link to="/dashboard" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-glow">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            {!collapsed && (
-              <div>
-                <p className="text-sm font-bold leading-none">MyDiaree</p>
-                <p className="mt-1 text-[10px] uppercase tracking-wider text-sidebar-muted">
-                  Childcare Suite
-                </p>
-              </div>
+        <div className={cn("flex h-16 items-center border-b border-sidebar-border", collapsed ? "justify-center px-0" : "justify-between px-4")}>
+          <Link to="/dashboard" className="flex items-center justify-center">
+            {collapsed ? (
+              <img src={logoShort} alt="MyDiaree" className="h-8 w-auto" />
+            ) : (
+              <img src={logoLong} alt="MyDiaree" className="h-10 w-auto" />
             )}
           </Link>
-          <button
-            onClick={() => setMobileOpen(false)}
-            className="lg:hidden rounded-md p-1.5 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
-            aria-label="Close menu"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {!collapsed && (
+            <button
+              onClick={() => setMobileOpen(false)}
+              className="lg:hidden rounded-md p-1.5 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              aria-label="Close menu"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Nav */}
