@@ -403,6 +403,37 @@ export const observationService = {
     }
   },
 
+  // Update Status
+  updateStatus: async (observationId, status) => {
+    try {
+      const formData = new FormData();
+      formData.append("observationId", observationId);
+      formData.append("status", status);
+      const response = await api.post("/observation/status/update", formData);
+      return response.data;
+    } catch (error) {
+      console.error("Error updating observation status:", error);
+      throw error;
+    }
+  },
+
+  // Share Observation
+  shareObservation: async (obsId, recipient_email, message) => {
+    try {
+      const formData = new FormData();
+      formData.append("obsId", obsId);
+      formData.append("recipient_email", recipient_email);
+      if (message) {
+        formData.append("message", message);
+      }
+      const response = await api.post("/observation/share", formData);
+      return response.data;
+    } catch (error) {
+      console.error("Error sharing observation:", error);
+      throw error;
+    }
+  },
+
   // 9. Get Rooms and Staff
   getRoomsAndStaff: async (centerId) => {
     try {

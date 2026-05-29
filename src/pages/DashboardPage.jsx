@@ -1,11 +1,4 @@
-import {
-  Users2,
-  ChefHat,
-  Baby,
-  DoorOpen,
-  Users,
-  UserPlus,
-} from "lucide-react";
+import { Users2, ChefHat, Baby, DoorOpen, Users, UserPlus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { StatCard } from "@/components/common/StatCard";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -119,7 +112,7 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={`Welcome back${centre ? `, ${centre.name || centre.code}` : ""}`} />
+      <PageHeader title={`Welcome ${centre ? `, ${centre.name || centre.code}` : ""}`} />
 
       {/* Stats Grid */}
       {isLoading ? (

@@ -35,16 +35,11 @@ import { useCentreStore } from "@/stores/centreStore";
 import { cn } from "@/lib/utils";
 import { personAvatarUrl } from "@/utils/personDisplay";
 
-
 export default function PermissionsAssignedListPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const {
-    assignedUsers,
-    assignedPagination,
-    isFetchingAssigned,
-    fetchAssignedPermissions,
-  } = usePermissionStore();
+  const { assignedUsers, assignedPagination, isFetchingAssigned, fetchAssignedPermissions } =
+    usePermissionStore();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -77,10 +72,7 @@ export default function PermissionsAssignedListPage() {
       <PageHeader
         title="Assigned Permissions"
         description="Manage and review module access for all staff members"
-        breadcrumbs={[
-          { label: "Permissions", to: "/permissions" },
-          { label: "Assigned Users" },
-        ]}
+        breadcrumbs={[{ label: "Permissions", to: "/permissions" }, { label: "Assigned Users" }]}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate("/permissions")}>
@@ -121,7 +113,8 @@ export default function PermissionsAssignedListPage() {
         </div>
         <div className="text-sm text-muted-foreground">
           Showing <span className="font-bold text-foreground">{rows.length}</span> of{" "}
-          <span className="font-bold text-foreground">{assignedPagination?.total || 0}</span> assigned users
+          <span className="font-bold text-foreground">{assignedPagination?.total || 0}</span>{" "}
+          assigned users
         </div>
       </div>
 
@@ -165,7 +158,9 @@ export default function PermissionsAssignedListPage() {
                         <Shield className="h-8 w-8 text-muted-foreground/30" />
                       </div>
                       <h3 className="text-lg font-bold">No assigned users found</h3>
-                      <p className="text-sm text-muted-foreground">Try adjusting your search or select another center.</p>
+                      <p className="text-sm text-muted-foreground">
+                        Try adjusting your search or select another center.
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -173,10 +168,10 @@ export default function PermissionsAssignedListPage() {
                 rows.map((item) => {
                   const u = item.user;
                   if (!u) return null;
-                  
+
                   const perms = item.permissions || {};
                   const count = Object.keys(perms).filter(
-                    (k) => !["id", "userid", "centerid"].includes(k) && Number(perms[k]) === 1
+                    (k) => !["id", "userid", "centerid"].includes(k) && Number(perms[k]) === 1,
                   ).length;
 
                   return (
@@ -185,7 +180,11 @@ export default function PermissionsAssignedListPage() {
                         <div className="flex items-center gap-4">
                           <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-primary/10 transition-transform group-hover:scale-105">
                             {u.imageUrl ? (
-                              <img src={personAvatarUrl(u.imageUrl)} alt={u.name} className="h-full w-full object-cover" />
+                              <img
+                                src={personAvatarUrl(u.imageUrl)}
+                                alt={u.name}
+                                className="h-full w-full object-cover"
+                              />
                             ) : (
                               <User className="h-5 w-5 text-primary" />
                             )}
@@ -201,7 +200,10 @@ export default function PermissionsAssignedListPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-transparent px-3 py-1 font-bold">
+                          <Badge
+                            variant="secondary"
+                            className="bg-primary/10 text-primary hover:bg-primary/20 border-transparent px-3 py-1 font-bold"
+                          >
                             {count} Permissions
                           </Badge>
                         </div>

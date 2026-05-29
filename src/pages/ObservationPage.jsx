@@ -38,6 +38,12 @@ import {
 } from "@/components/ui/select";
 import { CustomDateFilter } from "@/components/common/CustomDateFilter";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { useParentDashboardStore } from "@/stores/parentDashboardStore";
@@ -480,10 +486,24 @@ export default function ObservationPage() {
               onShare={() => setShareObservation(o)}
               onEdit={() => navigate(`/observation/${o.id}/edit`)}
               onPrint={() => handlePrint(o.id)}
+              onStatusChange={async (newStatus) => {
+                try {
+                  const res = await observationService.updateStatus(o.id, newStatus);
+                  if (res.status || res.success) {
+                    toast.success(res.message || "Observation status updated successfully.");
+                    fetchObservations();
+                  } else {
+                    toast.error(res.message || "Failed to update status");
+                  }
+                } catch (error) {
+                  toast.error("Error updating status");
+                }
+              }}
               isPrinting={isPrintingId === o.id}
               canEdit={can(perms.edit)}
               canDelete={can(perms.delete)}
               canShare={isParent}
+              isParent={isParent}
               commentRefreshTick={commentRefreshTicks[o.id] || 0}
             />
           ))}
@@ -544,6 +564,7 @@ function ObservationShareModal({ open, obs, onClose }) {
   const [recipientEmail, setRecipientEmail] = useState("");
   const [message, setMessage] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -553,7 +574,7 @@ function ObservationShareModal({ open, obs, onClose }) {
     }
   }, [open, obs?.id]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const email = recipientEmail.trim();
     const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -568,7 +589,25 @@ function ObservationShareModal({ open, obs, onClose }) {
     }
 
     setEmailError("");
-    toast.info("Observation share email API is not configured yet.");
+    setIsSending(true);
+    try {
+      const res = await observationService.shareObservation(obs.id, email, message.trim());
+      if (res.status || res.success) {
+        toast.success(res.message || "Observation shared successfully!");
+        onClose();
+      } else {
+        if (res.errors && res.errors.recipient_email) {
+          setEmailError(res.errors.recipient_email[0]);
+        } else {
+          toast.error(res.message || "Failed to share observation");
+        }
+      }
+    } catch (error) {
+      console.error("Error sharing observation:", error);
+      toast.error("An error occurred while sharing the observation.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -632,9 +671,14 @@ function ObservationShareModal({ open, obs, onClose }) {
           </Button>
           <Button
             onClick={handleSend}
-            className="rounded-xl bg-gradient-to-r from-primary to-primary/80 px-6 font-semibold text-primary-foreground shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            disabled={isSending}
+            className="rounded-xl bg-gradient-to-r from-primary to-primary/80 px-6 font-semibold text-primary-foreground shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
           >
-            <Send className="mr-2 h-4 w-4" />
+            {isSending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="mr-2 h-4 w-4" />
+            )}
             Send
           </Button>
         </div>
@@ -835,15 +879,30 @@ function ObservationCard({
   onShare,
   onEdit,
   onPrint,
+  onStatusChange,
   isPrinting,
   canEdit = true,
   canDelete = true,
   canShare = false,
+  isParent = false,
   commentRefreshTick = 0,
 }) {
   const images = obs.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
   const [commentCount, setCommentCount] = useState(null);
+  const [isTogglingStatus, setIsTogglingStatus] = useState(false);
+
+  const handleStatusToggle = async (e) => {
+    e.preventDefault();
+    if (isTogglingStatus || !canEdit || isParent) return;
+    const newStatus = obs.status?.toLowerCase() === "published" ? "Draft" : "Published";
+    setIsTogglingStatus(true);
+    try {
+      await onStatusChange(newStatus);
+    } finally {
+      setIsTogglingStatus(false);
+    }
+  };
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -946,15 +1005,31 @@ function ObservationCard({
               {stripHtml(obs.obestitle) || "Untitled observation"}
             </h3>
           </Link>
-          <span
-            className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-              obs.status?.toLowerCase() === "published"
-                ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
-                : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
-            }`}
-          >
-            {obs.status}
-          </span>
+
+          {canEdit && !isParent ? (
+            <button
+              onClick={handleStatusToggle}
+              disabled={isTogglingStatus}
+              className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide cursor-pointer hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center ${
+                obs.status?.toLowerCase() === "published"
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                  : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+              }`}
+            >
+              {isTogglingStatus && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+              {obs.status || "Draft"}
+            </button>
+          ) : (
+            <span
+              className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                obs.status?.toLowerCase() === "published"
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                  : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+              }`}
+            >
+              {obs.status || "Draft"}
+            </span>
+          )}
         </div>
 
         <div className="mb-4 flex flex-col gap-0.5 text-xs text-muted-foreground">
