@@ -819,15 +819,18 @@ export default function ObservationCreatePage() {
       if (res.status) {
         toast.success(res.message || "Observation saved successfully");
         const nextObservationId = res.id || id;
-        
+
         try {
           const apiStatus = status === "published" ? "Published" : "Draft";
           await observationService.updateStatus(nextObservationId, apiStatus);
+          if (status === "published") {
+            navigate("/observation");
+          }
         } catch (statusError) {
-           console.error("Failed to update status:", statusError);
-           toast.error("Observation saved, but failed to update status.");
+          console.error("Failed to update status:", statusError);
+          toast.error("Observation saved, but failed to update status.");
         }
-        
+
         setSavedObservationId(nextObservationId);
         setTab("assessment");
         setAssessTab("montessori");
