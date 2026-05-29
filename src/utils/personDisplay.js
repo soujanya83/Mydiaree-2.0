@@ -1,7 +1,7 @@
 const IMG_BASE = "https://mydiaree.com.au/";
 
 export function personAvatarUrl(imageUrl) {
-  const raw = String(imageUrl || "").trim();
+  const raw = String(imageUrl || "").trim().replace(/\\/g, "");
   if (!raw) return null;
   return raw.startsWith("http") ? raw : `${IMG_BASE}${raw.replace(/^\/+/, "")}`;
 }

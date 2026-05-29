@@ -33,6 +33,8 @@ import {
 import { usePermissionStore } from "@/stores/permissionStore";
 import { useCentreStore } from "@/stores/centreStore";
 import { cn } from "@/lib/utils";
+import { personAvatarUrl } from "@/utils/personDisplay";
+
 
 export default function PermissionsAssignedListPage() {
   const navigate = useNavigate();
@@ -183,7 +185,7 @@ export default function PermissionsAssignedListPage() {
                         <div className="flex items-center gap-4">
                           <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-primary/10 transition-transform group-hover:scale-105">
                             {u.imageUrl ? (
-                              <img src={u.imageUrl} alt={u.name} className="h-full w-full object-cover" />
+                              <img src={personAvatarUrl(u.imageUrl)} alt={u.name} className="h-full w-full object-cover" />
                             ) : (
                               <User className="h-5 w-5 text-primary" />
                             )}

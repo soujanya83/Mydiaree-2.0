@@ -433,6 +433,7 @@ export default function ProgramPlanPage() {
         year: filters.year || "",
         child_id: isParent ? selectedChildId : "",
         page,
+        per_page: 12,
       });
       if (response.status) {
         const programPlansData = response.data?.programPlans;
@@ -445,7 +446,7 @@ export default function ProgramPlanPage() {
             total: programPlansData?.total || 0,
             from: programPlansData?.from,
             to: programPlansData?.to,
-            per_page: programPlansData?.per_page || 10,
+            per_page: programPlansData?.per_page || 12,
           },
         );
       } else {

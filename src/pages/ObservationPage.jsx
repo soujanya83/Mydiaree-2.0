@@ -58,7 +58,7 @@ import { cn } from "@/lib/utils";
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
 
-const PAGE_SIZE = 13;
+const PAGE_SIZE = 12;
 const OBSERVATION_DATE_FILTERS = DATE_FILTERS.filter((option) =>
   ["all", "today", "this-week", "this-month"].includes(option.value),
 );

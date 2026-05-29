@@ -53,6 +53,8 @@ import { PermissionCard } from "@/components/permissions/PermissionCard";
 import { usePermissionStore } from "@/stores/permissionStore";
 import { useCentreStore } from "@/stores/centreStore";
 import { cn } from "@/lib/utils";
+import { personAvatarUrl } from "@/utils/personDisplay";
+
 
 export default function PermissionsAssignedDetailsPage() {
   const { userId } = useParams();
@@ -270,7 +272,7 @@ export default function PermissionsAssignedDetailsPage() {
           <div className="relative">
             <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-primary/10 ring-4 ring-background shadow-inner">
               {user.imageUrl ? (
-                <img src={user.imageUrl} alt={user.name} className="h-full w-full object-cover" />
+                <img src={personAvatarUrl(user.imageUrl)} alt={user.name} className="h-full w-full object-cover" />
               ) : (
                 <User className="h-10 w-10 text-primary" />
               )}
