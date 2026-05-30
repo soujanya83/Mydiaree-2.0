@@ -74,11 +74,16 @@ export function Sidebar() {
           "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-200",
           collapsed ? "w-16" : "w-64",
           "lg:translate-x-0",
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
         {/* Brand */}
-        <div className={cn("flex h-16 items-center border-b border-sidebar-border", collapsed ? "justify-center px-0" : "justify-between px-4")}>
+        <div
+          className={cn(
+            "relative flex h-16 items-center justify-center border-b border-sidebar-border",
+            collapsed ? "px-0" : "px-4",
+          )}
+        >
           <Link to="/dashboard" className="flex items-center justify-center">
             {collapsed ? (
               <img src={logoShort} alt="MyDiaree" className="h-8 w-auto" />
@@ -89,7 +94,7 @@ export function Sidebar() {
           {!collapsed && (
             <button
               onClick={() => setMobileOpen(false)}
-              className="lg:hidden rounded-md p-1.5 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              className="absolute right-4 lg:hidden rounded-md p-1.5 text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
               aria-label="Close menu"
             >
               <X className="h-4 w-4" />
@@ -116,7 +121,7 @@ export function Sidebar() {
                         active
                           ? "bg-primary text-primary-foreground shadow-glow"
                           : "text-sidebar-foreground/90 hover:bg-primary/15 hover:text-sidebar-foreground",
-                        collapsed && "justify-center px-2"
+                        collapsed && "justify-center px-2",
                       )}
                       title={collapsed ? group.label : undefined}
                     >
@@ -139,7 +144,7 @@ export function Sidebar() {
                       hasActiveChild
                         ? "text-primary"
                         : "text-sidebar-foreground/90 hover:bg-primary/15 hover:text-sidebar-foreground",
-                      collapsed && "justify-center px-2"
+                      collapsed && "justify-center px-2",
                     )}
                     title={collapsed ? group.label : undefined}
                   >
@@ -148,10 +153,7 @@ export function Sidebar() {
                       <>
                         <span className="flex-1 text-left">{group.label}</span>
                         <ChevronDown
-                          className={cn(
-                            "h-4 w-4 transition-transform",
-                            open && "rotate-180"
-                          )}
+                          className={cn("h-4 w-4 transition-transform", open && "rotate-180")}
                         />
                       </>
                     )}
@@ -172,7 +174,7 @@ export function Sidebar() {
                                 "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors",
                                 active
                                   ? "bg-primary/15 text-primary font-semibold"
-                                  : "text-sidebar-foreground/75 hover:bg-primary/10 hover:text-sidebar-foreground"
+                                  : "text-sidebar-foreground/75 hover:bg-primary/10 hover:text-sidebar-foreground",
                               )}
                             >
                               {SubIcon && <SubIcon className="h-3.5 w-3.5" />}
@@ -193,9 +195,7 @@ export function Sidebar() {
         {!collapsed && (
           <div className="border-t border-sidebar-border p-3">
             <div className="rounded-lg bg-sidebar-accent p-3">
-              <p className="text-xs font-semibold text-sidebar-foreground">
-                Need help?
-              </p>
+              <p className="text-xs font-semibold text-sidebar-foreground">Need help?</p>
               <p className="mt-1 text-[11px] text-sidebar-muted">
                 Visit our help centre or contact support.
               </p>
