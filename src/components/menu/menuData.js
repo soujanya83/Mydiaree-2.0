@@ -6,6 +6,34 @@ export const MEAL_TIMES = [
   { id: "late_snacks", label: "Late Snacks" },
 ];
 
+/** Menu row id → recipe API `type` key (e.g. late_snacks → SNACKS) */
+export const MENU_MEAL_TO_RECIPE_TYPE = {
+  breakfast: "BREAKFAST",
+  morning_tea: "MORNING_TEA",
+  lunch: "LUNCH",
+  afternoon_tea: "AFTERNOON_TEA",
+  late_snacks: "SNACKS",
+};
+
+export function normalizeMealTypeKey(value) {
+  return String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_");
+}
+
+/** Filter flat recipe list for a menu meal row (Add Menu Items modal). */
+export function getRecipesForMenuMeal(allRecipes, mealId) {
+  if (!mealId || !Array.isArray(allRecipes)) return [];
+  const targetKey = normalizeMealTypeKey(
+    MENU_MEAL_TO_RECIPE_TYPE[mealId] || mealId,
+  );
+  return allRecipes.filter((r) => {
+    const recipeKey = normalizeMealTypeKey(r.type || r.mealType);
+    return recipeKey === targetKey;
+  });
+}
+
 export const WEEKDAYS = [
   { id: "mon", label: "Monday" },
   { id: "tue", label: "Tuesday" },

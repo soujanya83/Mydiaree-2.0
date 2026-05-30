@@ -24,6 +24,7 @@ import {
   WEEKDAYS,
   dailyRequirements,
   fortnightlyRequirements,
+  getRecipesForMenuMeal,
 } from "@/components/menu/menuData";
 import { AddMenuItemsModal } from "@/components/menu/AddMenuItemsModal";
 import { toast } from "sonner";
@@ -490,11 +491,7 @@ export default function MenuPage() {
         mealId={modal.mealId}
         mealLabel={activeMeal?.label || ""}
         dayLabel={activeDay?.label || ""}
-        recipes={allRecipes.filter(r => {
-          const rType = (r.type || r.mealType || "").toLowerCase().replace(/\s+/g, '_');
-          const targetType = (modal.mealId || "").toLowerCase().replace(/\s+/g, '_');
-          return rType === targetType;
-        })}
+        recipes={getRecipesForMenuMeal(allRecipes, modal.mealId)}
         onSave={handleSave}
       />
 
