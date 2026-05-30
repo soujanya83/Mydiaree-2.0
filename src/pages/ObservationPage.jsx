@@ -202,8 +202,6 @@ export default function ObservationPage() {
               customTo,
               childIds: childId !== "all" ? [childId] : [],
               authorIds: author !== "all" ? [author] : [],
-              childSearch: childrenSearch,
-              createdBySearch: staffSearch,
             }),
       });
       if (isSuccessResponse(res)) {
@@ -236,8 +234,6 @@ export default function ObservationPage() {
     isParent,
     selectedChildId,
     parentChildren,
-    childrenSearch,
-    staffSearch,
   ]);
 
   useEffect(() => {

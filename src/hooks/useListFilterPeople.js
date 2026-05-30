@@ -28,7 +28,7 @@ function mapChildItem(child) {
   if (!id) return null;
   return {
     id,
-    name: personDisplayName(child, `Child ${id}`),
+    name: child.name || `Child ${id}`,
     lastname: child.lastname,
     imageUrl: child.imageUrl,
   };
