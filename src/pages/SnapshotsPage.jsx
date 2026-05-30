@@ -215,7 +215,7 @@ export default function SnapshotsPage() {
               dateRange,
               customFrom,
               customTo,
-              childId: childId !== "all" ? childId : undefined,
+              child_name: childId !== "all" ? childId : undefined,
               author: author !== "all" ? author : undefined,
             }),
       });

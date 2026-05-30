@@ -39,6 +39,7 @@ function buildSnapshotListFormData(centerId, options = {}) {
     customFrom,
     customTo,
     childId,
+    child_name,
     author,
   } = options;
 
@@ -50,6 +51,7 @@ function buildSnapshotListFormData(centerId, options = {}) {
 
   appendIfPresent(formData, "room_id", roomId);
   appendIfPresent(formData, "search", search?.trim());
+  appendIfPresent(formData, 'child_name', child_name);
 
   if (status && status !== "all") {
     formData.append("status", STATUS_MAP[status] || status);
@@ -65,7 +67,7 @@ function buildSnapshotListFormData(centerId, options = {}) {
       }
     }
   }
-
+   
   appendIfPresent(formData, "child_id", childId);
   appendIfPresent(formData, "author", author);
 

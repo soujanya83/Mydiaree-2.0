@@ -2,7 +2,7 @@ import { Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
-
+import GuestRoute from "@/components/common/GuestRoute";
 import LoginPage from "@/pages/LoginPage";
 import LandingPage from "@/pages/LandingPage";
 import NotFoundPage from "@/pages/NotFoundPage";
@@ -66,14 +66,21 @@ export default function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={<GuestRoute><LandingPage /></GuestRoute>} />
+        <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/terms-conditions" element={<TermsConditionsPage />} />
 
         <Route element={<AppLayout />}>
-          {/* Dashboard — always accessible */}
-          <Route path="/dashboard" element={<DashboardPage />} />
+          {/* Dashboard — accessible to authenticated users */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute path="/dashboard">
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/my-profile"
             element={
