@@ -27,6 +27,9 @@ export default function SettingsPage() {
       formData.append("addressCity", data.addressCity);
       formData.append("addressState", data.addressState);
       formData.append("addressZip", data.addressZip);
+      if (data.adminName) formData.append("admin_name", data.adminName);
+      if (data.adminEmail) formData.append("admin_email", data.adminEmail);
+      if (data.adminPassword) formData.append("admin_password", data.adminPassword);
 
       const res = data.id
         ? await centerService.updateCenter(formData)

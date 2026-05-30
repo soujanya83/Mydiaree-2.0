@@ -9,16 +9,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Building, Loader2 } from "lucide-react";
+import { Building, Loader2, Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const empty = { name: "", addressStreet: "", addressCity: "", addressState: "", addressZip: "" };
+const empty = { name: "", addressStreet: "", addressCity: "", addressState: "", addressZip: "", adminName: "", adminEmail: "", adminPassword: "" };
 
 export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
   const [form, setForm] = useState(empty);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
   const isEdit = !!initial?.id;
 
   useEffect(() => {
@@ -35,6 +36,9 @@ export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
     if (k === "addressCity") setErrors((prev) => ({ ...prev, addressCity: null }));
     if (k === "addressState") setErrors((prev) => ({ ...prev, addressState: null }));
     if (k === "addressZip") setErrors((prev) => ({ ...prev, addressZip: null }));
+    if (k === "adminName") setErrors((prev) => ({ ...prev, admin_name: null }));
+    if (k === "adminEmail") setErrors((prev) => ({ ...prev, admin_email: null }));
+    if (k === "adminPassword") setErrors((prev) => ({ ...prev, admin_password: null }));
   };
 
   const handleSubmit = async (e) => {
@@ -73,6 +77,9 @@ export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
         addressCity: form.addressCity.trim(),
         addressState: form.addressState.trim(),
         addressZip: form.addressZip.trim(),
+        adminName: form.adminName.trim(),
+        adminEmail: form.adminEmail.trim(),
+        adminPassword: form.adminPassword,
       });
       onOpenChange(false);
     } catch (err) {
@@ -204,6 +211,86 @@ export function AddCenterModal({ open, onOpenChange, initial, onSave }) {
                   {errors.addressZip && (
                     <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
                       {errors.addressZip[0]}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-5">
+              <h3 className="text-sm font-bold text-foreground mb-4 uppercase tracking-wider opacity-80">
+                Admin Information <span className="text-muted-foreground font-normal ml-1">(Optional)</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-2 sm:col-span-2">
+                  <Label className="text-sm font-bold text-foreground">
+                    Admin Name
+                  </Label>
+                  <Input
+                    value={form.adminName}
+                    onChange={(e) => set("adminName", e.target.value)}
+                    placeholder="e.g., John Smith"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.admin_name && "border-destructive focus-visible:ring-destructive/20"
+                    )}
+                  />
+                  {errors.admin_name && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.admin_name[0]}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label className="text-sm font-bold text-foreground">
+                    Admin Email
+                  </Label>
+                  <Input
+                    type="email"
+                    value={form.adminEmail}
+                    onChange={(e) => set("adminEmail", e.target.value)}
+                    placeholder="e.g., admin@example.com"
+                    className={cn(
+                      "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium",
+                      errors.admin_email && "border-destructive focus-visible:ring-destructive/20"
+                    )}
+                  />
+                  {errors.admin_email && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.admin_email[0]}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label className="text-sm font-bold text-foreground">
+                    Admin Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={form.adminPassword}
+                      onChange={(e) => set("adminPassword", e.target.value)}
+                      placeholder="Enter admin password"
+                      className={cn(
+                        "h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium pr-10",
+                        errors.admin_password && "border-destructive focus-visible:ring-destructive/20"
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.admin_password && (
+                    <p className="text-xs font-semibold text-destructive mt-1 px-1 animate-in fade-in-50">
+                      {errors.admin_password[0]}
                     </p>
                   )}
                 </div>
