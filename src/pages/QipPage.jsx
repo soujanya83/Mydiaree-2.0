@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -216,19 +217,11 @@ export default function QipPage() {
                 Add New QIP
               </Button>
             )}
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-10 min-w-[200px] rounded-xl border-border/60 bg-card/50 backdrop-blur font-medium">
-                <Building2 className="h-4 w-4 text-primary" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-border/60 backdrop-blur">
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CentreSelect
+              icon={Building2}
+              triggerClassName="h-10 min-w-[200px] rounded-xl border-border/60 bg-card/50 backdrop-blur font-medium"
+              contentClassName="rounded-xl border-border/60 backdrop-blur"
+            />
           </div>
         }
       />

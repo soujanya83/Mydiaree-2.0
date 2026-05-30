@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Search, LineChart, Baby, Cake, VenetianMask } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Input } from "@/components/ui/input";
 import {
@@ -98,14 +99,7 @@ export default function LearningProgressPage() {
       <div className="mb-6 flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm sm:flex-row sm:items-center">
         <div className="flex-1">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Centre</label>
-          <Select value={String(activeCentreId || "")} onValueChange={setActiveCentre}>
-            <SelectTrigger><SelectValue placeholder="Select Centre" /></SelectTrigger>
-            <SelectContent>
-              {centres.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CentreSelect icon={null} placeholder="Select Centre" />
         </div>
         <div className="flex-1">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Room</label>

@@ -19,4 +19,15 @@ export const dashboardService = {
     const res = await api.get("/users/birthday");
     return res.data;
   },
+
+  /** Monthly birthdays, holidays, events & announcements for a centre */
+  async getUniversalDashboard(centerId, month) {
+    const res = await api.get("/universal-dashboard", {
+      params: {
+        centerid: centerId,
+        month,
+      },
+    });
+    return res.data;
+  },
 };

@@ -14,6 +14,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -98,18 +99,11 @@ export default function PermissionsAssignedListPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Filter className="h-5 w-5" />
           </div>
-          <Select value={activeCentreId} onValueChange={setActiveCentre}>
-            <SelectTrigger className="w-full sm:w-64 bg-background border-muted-foreground/20 rounded-xl">
-              <SelectValue placeholder="Select Center" />
-            </SelectTrigger>
-            <SelectContent>
-              {centres.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CentreSelect
+            icon={null}
+            triggerClassName="w-full sm:w-64 bg-background border-muted-foreground/20 rounded-xl"
+            placeholder="Select Center"
+          />
         </div>
         <div className="text-sm text-muted-foreground">
           Showing <span className="font-bold text-foreground">{rows.length}</span> of{" "}

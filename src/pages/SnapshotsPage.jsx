@@ -23,6 +23,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -374,19 +375,11 @@ export default function SnapshotsPage() {
             )}
             {!isParent && (
               <>
-                <Select value={activeCentreId} onValueChange={setActiveCentre}>
-                  <SelectTrigger className="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                    <Building2 className="mr-1.5 h-4 w-4" />
-                    <SelectValue placeholder="Centre" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {centres.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CentreSelect
+                  icon={Building2}
+                  triggerClassName="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20"
+                  placeholder="Centre"
+                />
                 <Select value={localRoomId} onValueChange={setLocalRoomId}>
                   <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
                     <DoorOpen className="mr-1.5 h-4 w-4" />

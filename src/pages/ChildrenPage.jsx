@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Pagination } from "@/components/common/Pagination";
 import { Button } from "@/components/ui/button";
@@ -282,18 +283,11 @@ export default function ChildrenPage() {
       <div className="mb-6 space-y-4">
         {/* Top Row: Center and Room */}
         <div className="grid gap-3 sm:grid-cols-2 lg:max-w-xl">
-          <Select value={activeCentreId} onValueChange={setActiveCentre}>
-            <SelectTrigger className="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              {centres.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CentreSelect
+            icon={null}
+            triggerClassName="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm"
+            contentClassName="rounded-xl"
+          />
           <Select value={activeRoomId} onValueChange={setActiveRoom}>
             <SelectTrigger className="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm">
               <SelectValue placeholder="Select Room" />

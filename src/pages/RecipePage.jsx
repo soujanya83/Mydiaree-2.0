@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 
 import { Button } from "@/components/ui/button";
@@ -137,18 +138,11 @@ export default function RecipePage() {
         breadcrumbs={[{ label: "Recipes Library" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-10 w-[220px] rounded-xl border-border/70 bg-background/70 backdrop-blur shadow-sm">
-                <SelectValue placeholder="Select centre" />
-              </SelectTrigger>
-              <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CentreSelect
+              icon={null}
+              triggerClassName="h-10 w-[220px] rounded-xl border-border/70 bg-background/70 backdrop-blur shadow-sm"
+              placeholder="Select centre"
+            />
             {can(perms.add) && (
               <Button
                 onClick={() => setModal({ open: true, initial: null })}

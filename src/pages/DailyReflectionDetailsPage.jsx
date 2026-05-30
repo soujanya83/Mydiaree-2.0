@@ -48,6 +48,16 @@ const getPersonName = (person) => {
   return [person.name, person.lastname].filter(Boolean).join(" ").trim() || person.name || "Unknown";
 };
 
+function stripHtml(value = "") {
+  return String(value)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function DailyReflectionDetailsPage() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -150,7 +160,7 @@ export default function DailyReflectionDetailsPage() {
             <span className={`mb-3 inline-flex rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${statusColors}`}>
               {reflection.status}
             </span>
-            <h1 className="text-2xl font-bold text-white md:text-3xl lg:text-4xl">{reflection.title}</h1>
+            <h1 className="text-2xl font-bold text-white md:text-3xl lg:text-4xl">{stripHtml(reflection.title)}</h1>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-6 py-4">
@@ -179,7 +189,7 @@ export default function DailyReflectionDetailsPage() {
               <BookOpen className="h-5 w-5 text-primary" /> Reflection
             </h3>
             <p className="whitespace-pre-line text-[15px] leading-relaxed text-foreground/90">
-              {reflection.about || "No content provided."}
+              {stripHtml(reflection.about) || "No content provided."}
             </p>
           </section>
 

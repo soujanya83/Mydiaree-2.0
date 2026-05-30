@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -470,18 +471,7 @@ export default function ObservationActivityPage() {
       <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
         <div className="flex items-center gap-2">
           <Building2 className="h-4 w-4 text-muted-foreground" />
-          <Select value={String(activeCentreId || "")} onValueChange={setActiveCentre}>
-            <SelectTrigger className="h-9 w-[260px]">
-              <SelectValue placeholder="Centre" />
-            </SelectTrigger>
-            <SelectContent>
-              {centres.map((c) => (
-                <SelectItem key={c.id} value={String(c.id)}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CentreSelect icon={null} triggerClassName="h-9 w-[260px]" placeholder="Centre" />
         </div>
         <div className="flex items-center gap-2">
           <DoorOpen className="h-4 w-4 text-muted-foreground" />

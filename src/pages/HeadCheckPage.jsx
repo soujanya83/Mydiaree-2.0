@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -287,18 +288,7 @@ export default function HeadCheckPage() {
         breadcrumbs={[{ label: "Head Check" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-card/80 p-2 shadow-sm">
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[210px] bg-background">
-                <SelectValue placeholder="Centre" />
-              </SelectTrigger>
-              <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CentreSelect icon={null} triggerClassName="h-9 w-[210px] bg-background" placeholder="Centre" />
             <Select value={activeRoomId} onValueChange={setActiveRoom}>
               <SelectTrigger className="h-9 w-[170px] bg-background">
                 <SelectValue placeholder="Room" />

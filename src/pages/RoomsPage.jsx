@@ -14,6 +14,7 @@ import {
   Users2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -174,18 +175,10 @@ export default function RoomsPage() {
                 className="h-10 bg-background pl-9"
               />
             </div>
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-10 w-full bg-background lg:w-60">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CentreSelect
+              icon={null}
+              triggerClassName="h-10 w-full bg-background lg:w-60"
+            />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-10 w-full bg-background lg:w-40">
                 <SelectValue placeholder="Status" />

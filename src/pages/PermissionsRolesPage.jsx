@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -127,18 +128,11 @@ export default function PermissionsRolesPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Filter className="h-5 w-5" />
           </div>
-          <Select value={activeCentreId} onValueChange={setActiveCentre}>
-            <SelectTrigger className="w-full sm:w-64 bg-background border-muted-foreground/20 rounded-xl">
-              <SelectValue placeholder="Select Center" />
-            </SelectTrigger>
-            <SelectContent>
-              {centres.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CentreSelect
+            icon={null}
+            triggerClassName="w-full sm:w-64 bg-background border-muted-foreground/20 rounded-xl"
+            placeholder="Select Center"
+          />
         </div>
         <div className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />

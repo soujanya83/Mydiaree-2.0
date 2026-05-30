@@ -7,9 +7,9 @@ import {
   Megaphone,
   PartyPopper,
   Sparkles,
-  MapPin,
   ExternalLink,
   ImageIcon,
+  Palmtree,
 } from "lucide-react";
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,17 @@ const DAY_TYPES = [
     sectionBorder: "border-rose-500/20",
     chip: "bg-rose-500/10 text-rose-700 dark:text-rose-300",
     gradient: "from-rose-500/20 via-rose-500/5 to-transparent",
+  },
+  {
+    key: "holidays",
+    label: "Holidays",
+    singular: "Holiday",
+    Icon: Palmtree,
+    iconBg: "bg-amber-500/15",
+    iconTone: "text-amber-600",
+    sectionBorder: "border-amber-500/20",
+    chip: "bg-amber-500/10 text-amber-800 dark:text-amber-300",
+    gradient: "from-amber-500/20 via-amber-500/5 to-transparent",
   },
   {
     key: "announcements",
@@ -102,14 +113,14 @@ function stripHtml(value = "") {
 }
 
 function entryTitle(entry, typeKey) {
-  if (typeKey === "birthdays") {
+  if (typeKey === "birthdays" || typeKey === "holidays") {
     return entry.title;
   }
   return stripHtml(entry.title || entry.text || "Untitled");
 }
 
 function entrySubtitle(entry, typeKey) {
-  if (typeKey === "birthdays") {
+  if (typeKey === "birthdays" || typeKey === "holidays") {
     return entry.text;
   }
   const text = stripHtml(entry.text || "");
@@ -312,8 +323,18 @@ function CalendarDayModal({ selectedDay, onClose }) {
   );
 }
 
-export function DashboardCalendar({ className, events = [], birthdays = [], isLoading = false }) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+export function DashboardCalendar({
+  className,
+  events = [],
+  birthdays = [],
+  holidays = [],
+  isLoading = false,
+  currentDate: controlledDate,
+  onCurrentDateChange,
+}) {
+  const [internalDate, setInternalDate] = useState(new Date());
+  const currentDate = controlledDate ?? internalDate;
+  const setCurrentDate = onCurrentDateChange ?? setInternalDate;
   const [selectedDay, setSelectedDay] = useState(null);
 
   const calendarDays = useMemo(() => {
@@ -326,44 +347,61 @@ export function DashboardCalendar({ className, events = [], birthdays = [], isLo
     return days.map((day) => {
       const dayBirthdays = birthdays
         .filter((child) => {
-          if (!isValidDob(child.dob)) return false;
-          const [, month, date] = child.dob.split("-");
+          const dob = child.birthdayDate || child.dob;
+          if (!isValidDob(dob)) return false;
+          const [, month, date] = dob.split("-");
           return month === format(day, "MM") && date === format(day, "dd");
         })
         .map((child) => {
+          const dob = child.birthdayDate || child.dob;
           const eventYear = day.getFullYear();
           const name = [child.name, child.lastname].filter(Boolean).join(" ").trim();
-          const age = birthdayAge(child.dob, eventYear);
+          const age =
+            child.age != null && child.age !== ""
+              ? Number(child.age)
+              : birthdayAge(dob, eventYear);
           return {
             id: `birthday-${child.id}`,
             type: "birthday",
             title: `${name || "Child"}'s Birthday`,
-            eventDate: `${eventYear}-${child.dob.slice(5)}`,
+            eventDate: `${eventYear}-${dob.slice(5)}`,
             text:
-              age != null
+              age != null && !Number.isNaN(age)
                 ? `${name || "Child"} turns ${age} ${age === 1 ? "year" : "years"} old.`
                 : `${name || "Child"} has a birthday today.`,
             imageUrl: child.imageUrl,
           };
         });
 
+      const dayHolidays = holidays
+        .filter((h) => h.date && isSameDay(parseISO(h.date), day))
+        .map((h) => ({
+          id: `holiday-${h.id}`,
+          type: "holiday",
+          title: h.occasion || "Holiday",
+          text: h.state ? `State: ${h.state}` : null,
+          eventDate: h.date,
+        }));
+
       const dayAnnouncements = [];
       const dayNormalEvents = [];
 
       events.forEach((e) => {
-        if (!e.eventDate) return;
-        if (isSameDay(parseISO(e.eventDate), day)) {
+        const eventDate = e.eventDate || e.date;
+        if (!eventDate) return;
+        if (isSameDay(parseISO(eventDate), day)) {
           const apiType = String(e.type || "").toLowerCase();
           if (apiType === "events") {
-            dayNormalEvents.push(e);
+            dayNormalEvents.push({ ...e, eventDate });
           } else {
-            dayAnnouncements.push(e);
+            dayAnnouncements.push({ ...e, eventDate });
           }
         }
       });
 
       const data = {
         birthdays: dayBirthdays,
+        holidays: dayHolidays,
         announcements: dayAnnouncements,
         normalEvents: dayNormalEvents,
       };
@@ -384,7 +422,7 @@ export function DashboardCalendar({ className, events = [], birthdays = [], isLo
         totalItems,
       };
     });
-  }, [birthdays, currentDate, events]);
+  }, [birthdays, holidays, currentDate, events]);
 
   const handlePrevMonth = () => setCurrentDate(subMonths(currentDate, 1));
   const handleNextMonth = () => setCurrentDate(addMonths(currentDate, 1));

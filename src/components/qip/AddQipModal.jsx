@@ -11,6 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useCentreStore } from "@/stores/centreStore";
+import { CentreSelect } from "@/components/common/CentreSelect";
 
 export default function AddQipModal({ open, onOpenChange, onSubmit, initial }) {
   const { centres, activeCentreId } = useCentreStore();
@@ -81,16 +82,14 @@ export default function AddQipModal({ open, onOpenChange, onSubmit, initial }) {
           
           <div className="space-y-2">
             <Label className="text-sm font-bold px-1 text-foreground/80">Select Centre *</Label>
-            <Select value={String(centerId)} onValueChange={setCenterId}>
-              <SelectTrigger className="h-11 rounded-xl bg-background/50 border-border/60 focus-visible:ring-primary/20 font-medium">
-                <SelectValue placeholder="Select a centre" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl border-border/60 backdrop-blur">
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)} className="font-medium">{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CentreSelect
+              value={centerId}
+              onValueChange={setCenterId}
+              icon={null}
+              triggerClassName="h-11 rounded-xl bg-background/50 border-border/60 focus-visible:ring-primary/20 font-medium"
+              contentClassName="rounded-xl border-border/60 backdrop-blur"
+              placeholder="Select a centre"
+            />
           </div>
 
           <div className="relative overflow-hidden rounded-2xl bg-muted/20 p-4 border border-border/40 group/note transition-colors hover:bg-muted/30">

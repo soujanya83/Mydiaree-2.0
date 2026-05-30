@@ -21,6 +21,7 @@ import {
   Printer,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import {
@@ -707,18 +708,11 @@ export default function ProgramPlanPage() {
           actions={
             <div className="flex flex-wrap items-center gap-2">
               {!isParent && (
-                <Select value={activeCentreId} onValueChange={setActiveCentre}>
-                  <SelectTrigger className="h-10 w-[180px] rounded-xl border-border/70 bg-background/70 backdrop-blur">
-                    <SelectValue placeholder="Centre" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {centres.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CentreSelect
+                  icon={null}
+                  triggerClassName="h-10 w-[180px] rounded-xl border-border/70 bg-background/70 backdrop-blur"
+                  placeholder="Centre"
+                />
               )}
 
               {!isParent && (

@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -363,18 +364,11 @@ export default function PermissionsPage() {
         <div className="grid gap-4 xl:grid-cols-[minmax(0,680px)_1fr] xl:items-start">
           <div>
             <div className="mb-4 flex flex-wrap items-center gap-3">
-              <Select value={activeCentreId} onValueChange={setActiveCentre}>
-                <SelectTrigger className="w-full border-muted-foreground/20 bg-background sm:w-72">
-                  <SelectValue placeholder="Select Center" />
-                </SelectTrigger>
-                <SelectContent>
-                  {centres.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CentreSelect
+                icon={null}
+                triggerClassName="w-full border-muted-foreground/20 bg-background sm:w-72"
+                placeholder="Select Center"
+              />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

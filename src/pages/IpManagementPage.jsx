@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Eye, Pencil, Wifi, Shield, ShieldCheck, ShieldAlert, Globe, MapPin, Loader2, Info } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Badge } from "@/components/ui/badge";
@@ -171,18 +172,12 @@ export default function IpManagementPage() {
         breadcrumbs={[{ label: "Setting" }, { label: "IP Restrictions" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-9 w-[200px] rounded-xl">
-                <SelectValue placeholder="Select Centre" />
-              </SelectTrigger>
-              <SelectContent className="rounded-xl">
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CentreSelect
+              icon={null}
+              triggerClassName="h-9 w-[200px] rounded-xl"
+              contentClassName="rounded-xl"
+              placeholder="Select Centre"
+            />
             <Button
               onClick={openAdd}
               disabled={loading}

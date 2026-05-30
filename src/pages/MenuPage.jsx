@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -275,18 +276,11 @@ export default function MenuPage() {
         breadcrumbs={[{ label: "Healthy Eating Menu" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={activeCentreId} onValueChange={setActiveCentre}>
-              <SelectTrigger className="h-10 w-[220px] rounded-xl border-border/70 bg-background/70 backdrop-blur">
-                <SelectValue placeholder="Select centre" />
-              </SelectTrigger>
-              <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CentreSelect
+              icon={null}
+              triggerClassName="h-10 w-[220px] rounded-xl border-border/70 bg-background/70 backdrop-blur"
+              placeholder="Select centre"
+            />
             <Input
               type="date"
               value={date}

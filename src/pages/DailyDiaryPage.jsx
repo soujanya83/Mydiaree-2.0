@@ -3,6 +3,7 @@ import { Baby, CheckCircle2, Clock3, Plus, Search, UsersRound } from "lucide-rea
 import { toast } from "sonner";
 import dailyDiaryService from "@/services/daily-operations/dailyDiaryService";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -403,18 +404,7 @@ export default function DailyDiaryPage() {
           <div className="flex flex-wrap items-center gap-2">
             {!isParent && (
               <>
-                <Select value={activeCentreId} onValueChange={setActiveCentre}>
-                  <SelectTrigger className="h-9 w-[200px]">
-                    <SelectValue placeholder="Centre" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {centres.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CentreSelect icon={null} triggerClassName="h-9 w-[200px]" placeholder="Centre" />
                 <Select value={activeRoomId} onValueChange={setActiveRoom}>
                   <SelectTrigger className="h-9 w-[160px]">
                     <SelectValue placeholder="Room" />

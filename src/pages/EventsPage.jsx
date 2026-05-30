@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus, CalendarDays, Filter as FilterIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,18 +109,7 @@ export default function EventsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {!isParent && centres.length > 0 && (
-              <Select value={activeCentreId} onValueChange={setActiveCentre}>
-                <SelectTrigger className="h-9 w-[200px]">
-                  <SelectValue placeholder="Select Centre" />
-                </SelectTrigger>
-                <SelectContent>
-                  {centres.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CentreSelect icon={null} triggerClassName="h-9 w-[200px]" placeholder="Select Centre" />
             )}
             {!isParent && (
               <Button variant="outline" onClick={() => navigate("/events/holidays")}>

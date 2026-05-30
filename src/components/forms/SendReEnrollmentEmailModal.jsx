@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { parentService } from "@/services/admin/parentService";
 import { sendReEnrollmentEmail } from "@/services/admin/formOptionsService";
 import { useCentreStore } from "@/stores/centreStore";
+import { CentreSelect } from "@/components/common/CentreSelect";
 
 function ParentAvatar({ name }) {
   const letter = (name || "?").trim().charAt(0).toUpperCase();
@@ -143,18 +144,11 @@ export default function SendReEnrollmentEmailModal({ open, onOpenChange }) {
         <div className="flex-1 overflow-y-auto bg-muted/10 custom-scrollbar">
           {/* Center Select */}
           <div className="px-8 pb-2 pt-6">
-           <Select value={activeCentreId} onValueChange={setActiveCentre}>
-             <SelectTrigger className="w-full sm:w-[250px] bg-card">
-               <SelectValue placeholder="Select Centre" />
-             </SelectTrigger>
-             <SelectContent>
-                {centres.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name || c.centerName}
-                  </SelectItem>
-                ))}
-             </SelectContent>
-           </Select>
+           <CentreSelect
+             icon={null}
+             triggerClassName="w-full sm:w-[250px] bg-card"
+             placeholder="Select Centre"
+           />
         </div>
 
         {/* Body */}
