@@ -14,15 +14,17 @@ export function usePermissions() {
   const userPermissions = useAuthStore((s) => s.userPermissions);
 
   const isSuperadmin = user?.userType === "Superadmin";
+  const isCenteradmin = user?.userType === "Centeradmin";
+  const hasFullAccess = isSuperadmin || isCenteradmin;
   const isParent = isParentUser(user);
 
   /**
    * Check if user has a specific permission.
-   * Superadmin always returns true. Parents never have write permissions.
+   * Superadmin / Centeradmin always return true. Parents never have write permissions.
    */
   const can = (permissionName) => {
     if (isParent) return false;
-    if (isSuperadmin) return true;
+    if (hasFullAccess) return true;
     if (!userPermissions) return false;
     return userPermissions[permissionName] === 1;
   };
@@ -34,7 +36,7 @@ export function usePermissions() {
    */
   const canAny = (permissionNames = []) => {
     if (isParent) return true;
-    if (isSuperadmin) return true;
+    if (hasFullAccess) return true;
     if (!permissionNames || permissionNames.length === 0) return true;
     if (!userPermissions) return false;
     return permissionNames.some((name) => userPermissions[name] === 1);
@@ -45,11 +47,11 @@ export function usePermissions() {
    * Superadmin always returns true.
    */
   const canAll = (permissionNames = []) => {
-    if (isSuperadmin) return true;
+    if (hasFullAccess) return true;
     if (!permissionNames || permissionNames.length === 0) return true;
     if (!userPermissions) return false;
     return permissionNames.every((name) => userPermissions[name] === 1);
   };
 
-  return { can, canAny, canAll, isSuperadmin, isParent };
+  return { can, canAny, canAll, isSuperadmin, isCenteradmin, hasFullAccess, isParent };
 }

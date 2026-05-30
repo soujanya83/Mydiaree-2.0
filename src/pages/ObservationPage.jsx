@@ -131,7 +131,7 @@ export default function ObservationPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
-  const { can, isParent, isSuperadmin } = usePermissions();
+  const { can, isParent, hasFullAccess } = usePermissions();
   const parentChildren = useParentDashboardStore((s) => s.children);
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
   const {
@@ -336,7 +336,7 @@ export default function ObservationPage() {
                 Filters
               </Button>
             )}
-            {isSuperadmin && (
+            {hasFullAccess && (
               <Button variant="outline" onClick={() => navigate("/observation/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
                 Recycle Bin

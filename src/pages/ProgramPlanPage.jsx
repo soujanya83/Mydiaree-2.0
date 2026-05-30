@@ -380,7 +380,7 @@ export default function ProgramPlanPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
   const user = useAuthStore((s) => s.user);
-  const { can, isParent, isSuperadmin } = usePermissions();
+  const { can, isParent, hasFullAccess } = usePermissions();
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
   const perms = ACTION_PERMISSIONS.programPlan;
 
@@ -732,7 +732,7 @@ export default function ProgramPlanPage() {
                 </Button>
               )}
 
-              {isSuperadmin && (
+              {hasFullAccess && (
                 <Button
                   variant="outline"
                   onClick={() => navigate("/program-plan/recycle-bin")}

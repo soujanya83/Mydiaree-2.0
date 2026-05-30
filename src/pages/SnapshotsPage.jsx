@@ -172,7 +172,7 @@ export default function SnapshotsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [gallerySnap, setGallerySnap] = useState(null);
   const [isPrinting, setIsPrinting] = useState(null);
-  const { can, isParent, isSuperadmin } = usePermissions();
+  const { can, isParent, hasFullAccess } = usePermissions();
   const perms = ACTION_PERMISSIONS.snapshots;
 
   const fetchSnapshots = useCallback(async () => {
@@ -360,7 +360,7 @@ export default function SnapshotsPage() {
                 Filters
               </Button>
             )}
-            {isSuperadmin && (
+            {hasFullAccess && (
               <Button variant="outline" onClick={() => navigate("/snapshots/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
                 Recycle Bin

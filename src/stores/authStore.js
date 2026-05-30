@@ -3,7 +3,9 @@ import { authService } from "@/services/auth/authService";
 import { permissionService } from "@/services/admin/permissionService";
 
 function shouldFetchPermissions(user) {
-  return user && user.userType !== "Superadmin" && user.userType !== "Parent";
+  if (!user) return false;
+  const type = user.userType;
+  return type !== "Superadmin" && type !== "Centeradmin" && type !== "Parent";
 }
 
 function getInitialPermissionsLoading() {
@@ -38,7 +40,7 @@ export const useAuthStore = create((set, get) => ({
         if (data.user.userType === "Parent") {
           localStorage.removeItem("userPermissions");
           set({ userPermissions: null, permissionsLoading: false });
-        } else if (data.user.userType !== "Superadmin") {
+        } else if (shouldFetchPermissions(data.user)) {
           set({ permissionsLoading: true });
           try {
             const permData = await permissionService.getUserPermission(data.user.userid);
@@ -52,7 +54,7 @@ export const useAuthStore = create((set, get) => ({
             set({ userPermissions: null, permissionsLoading: false });
           }
         } else {
-          // Superadmin — clear any stale permissions, hook handles bypass
+          // Superadmin / Centeradmin — full access via hook; no permission API
           localStorage.removeItem("userPermissions");
           set({ userPermissions: null, permissionsLoading: false });
         }

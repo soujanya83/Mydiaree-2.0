@@ -121,7 +121,7 @@ export default function DailyReflectionsPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms } = useRoomStore();
   const [localRoomId, setLocalRoomId] = useState("all");
-  const { can, isParent, isSuperadmin } = usePermissions();
+  const { can, isParent, hasFullAccess } = usePermissions();
   const parentChildren = useParentDashboardStore((s) => s.children);
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
   const {
@@ -316,7 +316,7 @@ export default function DailyReflectionsPage() {
                 Filters
               </Button>
             )}
-            {isSuperadmin && (
+            {hasFullAccess && (
               <Button variant="outline" onClick={() => navigate("/daily-reflections/recycle-bin")}>
                 <Recycle className="mr-1.5 h-4 w-4" />
                 Recycle Bin

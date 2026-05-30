@@ -20,7 +20,7 @@ export function Sidebar() {
   const pathname = useLocation().pathname;
   const isActive = (to) => pathname === to || pathname.startsWith(to + "/");
 
-  const { canAny, isSuperadmin, isParent } = usePermissions();
+  const { canAny, isSuperadmin, isCenteradmin, isParent } = usePermissions();
 
   // ----- Filter nav items by permission -----
   const filteredNav = useMemo(() => {
@@ -42,6 +42,11 @@ export function Sidebar() {
             return isSuperadmin;
           }
 
+          // Hide Center Settings for Centeradmin users
+          if (item.to === "/settings" && isCenteradmin) {
+            return false;
+          }
+
           // Check route permissions
           const perms = ROUTE_PERMISSIONS[item.to];
           if (!perms || perms.length === 0) {
@@ -57,7 +62,7 @@ export function Sidebar() {
         return { ...group, items: visibleItems };
       })
       .filter(Boolean);
-  }, [canAny, isSuperadmin, isParent]);
+  }, [canAny, isSuperadmin, isCenteradmin, isParent]);
 
   return (
     <>

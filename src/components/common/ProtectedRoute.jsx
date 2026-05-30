@@ -19,7 +19,7 @@ export default function ProtectedRoute({ path, children }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const permissionsLoading = useAuthStore((s) => s.permissionsLoading);
   const userPermissions = useAuthStore((s) => s.userPermissions);
-  const { canAny, isSuperadmin, isParent } = usePermissions();
+  const { canAny, isSuperadmin, isCenteradmin, hasFullAccess, isParent } = usePermissions();
   const { pathname } = useLocation();
 
   // If not authenticated, redirect to login
@@ -28,7 +28,7 @@ export default function ProtectedRoute({ path, children }) {
   }
 
   // Wait for permissions to load after refresh before denying access
-  if (!isSuperadmin && !isParent && permissionsLoading && !userPermissions) {
+  if (!hasFullAccess && !isParent && permissionsLoading && !userPermissions) {
     return null;
   }
 
@@ -45,6 +45,11 @@ export default function ProtectedRoute({ path, children }) {
       return <AccessDeniedPage />;
     }
     return children;
+  }
+
+  // Centeradmin has full access except Center Settings
+  if (path === "/settings" && isCenteradmin) {
+    return <AccessDeniedPage />;
   }
 
   // If route has defined permissions, check them
