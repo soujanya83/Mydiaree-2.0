@@ -77,6 +77,12 @@ export const reflectionService = {
     return res.data;
   },
 
+  async getReflectionById(id) {
+    const res = await api.get(`/reflection/view/${id}`);
+    return res.data;
+  },
+
+
   async storeReflection(formData) {
     const res = await api.post("/reflection/store", formData, {
       headers: {

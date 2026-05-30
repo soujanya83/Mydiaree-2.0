@@ -19,6 +19,7 @@ import {
   Video,
   Loader2,
   X,
+  Eye,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -465,6 +466,7 @@ export default function DailyReflectionsPage() {
               refl={r}
               onDelete={() => setDeleteModal({ open: true, id: r.id })}
               onEdit={() => navigate(`/daily-reflections/${r.id}/edit`)}
+              onViewDetails={() => navigate(`/daily-reflections/${r.id}`)}
               onViewGallery={() => setGalleryReflection(r)}
               onPrint={() => handlePrint(r.id)}
               isPrinting={isPrintingId === r.id}
@@ -676,6 +678,7 @@ function ReflectionCard({
   refl,
   onDelete,
   onEdit,
+  onViewDetails,
   onViewGallery,
   onPrint,
   isPrinting,
@@ -846,6 +849,15 @@ function ReflectionCard({
 
         {/* Actions */}
         <div className="mt-4 flex items-center justify-end gap-1 border-t border-border/50 pt-3">
+          <button
+            type="button"
+            onClick={onViewDetails}
+            title="View Details"
+            className={CARD_PRIMARY_ACTION_CLASSES}
+            style={CARD_PRIMARY_ACTION_STYLE}
+          >
+            <Eye className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={onPrint}
