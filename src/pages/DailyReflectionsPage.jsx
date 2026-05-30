@@ -119,7 +119,8 @@ const getPersonName = (person) =>
 export default function DailyReflectionsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { rooms } = useRoomStore();
+  const [localRoomId, setLocalRoomId] = useState("all");
   const { can, isParent, isSuperadmin } = usePermissions();
   const parentChildren = useParentDashboardStore((s) => s.children);
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
@@ -130,9 +131,14 @@ export default function DailyReflectionsPage() {
     setStaffSearch,
     childrenSearch,
     setChildrenSearch,
+    isStaffLoading,
     isChildrenLoading,
+    loadMoreStaff,
+    loadMoreChildren,
+    hasMoreStaff,
+    hasMoreChildren,
     clearPersonSearch,
-  } = useListFilterPeople({ activeCentreId, activeRoomId, rooms });
+  } = useListFilterPeople({ activeCentreId, activeRoomId: localRoomId, rooms });
   const perms = ACTION_PERMISSIONS.reflection;
 
   const [isLoadingReflections, setIsLoadingReflections] = useState(false);
@@ -181,7 +187,7 @@ export default function DailyReflectionsPage() {
         response = await reflectionService.getAllReflections(activeCentreId, {
           page,
           perPage: PAGE_SIZE,
-          roomId: activeRoomId || undefined,
+          roomId: localRoomId && localRoomId !== "all" ? localRoomId : undefined,
           search,
           status,
           dateRange,
@@ -205,7 +211,7 @@ export default function DailyReflectionsPage() {
     selectedChildId,
     parentChildren,
     activeCentreId,
-    activeRoomId,
+    localRoomId,
     page,
     search,
     status,
@@ -224,7 +230,7 @@ export default function DailyReflectionsPage() {
     setPage(1);
   }, [
     activeCentreId,
-    activeRoomId,
+    localRoomId,
     search,
     status,
     dateRange,
@@ -238,7 +244,7 @@ export default function DailyReflectionsPage() {
   useEffect(() => {
     setAuthor("all");
     setChildId("all");
-  }, [activeRoomId]);
+  }, [localRoomId]);
 
   const totalPages = Math.max(1, reflectionPagination.lastPage);
   const safePage = Math.min(page, totalPages);
@@ -291,6 +297,7 @@ export default function DailyReflectionsPage() {
     setAuthor("all");
     setChildId("all");
     setSearch("");
+    setLocalRoomId("all");
     clearPersonSearch();
     setPage(1);
   };
@@ -336,12 +343,13 @@ export default function DailyReflectionsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={activeRoomId} onValueChange={setActiveRoom}>
+                <Select value={localRoomId} onValueChange={setLocalRoomId}>
                   <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
                     <DoorOpen className="mr-1.5 h-4 w-4" />
                     <SelectValue placeholder="Room" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Rooms</SelectItem>
                     {rooms.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {r.name}
@@ -414,12 +422,13 @@ export default function DailyReflectionsPage() {
                 items={filteredStaff}
                 search={staffSearch}
                 onSearchChange={setStaffSearch}
+                isLoading={isStaffLoading}
                 allLabel="All authors"
                 searchPlaceholder="Search staff..."
-                emptyMessage={
-                  activeRoomId ? "No educators in this room" : "Select a room to filter by educator"
-                }
+                emptyMessage="No staff found in this center"
                 maxVisibleRows={5}
+                onLoadMore={loadMoreStaff}
+                hasMore={hasMoreStaff}
               />
             </div>
             <div>
@@ -434,9 +443,13 @@ export default function DailyReflectionsPage() {
                 allLabel="All children"
                 searchPlaceholder="Search children..."
                 emptyMessage={
-                  activeRoomId ? "No children in this room" : "Select a room to filter by child"
+                  localRoomId && localRoomId !== "all"
+                    ? "No children in this room"
+                    : "No children found in this center"
                 }
                 maxVisibleRows={5}
+                onLoadMore={loadMoreChildren}
+                hasMore={hasMoreChildren}
               />
             </div>
           </div>

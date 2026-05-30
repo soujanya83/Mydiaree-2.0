@@ -141,8 +141,11 @@ export default function ObservationPage() {
     setStaffSearch,
     childrenSearch,
     setChildrenSearch,
+    isStaffLoading,
     isChildrenLoading,
+    loadMoreStaff,
     clearPersonSearch,
+    hasMoreStaff,
   } = useListFilterPeople({ activeCentreId, activeRoomId, rooms });
   const perms = ACTION_PERMISSIONS.observation;
 
@@ -428,12 +431,13 @@ export default function ObservationPage() {
                 items={filteredStaff}
                 search={staffSearch}
                 onSearchChange={setStaffSearch}
+                isLoading={isStaffLoading}
                 allLabel="All authors"
                 searchPlaceholder="Search staff..."
-                emptyMessage={
-                  activeRoomId ? "No educators in this room" : "Select a room to filter by educator"
-                }
+                emptyMessage="No staff found in this center"
                 maxVisibleRows={5}
+                onLoadMore={loadMoreStaff}
+                hasMore={hasMoreStaff}
               />
             </div>
             <div>

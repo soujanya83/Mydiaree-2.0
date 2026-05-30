@@ -53,6 +53,8 @@ export function PersonFilterPicker({
   searchPlaceholder = "Search...",
   emptyMessage = "No results found",
   maxVisibleRows = 5,
+  onLoadMore,
+  hasMore = false,
 }) {
   const [open, setOpen] = useState(false);
   const searchRef = useRef(null);
@@ -125,7 +127,16 @@ export function PersonFilterPicker({
             </div>
           </div>
 
-          <div className="overflow-y-auto p-1.5" style={{ maxHeight: listMaxHeight }}>
+          <div
+            className="overflow-y-auto p-1.5"
+            style={{ maxHeight: listMaxHeight }}
+            onScroll={(e) => {
+              const { scrollTop, scrollHeight, clientHeight } = e.target;
+              if (scrollHeight - scrollTop - clientHeight < 20 && hasMore && !isLoading) {
+                onLoadMore?.();
+              }
+            }}
+          >
             <button
               type="button"
               onClick={() => handleSelect("all")}
@@ -171,6 +182,12 @@ export function PersonFilterPicker({
                   </button>
                 );
               })
+            )}
+
+            {hasMore && items.length > 0 && (
+              <div className="flex items-center justify-center py-2 text-xs text-muted-foreground">
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Scroll for more..."}
+              </div>
             )}
           </div>
         </PopoverContent>

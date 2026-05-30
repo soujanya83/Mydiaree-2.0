@@ -130,7 +130,8 @@ function normalizeSnapshotItem(item) {
 export default function SnapshotsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { rooms } = useRoomStore();
+  const [localRoomId, setLocalRoomId] = useState("all");
   const parentChildren = useParentDashboardStore((s) => s.children);
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
   const {
@@ -140,9 +141,14 @@ export default function SnapshotsPage() {
     setStaffSearch,
     childrenSearch,
     setChildrenSearch,
+    isStaffLoading,
     isChildrenLoading,
+    loadMoreStaff,
+    loadMoreChildren,
+    hasMoreStaff,
+    hasMoreChildren,
     clearPersonSearch,
-  } = useListFilterPeople({ activeCentreId, activeRoomId, rooms });
+  } = useListFilterPeople({ activeCentreId, activeRoomId: localRoomId, rooms });
   const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
   const [items, setItems] = useState([]);
   const [snapshotPagination, setSnapshotPagination] = useState({
@@ -209,7 +215,7 @@ export default function SnapshotsPage() {
               status: "Published",
             }
           : {
-              roomId: activeRoomId || undefined,
+              roomId: localRoomId && localRoomId !== "all" ? localRoomId : undefined,
               search,
               status,
               dateRange,
@@ -247,7 +253,7 @@ export default function SnapshotsPage() {
     }
   }, [
     activeCentreId,
-    activeRoomId,
+    localRoomId,
     page,
     search,
     status,
@@ -269,7 +275,7 @@ export default function SnapshotsPage() {
     setPage(1);
   }, [
     activeCentreId,
-    activeRoomId,
+    localRoomId,
     search,
     status,
     dateRange,
@@ -283,7 +289,7 @@ export default function SnapshotsPage() {
   useEffect(() => {
     setAuthor("all");
     setChildId("all");
-  }, [activeRoomId]);
+  }, [localRoomId]);
 
   const totalPages = Math.max(1, snapshotPagination.lastPage);
   const safePage = Math.min(page, totalPages);
@@ -336,6 +342,7 @@ export default function SnapshotsPage() {
     setAuthor("all");
     setChildId("all");
     setSearch("");
+    setLocalRoomId("all");
     clearPersonSearch();
   };
 
@@ -380,12 +387,13 @@ export default function SnapshotsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={activeRoomId} onValueChange={setActiveRoom}>
+                <Select value={localRoomId} onValueChange={setLocalRoomId}>
                   <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
                     <DoorOpen className="mr-1.5 h-4 w-4" />
                     <SelectValue placeholder="Room" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">All Rooms</SelectItem>
                     {rooms.map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {r.name}
@@ -465,12 +473,13 @@ export default function SnapshotsPage() {
                 items={filteredStaff}
                 search={staffSearch}
                 onSearchChange={setStaffSearch}
+                isLoading={isStaffLoading}
                 allLabel="All authors"
                 searchPlaceholder="Search staff..."
-                emptyMessage={
-                  activeRoomId ? "No educators in this room" : "Select a room to filter by educator"
-                }
+                emptyMessage="No staff found in this center"
                 maxVisibleRows={5}
+                onLoadMore={loadMoreStaff}
+                hasMore={hasMoreStaff}
               />
             </div>
             <div>
@@ -485,9 +494,13 @@ export default function SnapshotsPage() {
                 allLabel="All children"
                 searchPlaceholder="Search children..."
                 emptyMessage={
-                  activeRoomId ? "No children in this room" : "Select a room to filter by child"
+                  localRoomId && localRoomId !== "all"
+                    ? "No children in this room"
+                    : "No children found in this center"
                 }
                 maxVisibleRows={5}
+                onLoadMore={loadMoreChildren}
+                hasMore={hasMoreChildren}
               />
             </div>
           </div>
