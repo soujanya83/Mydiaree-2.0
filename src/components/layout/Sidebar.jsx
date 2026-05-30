@@ -6,7 +6,11 @@ import { navConfig } from "@/constants/nav";
 import { parentNavConfig } from "@/constants/parentNav";
 import { useUiStore } from "@/stores/uiStore";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ROUTE_PERMISSIONS, SUPERADMIN_ONLY_ROUTES } from "@/constants/permissionMap";
+import {
+  ROUTE_PERMISSIONS,
+  FULL_ACCESS_ADMIN_ROUTES,
+  SUPERADMIN_ONLY_ROUTES,
+} from "@/constants/permissionMap";
 import logoLong from "@/assets/mydiaree_long_logo.png";
 import logoShort from "@/assets/mydiearee_short_logo.png";
 
@@ -20,7 +24,7 @@ export function Sidebar() {
   const pathname = useLocation().pathname;
   const isActive = (to) => pathname === to || pathname.startsWith(to + "/");
 
-  const { canAny, isSuperadmin, isCenteradmin, isParent } = usePermissions();
+  const { canAny, isSuperadmin, isCenteradmin, hasFullAccess, isParent } = usePermissions();
 
   // ----- Filter nav items by permission -----
   const filteredNav = useMemo(() => {
@@ -37,6 +41,11 @@ export function Sidebar() {
 
         // Group with sub-items — filter children
         const visibleItems = (group.items || []).filter((item) => {
+          // Superadmin + Centeradmin (e.g. IP Management)
+          if (FULL_ACCESS_ADMIN_ROUTES.includes(item.to)) {
+            return hasFullAccess;
+          }
+
           // Superadmin-only routes
           if (SUPERADMIN_ONLY_ROUTES.includes(item.to)) {
             return isSuperadmin;
@@ -62,7 +71,7 @@ export function Sidebar() {
         return { ...group, items: visibleItems };
       })
       .filter(Boolean);
-  }, [canAny, isSuperadmin, isCenteradmin, isParent]);
+  }, [canAny, isSuperadmin, isCenteradmin, hasFullAccess, isParent]);
 
   return (
     <>

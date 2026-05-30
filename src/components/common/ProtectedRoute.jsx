@@ -1,6 +1,10 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { usePermissions } from "@/hooks/usePermissions";
-import { ROUTE_PERMISSIONS, SUPERADMIN_ONLY_ROUTES } from "@/constants/permissionMap";
+import {
+  ROUTE_PERMISSIONS,
+  FULL_ACCESS_ADMIN_ROUTES,
+  SUPERADMIN_ONLY_ROUTES,
+} from "@/constants/permissionMap";
 import { isParentRouteAllowed } from "@/constants/parentAccess";
 import { useAuthStore } from "@/stores/authStore";
 import AccessDeniedPage from "@/pages/AccessDeniedPage";
@@ -39,7 +43,15 @@ export default function ProtectedRoute({ path, children }) {
     return <AccessDeniedPage />;
   }
 
-  // If route is superadmin-only, check userType
+  // Superadmin + Centeradmin platform routes (e.g. IP Management)
+  if (FULL_ACCESS_ADMIN_ROUTES.includes(path)) {
+    if (!hasFullAccess) {
+      return <AccessDeniedPage />;
+    }
+    return children;
+  }
+
+  // Superadmin-only routes
   if (SUPERADMIN_ONLY_ROUTES.includes(path)) {
     if (!isSuperadmin) {
       return <AccessDeniedPage />;

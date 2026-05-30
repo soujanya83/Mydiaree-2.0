@@ -5,10 +5,11 @@
  *   If a user has ANY of the listed permissions, the route is visible.
  *   Routes not listed here are either:
  *     - Always visible (Dashboard, Service Details)
- *     - Superadmin-only (IP Management, Super Admin Settings)
+ *     - Platform admin (IP Management — Superadmin + Centeradmin)
+ *     - Superadmin-only (Super Admin Settings)
  *
- * SUPERADMIN_ONLY_ROUTES: Routes only visible to Superadmin users.
- *   These modules are NOT in the permissions API.
+ * FULL_ACCESS_ADMIN_ROUTES: Superadmin and Centeradmin (not in permissions API).
+ * SUPERADMIN_ONLY_ROUTES: Superadmin only.
  *
  * ACTION_PERMISSIONS: Maps module actions (add, edit, delete, etc.)
  *   to specific permission key names for page-level button guards.
@@ -84,10 +85,14 @@ export const ROUTE_PERMISSIONS = {
 };
 
 // ---------------------------------------------------------------------------
-// Superadmin-only routes — hidden from non-Superadmin users entirely.
-// These modules are NOT present in the permissions API.
+// Platform admin routes — Superadmin + Centeradmin (not in permissions API).
 // ---------------------------------------------------------------------------
-export const SUPERADMIN_ONLY_ROUTES = ["/ip-management", "/super-admin-settings"];
+export const FULL_ACCESS_ADMIN_ROUTES = ["/ip-management"];
+
+// ---------------------------------------------------------------------------
+// Superadmin-only routes — hidden from Centeradmin and staff.
+// ---------------------------------------------------------------------------
+export const SUPERADMIN_ONLY_ROUTES = ["/super-admin-settings"];
 
 // ---------------------------------------------------------------------------
 // Action → Permission key (page-level button guards)
