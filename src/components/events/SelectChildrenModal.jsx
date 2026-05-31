@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,6 +20,7 @@ import {
 import { useRoomStore } from "@/stores/roomStore";
 import { useCentreStore } from "@/stores/centreStore";
 import { childrenService } from "@/services/centre/childrenService";
+import { IMG_BASE_API } from "../../api/imageapi";
 
 function ageString(dob) {
   if (!dob) return "";
@@ -23,11 +28,14 @@ function ageString(dob) {
   const now = new Date();
   let years = now.getFullYear() - b.getFullYear();
   let months = now.getMonth() - b.getMonth();
-  if (months < 0) { years -= 1; months += 12; }
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
   return `${years} years ${months} months`;
 }
 
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 
 export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit }) {
   const { activeCentreId } = useCentreStore();
@@ -84,7 +92,8 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
     const normalizedId = String(id);
     setPicked((prev) => {
       const next = new Set(prev);
-      if (next.has(normalizedId)) next.delete(normalizedId); else next.add(normalizedId);
+      if (next.has(normalizedId)) next.delete(normalizedId);
+      else next.add(normalizedId);
       return next;
     });
   };
@@ -118,12 +127,15 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
     <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50">
       <Checkbox checked={picked.has(String(c.id))} onCheckedChange={() => toggle(c.id)} />
       <img
-        src={toImageUrl(c.imageUrl) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fullName(c)}`}
+        src={
+          toImageUrl(c.imageUrl) || `https://api.dicebear.com/7.x/avataaars/svg?seed=${fullName(c)}`
+        }
         alt={fullName(c)}
         className="h-7 w-7 rounded-full border object-cover"
       />
       <span className="text-sm font-medium text-primary">
-        {fullName(c)} <span className="text-muted-foreground font-normal">- {ageString(c.dob)}</span>
+        {fullName(c)}{" "}
+        <span className="text-muted-foreground font-normal">- {ageString(c.dob)}</span>
       </span>
     </label>
   );
@@ -138,7 +150,9 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
         <div className="space-y-4 px-5 py-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Room</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Room
+              </p>
               <Select value={roomId} onValueChange={setRoomId}>
                 <SelectTrigger>
                   <SelectValue placeholder="All rooms" />
@@ -154,7 +168,9 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
               </Select>
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Search</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Search
+              </p>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -183,9 +199,13 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
                 </div>
               ) : (
                 <>
-                  {filteredChildren.map((c) => <ChildRow key={c.id} c={c} />)}
+                  {filteredChildren.map((c) => (
+                    <ChildRow key={c.id} c={c} />
+                  ))}
                   {filteredChildren.length === 0 && (
-                    <p className="py-6 text-center text-sm text-muted-foreground">No children found.</p>
+                    <p className="py-6 text-center text-sm text-muted-foreground">
+                      No children found.
+                    </p>
                   )}
                 </>
               )}
@@ -195,7 +215,12 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
           {picked.size > 0 && (
             <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
               <span className="font-medium">{picked.size} selected</span>
-              <Button size="sm" variant="ghost" className="h-6 px-2" onClick={() => setPicked(new Set())}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2"
+                onClick={() => setPicked(new Set())}
+              >
                 <X className="h-3 w-3" /> Clear
               </Button>
             </div>
@@ -203,8 +228,12 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
         </div>
 
         <DialogFooter className="border-t bg-muted/30 px-5 py-3">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button type="button" onClick={submit}>Submit</Button>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={submit}>
+            Submit
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

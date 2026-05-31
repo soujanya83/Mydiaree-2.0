@@ -34,6 +34,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
+import { IMG_BASE_API } from "../../api/imageapi";
 
 function nowHHMM() {
   const d = new Date();
@@ -75,7 +76,7 @@ function childInitials(child) {
 function childImageUrl(child) {
   const url = child?.imageUrl;
   if (!url) return null;
-  return url.startsWith("http") ? url : `https://mydiaree.com.au/${url.replace(/^\/+/, "")}`;
+  return url.startsWith("http") ? url : `${IMG_BASE_API}${url.replace(/^\/+/, "")}`;
 }
 
 function childFirstName(child) {
@@ -107,7 +108,9 @@ const getValidationSchema = (activity) => {
   };
 
   if (["breakfast", "lunch", "late_snacks", "bottle"].includes(activity)) {
-    schema.item = z.string().min(1, `${activity === "bottle" ? "Bottle details" : "Item"} is required`);
+    schema.item = z
+      .string()
+      .min(1, `${activity === "bottle" ? "Bottle details" : "Item"} is required`);
   }
 
   if (activity === "lunch") {
@@ -133,7 +136,13 @@ function mergeById(current, next) {
   return Array.from(map.values());
 }
 
-export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerIdProp, roomId: roomIdProp }) {
+export function NewEntryModal({
+  open,
+  onOpenChange,
+  onSubmit,
+  centerId: centerIdProp,
+  roomId: roomIdProp,
+}) {
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const centerId = centerIdProp ?? activeCentreId;
@@ -227,12 +236,9 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
         if (cancelled || !response.status) return;
 
         const pageData = response.data?.data || [];
-        const lastPage =
-          response.pagination?.last_page ?? response.data?.last_page ?? 1;
+        const lastPage = response.pagination?.last_page ?? response.data?.last_page ?? 1;
 
-        setChildren((prev) =>
-          childrenPage === 1 ? pageData : mergeById(prev, pageData),
-        );
+        setChildren((prev) => (childrenPage === 1 ? pageData : mergeById(prev, pageData)));
         setChildrenTotalPages(lastPage);
       } catch (error) {
         console.error("Failed to fetch children for entry modal", error);
@@ -266,13 +272,10 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
     [isLoadingChildren, childrenPage, childrenTotalPages, loadMoreChildren],
   );
 
-  const allSelected =
-    children.length > 0 && children.every((c) => selected.includes(c.id));
+  const allSelected = children.length > 0 && children.every((c) => selected.includes(c.id));
 
   const toggleChild = (id) => {
-    const next = selected.includes(id)
-      ? selected.filter((x) => x !== id)
-      : [...selected, id];
+    const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
     setValue("children", next, { shouldValidate: true });
   };
 
@@ -392,7 +395,11 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
 
           {/* Main content */}
           <ScrollArea className="md:h-[75vh]">
-            <form id="new-entry-form" onSubmit={handleSubmit(onSubmitForm, onValidationError)} className="space-y-6 p-6">
+            <form
+              id="new-entry-form"
+              onSubmit={handleSubmit(onSubmitForm, onValidationError)}
+              className="space-y-6 p-6"
+            >
               {/* Hidden inputs for custom fields to ensure they are registered and have values */}
               <input type="hidden" {...register("activity")} />
               <input type="hidden" {...register("serve")} />
@@ -423,14 +430,16 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
                 </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>Date <span className="text-red-500">*</span></Label>
+                    <Label>
+                      Date <span className="text-red-500">*</span>
+                    </Label>
                     <Input type="date" {...register("date")} />
-                    {errors.date && (
-                      <p className="text-red-500 text-xs">{errors.date.message}</p>
-                    )}
+                    {errors.date && <p className="text-red-500 text-xs">{errors.date.message}</p>}
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Select Children <span className="text-red-500">*</span></Label>
+                    <Label>
+                      Select Children <span className="text-red-500">*</span>
+                    </Label>
                     <div className="relative">
                       <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
@@ -546,11 +555,11 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
-                    <Label>{timeLabel} <span className="text-red-500">*</span></Label>
+                    <Label>
+                      {timeLabel} <span className="text-red-500">*</span>
+                    </Label>
                     <Input type="time" {...register("time")} />
-                    {errors.time && (
-                      <p className="text-red-500 text-xs">{errors.time.message}</p>
-                    )}
+                    {errors.time && <p className="text-red-500 text-xs">{errors.time.message}</p>}
                   </div>
                   {activity === "sleep" ? (
                     <div className="space-y-1.5">
@@ -563,7 +572,9 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
                   ) : (
                     ["breakfast", "lunch", "late_snacks", "bottle"].includes(activity) && (
                       <div className="space-y-1.5">
-                        <Label>{valueLabel} <span className="text-red-500">*</span></Label>
+                        <Label>
+                          {valueLabel} <span className="text-red-500">*</span>
+                        </Label>
                         <Input
                           {...register("item")}
                           placeholder={`e.g. ${
@@ -580,7 +591,9 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
 
                 {activity === "lunch" && (
                   <div className="space-y-1.5">
-                    <Label>No of Serve <span className="text-red-500">*</span></Label>
+                    <Label>
+                      No of Serve <span className="text-red-500">*</span>
+                    </Label>
                     <div className="flex flex-wrap gap-2">
                       {[1, 2, 3, 4, 5].map((val) => (
                         <button
@@ -598,15 +611,15 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
                         </button>
                       ))}
                     </div>
-                    {errors.serve && (
-                      <p className="text-red-500 text-xs">{errors.serve.message}</p>
-                    )}
+                    {errors.serve && <p className="text-red-500 text-xs">{errors.serve.message}</p>}
                   </div>
                 )}
 
                 {activity === "toileting" && (
                   <div className="space-y-1.5">
-                    <Label>Nappy Status <span className="text-red-500">*</span></Label>
+                    <Label>
+                      Nappy Status <span className="text-red-500">*</span>
+                    </Label>
                     <div className="flex flex-wrap gap-2">
                       {["clean", "wet", "solid", "successfully"].map((s) => (
                         <button
@@ -633,10 +646,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
                 {["sunscreen", "toileting"].includes(activity) && (
                   <div className="space-y-1.5">
                     <Label>Signature (Optional)</Label>
-                    <Input
-                      {...register("signature")}
-                      placeholder="Enter your name"
-                    />
+                    <Input {...register("signature")} placeholder="Enter your name" />
                     {errors.signature && (
                       <p className="text-red-500 text-xs">{errors.signature.message}</p>
                     )}
@@ -650,9 +660,7 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
                     {...register("notes")}
                     placeholder="Anything to share with families..."
                   />
-                  {errors.notes && (
-                    <p className="text-red-500 text-xs">{errors.notes.message}</p>
-                  )}
+                  {errors.notes && <p className="text-red-500 text-xs">{errors.notes.message}</p>}
                 </div>
               </section>
               {selected.length > 0 && (
@@ -686,7 +694,12 @@ export function NewEntryModal({ open, onOpenChange, onSubmit, centerId: centerId
                 }.`}
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isSaving}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              disabled={isSaving}
+            >
               Cancel
             </Button>
             <Button type="submit" form="new-entry-form" size="sm" disabled={isSaving}>

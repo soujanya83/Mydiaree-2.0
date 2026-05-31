@@ -56,6 +56,7 @@ import { childrenService } from "@/services/centre/childrenService";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
+import { IMG_BASE_API } from "../api/imageapi";
 
 function ageFrom(dob) {
   if (!dob) return "";
@@ -83,7 +84,7 @@ const CARD_PRIMARY_ACTION_STYLE = {
 
 const resolveImageUrl = (imageUrl) => {
   if (!imageUrl) return "";
-  return imageUrl.startsWith("http") ? imageUrl : `https://mydiaree.com.au/${imageUrl}`;
+  return imageUrl.startsWith("http") ? imageUrl : `${IMG_BASE_API}${imageUrl}`;
 };
 
 const textOrDash = (value) => value || "—";
@@ -180,7 +181,11 @@ export default function ChildrenPage() {
     try {
       const idsToDelete = deleteId ? [deleteId] : selectedChildren;
       await deleteChildren(idsToDelete, currentFilters);
-      toast.success(idsToDelete.length > 1 ? "Selected children deleted successfully" : "Child deleted successfully");
+      toast.success(
+        idsToDelete.length > 1
+          ? "Selected children deleted successfully"
+          : "Child deleted successfully",
+      );
       setSelectedChildren([]);
     } catch (error) {
       toast.error(error?.message || "Failed to delete");
@@ -191,8 +196,8 @@ export default function ChildrenPage() {
   };
 
   const handleSelectChild = (id) => {
-    setSelectedChildren(prev => 
-      prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]
+    setSelectedChildren((prev) =>
+      prev.includes(id) ? prev.filter((cId) => cId !== id) : [...prev, id],
     );
   };
 
@@ -251,8 +256,8 @@ export default function ChildrenPage() {
         actions={
           <div className="flex items-center gap-2">
             {can(perms.delete) && selectedChildren.length > 0 && (
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => setDeleteId(null)} // Trigger alert dialog for bulk delete
                 className="gap-2"
                 onClickCapture={() => {
@@ -270,10 +275,10 @@ export default function ChildrenPage() {
               </Button>
             )}
             {can(perms.delete) && selectedChildren.length > 0 && (
-              <button 
-                id="bulk-delete-trigger" 
-                className="hidden" 
-                onClick={() => setDeleteId("bulk")} 
+              <button
+                id="bulk-delete-trigger"
+                className="hidden"
+                onClick={() => setDeleteId("bulk")}
               />
             )}
           </div>
@@ -313,7 +318,7 @@ export default function ChildrenPage() {
               className="h-11 pl-9 rounded-xl bg-card/60 backdrop-blur shadow-sm border-border/60 transition-all focus-visible:ring-primary/20"
             />
           </div>
-          
+
           <div className="grid grid-cols-3 gap-3 w-full md:w-auto">
             <Select value={genderFilter} onValueChange={setGenderFilter}>
               <SelectTrigger className="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm min-w-[120px]">
@@ -409,14 +414,19 @@ export default function ChildrenPage() {
         isSaving={isSaving}
       />
 
-      <AlertDialog open={!!deleteId || deleteId === "bulk"} onOpenChange={(o) => !o && setDeleteId(null)}>
+      <AlertDialog
+        open={!!deleteId || deleteId === "bulk"}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {deleteId === "bulk" ? "Delete Selected Children?" : "Delete Child Profile?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the {deleteId === "bulk" ? "selected children's profiles" : "child's profile"} and documentation records. This action cannot be undone.
+              This will permanently delete the{" "}
+              {deleteId === "bulk" ? "selected children's profiles" : "child's profile"} and
+              documentation records. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -440,7 +450,17 @@ export default function ChildrenPage() {
   );
 }
 
-function ChildCard({ child, rooms, onView, onEdit, onDelete, isSelected, onSelectToggle, canEdit = true, canDelete = true }) {
+function ChildCard({
+  child,
+  rooms,
+  onView,
+  onEdit,
+  onDelete,
+  isSelected,
+  onSelectToggle,
+  canEdit = true,
+  canDelete = true,
+}) {
   const isActive = child.status?.toLowerCase() === "active";
   const genderLabel = child.gender ? child.gender.toUpperCase() : "—";
   const roomName = rooms.find((r) => r.id == child.room)?.name || child.room || "—";
@@ -458,25 +478,38 @@ function ChildCard({ child, rooms, onView, onEdit, onDelete, isSelected, onSelec
         }
       }}
       className={`group flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 ${
-        isSelected ? "border-primary ring-2 ring-primary/20" : "border-border hover:shadow-md hover:border-primary/40"
+        isSelected
+          ? "border-primary ring-2 ring-primary/20"
+          : "border-border hover:shadow-md hover:border-primary/40"
       }`}
     >
       {/* 1. Image Container (Top) */}
       <div className="relative h-44 w-full shrink-0 overflow-hidden bg-muted/40">
-        <div 
+        <div
           className="absolute top-3 right-3 z-10"
           onClick={(e) => {
             e.stopPropagation();
             onSelectToggle();
           }}
         >
-          <div className={`flex h-6 w-6 items-center justify-center rounded-md border-2 transition-colors ${isSelected ? 'bg-primary border-primary text-primary-foreground' : 'bg-background/80 border-border/80 text-transparent hover:border-primary/50 backdrop-blur'}`}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+          <div
+            className={`flex h-6 w-6 items-center justify-center rounded-md border-2 transition-colors ${isSelected ? "bg-primary border-primary text-primary-foreground" : "bg-background/80 border-border/80 text-transparent hover:border-primary/50 backdrop-blur"}`}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4"
+            >
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </div>
         </div>
-        
+
         {child.imageUrl ? (
           <img
             src={imageUrl}
@@ -576,5 +609,3 @@ function ChildCard({ child, rooms, onView, onEdit, onDelete, isSelected, onSelec
     </div>
   );
 }
-
-

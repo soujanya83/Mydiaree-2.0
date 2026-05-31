@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { sleepChecksService } from "@/services/daily-operations/sleepChecksService";
 import { Pagination } from "@/components/common/Pagination";
 import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
+import { IMG_BASE_API } from "../api/imageapi";
 
 const BREATHING_OPTIONS = ["Regular", "Fast", "Difficult"];
 const TEMPERATURE_OPTIONS = ["Normal", "Warm", "Hot"];
@@ -474,7 +475,7 @@ export default function SleepCheckPage() {
             const avatarSrc = child.imageUrl
               ? child.imageUrl.startsWith("http")
                 ? child.imageUrl
-                : `https://mydiaree.com.au/${child.imageUrl.replace(/^\/+/, "")}`
+                : `${IMG_BASE_API}${child.imageUrl.replace(/^\/+/, "")}`
               : null;
             return (
               <article

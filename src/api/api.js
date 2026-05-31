@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-    baseURL: "https://mydiaree.com.au/api/v1",
+    baseURL: "https://api.mydiaree.com.au/api/v1",
     headers: {},
 });
 

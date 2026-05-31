@@ -19,20 +19,17 @@ import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { formatObsDate } from "@/components/reflection/reflectionsData";
+import { IMG_BASE_API } from "../api/imageapi";
 
 const getMediaUrl = (url) => {
   if (!url) return "";
-  return url.startsWith("http")
-    ? url
-    : `https://mydiaree.com.au/${url.replace(/^\/+/, "")}`;
+  return url.startsWith("http") ? url : `${IMG_BASE_API}${url.replace(/^\/+/, "")}`;
 };
 
 const getAvatarUrl = (imageUrl, name = "User", tone = "EEF2FF", color = "4338CA") => {
   const rawUrl = String(imageUrl || "").trim();
   if (rawUrl) {
-    return rawUrl.startsWith("http")
-      ? rawUrl
-      : `https://mydiaree.com.au/${rawUrl.replace(/^\/+/, "")}`;
+    return rawUrl.startsWith("http") ? rawUrl : `${IMG_BASE_API}${rawUrl.replace(/^\/+/, "")}`;
   }
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${tone}&color=${color}`;
 };
@@ -45,7 +42,9 @@ const isVideoMedia = (type = "", url = "") => {
 
 const getPersonName = (person) => {
   if (!person) return "Unknown";
-  return [person.name, person.lastname].filter(Boolean).join(" ").trim() || person.name || "Unknown";
+  return (
+    [person.name, person.lastname].filter(Boolean).join(" ").trim() || person.name || "Unknown"
+  );
 };
 
 function stripHtml(value = "") {
@@ -102,7 +101,10 @@ export default function DailyReflectionDetailsPage() {
       <div>
         <PageHeader
           title="Reflection not found"
-          breadcrumbs={[{ label: "Daily Reflections", to: "/daily-reflections" }, { label: "Not found" }]}
+          breadcrumbs={[
+            { label: "Daily Reflections", to: "/daily-reflections" },
+            { label: "Not found" },
+          ]}
         />
         <Button onClick={() => navigate("/daily-reflections")}>
           <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to list
@@ -115,9 +117,10 @@ export default function DailyReflectionDetailsPage() {
   const staffObjs = (reflection.staff || []).map((tag) => tag.staff).filter(Boolean);
   const mediaItems = reflection.media || [];
 
-  const statusColors = reflection.status?.toLowerCase() === "published"
-    ? "border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400"
-    : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400";
+  const statusColors =
+    reflection.status?.toLowerCase() === "published"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400"
+      : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400";
 
   return (
     <div className="pb-10">
@@ -127,7 +130,9 @@ export default function DailyReflectionDetailsPage() {
             <ArrowLeft className="mr-1.5 h-4 w-4" /> Back
           </Button>
           <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Link to="/daily-reflections" className="transition hover:text-foreground">Daily Reflections</Link>
+            <Link to="/daily-reflections" className="transition hover:text-foreground">
+              Daily Reflections
+            </Link>
             <span>/</span>
             <span className="text-foreground">Details</span>
           </nav>
@@ -149,7 +154,11 @@ export default function DailyReflectionDetailsPage() {
                   <Video className="h-12 w-12 text-primary/40" />
                 </div>
               ) : (
-                <img src={getMediaUrl(mediaItems[0].mediaUrl)} alt="Hero" className="h-full w-full object-cover opacity-40" />
+                <img
+                  src={getMediaUrl(mediaItems[0].mediaUrl)}
+                  alt="Hero"
+                  className="h-full w-full object-cover opacity-40"
+                />
               )}
             </div>
           ) : (
@@ -157,10 +166,14 @@ export default function DailyReflectionDetailsPage() {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           <div className="absolute bottom-6 left-6 right-6">
-            <span className={`mb-3 inline-flex rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${statusColors}`}>
+            <span
+              className={`mb-3 inline-flex rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${statusColors}`}
+            >
               {reflection.status}
             </span>
-            <h1 className="text-2xl font-bold text-white md:text-3xl lg:text-4xl">{stripHtml(reflection.title)}</h1>
+            <h1 className="text-2xl font-bold text-white md:text-3xl lg:text-4xl">
+              {stripHtml(reflection.title)}
+            </h1>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-card px-6 py-4">
@@ -171,8 +184,12 @@ export default function DailyReflectionDetailsPage() {
               className="h-10 w-10 rounded-full border-2 border-primary/20 object-cover shadow-sm"
             />
             <div>
-              <p className="text-sm font-semibold text-foreground">{getPersonName(reflection.creator)}</p>
-              <p className="text-xs text-muted-foreground">{reflection.creator?.userType || "Creator"}</p>
+              <p className="text-sm font-semibold text-foreground">
+                {getPersonName(reflection.creator)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {reflection.creator?.userType || "Creator"}
+              </p>
             </div>
           </div>
           <div className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-sm font-semibold text-primary">
@@ -199,27 +216,42 @@ export default function DailyReflectionDetailsPage() {
               <p className="text-sm text-muted-foreground">No EYLF outcomes linked.</p>
             ) : (
               <ul className="space-y-2">
-                {reflection.eylf.split(/\r?\n/).filter(Boolean).map((outcome, i) => (
-                  <li key={i} className="rounded-lg border border-primary/10 bg-primary/5 px-4 py-3 text-sm font-medium text-primary shadow-sm">
-                    {outcome}
-                  </li>
-                ))}
+                {reflection.eylf
+                  .split(/\r?\n/)
+                  .filter(Boolean)
+                  .map((outcome, i) => (
+                    <li
+                      key={i}
+                      className="rounded-lg border border-primary/10 bg-primary/5 px-4 py-3 text-sm font-medium text-primary shadow-sm"
+                    >
+                      {outcome}
+                    </li>
+                  ))}
               </ul>
             )}
           </section>
 
           {mediaItems.length > 0 && (
             <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
-              <h3 className="mb-4 text-base font-bold text-foreground">Media ({mediaItems.length})</h3>
+              <h3 className="mb-4 text-base font-bold text-foreground">
+                Media ({mediaItems.length})
+              </h3>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                 {mediaItems.map((item, idx) => (
-                  <div key={item.id || idx} className="relative aspect-square overflow-hidden rounded-xl border border-border shadow-sm">
+                  <div
+                    key={item.id || idx}
+                    className="relative aspect-square overflow-hidden rounded-xl border border-border shadow-sm"
+                  >
                     {isVideoMedia(item.mediaType, item.mediaUrl) ? (
                       <div className="flex h-full w-full items-center justify-center bg-muted">
                         <Video className="h-8 w-8 text-muted-foreground/50" />
                       </div>
                     ) : (
-                      <img src={getMediaUrl(item.mediaUrl)} alt={`Media ${idx}`} className="h-full w-full object-cover transition-transform duration-300 hover:scale-105" />
+                      <img
+                        src={getMediaUrl(item.mediaUrl)}
+                        alt={`Media ${idx}`}
+                        className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                      />
                     )}
                   </div>
                 ))}
@@ -240,10 +272,19 @@ export default function DailyReflectionDetailsPage() {
             ) : (
               <div className="flex flex-col gap-3">
                 {childObjs.map((c) => (
-                  <div key={c.id} className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/10 p-2 transition-colors hover:bg-muted/30">
-                    <img src={getAvatarUrl(c.imageUrl, getPersonName(c), "FDF4FF", "C026D3")} alt={getPersonName(c)} className="h-10 w-10 rounded-full object-cover shadow-sm" />
+                  <div
+                    key={c.id}
+                    className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/10 p-2 transition-colors hover:bg-muted/30"
+                  >
+                    <img
+                      src={getAvatarUrl(c.imageUrl, getPersonName(c), "FDF4FF", "C026D3")}
+                      alt={getPersonName(c)}
+                      className="h-10 w-10 rounded-full object-cover shadow-sm"
+                    />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-foreground">{getPersonName(c)}</p>
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {getPersonName(c)}
+                      </p>
                       <p className="text-xs text-muted-foreground">{c.status || "Active"}</p>
                     </div>
                   </div>
@@ -262,10 +303,19 @@ export default function DailyReflectionDetailsPage() {
             ) : (
               <div className="flex flex-col gap-3">
                 {staffObjs.map((e) => (
-                  <div key={e.id} className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/10 p-2 transition-colors hover:bg-muted/30">
-                    <img src={getAvatarUrl(e.imageUrl, getPersonName(e), "EEF2FF", "4338CA")} alt={getPersonName(e)} className="h-10 w-10 rounded-full object-cover shadow-sm" />
+                  <div
+                    key={e.id}
+                    className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/10 p-2 transition-colors hover:bg-muted/30"
+                  >
+                    <img
+                      src={getAvatarUrl(e.imageUrl, getPersonName(e), "EEF2FF", "4338CA")}
+                      alt={getPersonName(e)}
+                      className="h-10 w-10 rounded-full object-cover shadow-sm"
+                    />
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-foreground">{getPersonName(e)}</p>
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {getPersonName(e)}
+                      </p>
                       <p className="text-xs text-muted-foreground">{e.userType || "Staff"}</p>
                     </div>
                   </div>
@@ -284,7 +334,10 @@ export default function DailyReflectionDetailsPage() {
             ) : (
               <div className="flex flex-wrap gap-2">
                 {rooms.map((r, i) => (
-                  <span key={i} className="inline-flex rounded-md border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
+                  <span
+                    key={i}
+                    className="inline-flex rounded-md border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"
+                  >
                     {r}
                   </span>
                 ))}

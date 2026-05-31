@@ -9,10 +9,17 @@ import { SectionCard } from "@/components/common/SectionCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { profileService } from "@/services/admin/profileService";
 import { useAuthStore } from "@/stores/authStore";
+import { IMG_BASE_API } from "../api/imageapi";
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -22,21 +29,23 @@ const profileSchema = z.object({
   dob: z.string().optional().nullable(),
 });
 
-const passwordSchema = z.object({
-  current_password: z.string().min(1, "Current password is required"),
-  new_password: z.string().min(6, "New password must be at least 6 characters"),
-  new_password_confirmation: z.string().min(1, "Please confirm new password"),
-}).refine((data) => data.new_password === data.new_password_confirmation, {
-  message: "Passwords do not match",
-  path: ["new_password_confirmation"],
-});
+const passwordSchema = z
+  .object({
+    current_password: z.string().min(1, "Current password is required"),
+    new_password: z.string().min(6, "New password must be at least 6 characters"),
+    new_password_confirmation: z.string().min(1, "Please confirm new password"),
+  })
+  .refine((data) => data.new_password === data.new_password_confirmation, {
+    message: "Passwords do not match",
+    path: ["new_password_confirmation"],
+  });
 
 function MyProfilePage() {
   const fileInputRef = useRef(null);
   const [profile, setProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
-  
+
   // Refresh auth store user data
   const updateUser = useAuthStore((s) => s.updateUser);
   const authUser = useAuthStore((s) => s.user);
@@ -103,7 +112,7 @@ function MyProfilePage() {
         await fetchProfile();
         // optionally update the global store if needed
         if (authUser) {
-           updateUser({ ...authUser, imageUrl: res.image_url });
+          updateUser({ ...authUser, imageUrl: res.image_url });
         }
       } else {
         toast.error(res.message || "Failed to upload image");
@@ -120,7 +129,7 @@ function MyProfilePage() {
 
   const onProfileSubmit = async (data) => {
     if (!profile?.id) return;
-    
+
     const formData = new FormData();
     formData.append("name", data.name);
     formData.append("email", data.email);
@@ -134,7 +143,7 @@ function MyProfilePage() {
         toast.success(res.message || "Profile updated successfully");
         setProfile(res.user);
         if (authUser) {
-           updateUser({ ...authUser, name: res.user.name });
+          updateUser({ ...authUser, name: res.user.name });
         }
       } else {
         toast.error(res.message || "Failed to update profile");
@@ -147,7 +156,7 @@ function MyProfilePage() {
 
   const onPasswordSubmit = async (data) => {
     if (!profile?.id) return;
-    
+
     const formData = new FormData();
     formData.append("current_password", data.current_password);
     formData.append("new_password", data.new_password);
@@ -162,9 +171,9 @@ function MyProfilePage() {
       } else {
         // Validation failed server side
         if (res.errors) {
-           Object.values(res.errors).forEach(err => toast.error(err[0]));
+          Object.values(res.errors).forEach((err) => toast.error(err[0]));
         } else {
-           toast.error(res.message || "Failed to change password");
+          toast.error(res.message || "Failed to change password");
         }
       }
     } catch (error) {
@@ -174,7 +183,7 @@ function MyProfilePage() {
   };
 
   const initials = profile?.name ? profile.name.substring(0, 2).toUpperCase() : "NA";
-  const avatarUrl = profile?.imageUrl ? `https://mydiaree.com.au/${profile.imageUrl}` : null;
+  const avatarUrl = profile?.imageUrl ? `${IMG_BASE_API}${profile.imageUrl}` : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -195,22 +204,28 @@ function MyProfilePage() {
               <div className="relative group">
                 <Avatar className="h-32 w-32 border-4 border-background shadow-lg">
                   {avatarUrl && <AvatarImage src={avatarUrl} alt={profile?.name} />}
-                  <AvatarFallback className="text-3xl bg-primary/10 text-primary">{initials}</AvatarFallback>
+                  <AvatarFallback className="text-3xl bg-primary/10 text-primary">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
-                
-                <button 
+
+                <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
                   className="absolute bottom-0 right-0 rounded-full bg-primary p-2.5 text-primary-foreground shadow-md transition hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50"
                   aria-label="Upload profile picture"
                 >
-                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
                 </button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
                   accept="image/*"
                   onChange={handleImageUpload}
                 />
@@ -218,13 +233,15 @@ function MyProfilePage() {
 
               <div className="mt-5">
                 <h3 className="text-xl font-bold text-foreground">{profile?.name}</h3>
-                <p className="mt-1 text-sm font-medium capitalize text-muted-foreground">{profile?.userType}</p>
+                <p className="mt-1 text-sm font-medium capitalize text-muted-foreground">
+                  {profile?.userType}
+                </p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-semibold text-success">
                     {profile?.status || "Active"}
                   </span>
                   <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-                    Center Status: {profile?.center_status === 1 ? 'Verified' : 'Pending'}
+                    Center Status: {profile?.center_status === 1 ? "Verified" : "Pending"}
                   </span>
                 </div>
               </div>
@@ -249,7 +266,9 @@ function MyProfilePage() {
                       />
                     </div>
                     {profileForm.formState.errors.name && (
-                      <p className="text-[10px] text-destructive">{profileForm.formState.errors.name.message}</p>
+                      <p className="text-[10px] text-destructive">
+                        {profileForm.formState.errors.name.message}
+                      </p>
                     )}
                   </div>
 
@@ -266,7 +285,9 @@ function MyProfilePage() {
                       />
                     </div>
                     {profileForm.formState.errors.email && (
-                      <p className="text-[10px] text-destructive">{profileForm.formState.errors.email.message}</p>
+                      <p className="text-[10px] text-destructive">
+                        {profileForm.formState.errors.email.message}
+                      </p>
                     )}
                   </div>
 
@@ -282,7 +303,9 @@ function MyProfilePage() {
                       />
                     </div>
                     {profileForm.formState.errors.contactNo && (
-                      <p className="text-[10px] text-destructive">{profileForm.formState.errors.contactNo.message}</p>
+                      <p className="text-[10px] text-destructive">
+                        {profileForm.formState.errors.contactNo.message}
+                      </p>
                     )}
                   </div>
 
@@ -315,14 +338,16 @@ function MyProfilePage() {
                       </SelectContent>
                     </Select>
                     {profileForm.formState.errors.gender && (
-                      <p className="text-[10px] text-destructive">{profileForm.formState.errors.gender.message}</p>
+                      <p className="text-[10px] text-destructive">
+                        {profileForm.formState.errors.gender.message}
+                      </p>
                     )}
                   </div>
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={profileForm.formState.isSubmitting}
                     className="min-w-[120px]"
                   >
@@ -350,7 +375,9 @@ function MyProfilePage() {
                       placeholder="Enter current password"
                     />
                     {passwordForm.formState.errors.current_password && (
-                      <p className="text-[10px] text-destructive">{passwordForm.formState.errors.current_password.message}</p>
+                      <p className="text-[10px] text-destructive">
+                        {passwordForm.formState.errors.current_password.message}
+                      </p>
                     )}
                   </div>
 
@@ -364,7 +391,9 @@ function MyProfilePage() {
                         placeholder="Enter new password"
                       />
                       {passwordForm.formState.errors.new_password && (
-                        <p className="text-[10px] text-destructive">{passwordForm.formState.errors.new_password.message}</p>
+                        <p className="text-[10px] text-destructive">
+                          {passwordForm.formState.errors.new_password.message}
+                        </p>
                       )}
                     </div>
 
@@ -377,15 +406,17 @@ function MyProfilePage() {
                         placeholder="Confirm new password"
                       />
                       {passwordForm.formState.errors.new_password_confirmation && (
-                        <p className="text-[10px] text-destructive">{passwordForm.formState.errors.new_password_confirmation.message}</p>
+                        <p className="text-[10px] text-destructive">
+                          {passwordForm.formState.errors.new_password_confirmation.message}
+                        </p>
                       )}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex justify-end pt-2">
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     variant="destructive"
                     disabled={passwordForm.formState.isSubmitting}
                     className="min-w-[150px]"

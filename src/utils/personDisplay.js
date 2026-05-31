@@ -1,4 +1,6 @@
-const IMG_BASE = "https://mydiaree.com.au/";
+import { IMG_BASE_API } from "../api/imageapi";
+
+const IMG_BASE = IMG_BASE_API;
 
 export function personAvatarUrl(imageUrl) {
   const raw = String(imageUrl || "").trim().replace(/\\/g, "");

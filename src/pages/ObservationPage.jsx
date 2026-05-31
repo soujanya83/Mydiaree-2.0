@@ -61,6 +61,7 @@ import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 import { Pagination } from "@/components/common/Pagination";
 import { cn } from "@/lib/utils";
+import { IMG_BASE_API } from "../api/imageapi";
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
@@ -74,7 +75,7 @@ const CARD_PRIMARY_ACTION_CLASSES =
 const CARD_PRIMARY_ACTION_STYLE = {
   color: "var(--primary)",
 };
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 
 function getMediaUrl(raw) {
   if (!raw) return "";

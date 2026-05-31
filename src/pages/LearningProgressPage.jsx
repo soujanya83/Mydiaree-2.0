@@ -16,17 +16,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
-import {
-  ageFromDob,
-  formatDob,
-} from "@/components/lessonplan/progressData";
+import { ageFromDob, formatDob } from "@/components/lessonplan/progressData";
 import { learningProgressService } from "@/services/learning/learningProgressService";
 import { Pagination } from "@/components/common/Pagination";
+import { IMG_BASE_API } from "../api/imageapi";
 
 export default function LearningProgressPage() {
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, activeRoomId, setActiveRoom, fetchRooms } = useRoomStore();
-  
+
   const [childrenList, setChildrenList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [query, setQuery] = useState("");
@@ -48,14 +46,20 @@ export default function LearningProgressPage() {
     if (!activeCentreId) return;
     setIsLoading(true);
     try {
-      const response = await learningProgressService.getIndex(activeCentreId, activeRoomId, currentPage, perPage, debouncedSearch);
+      const response = await learningProgressService.getIndex(
+        activeCentreId,
+        activeRoomId,
+        currentPage,
+        perPage,
+        debouncedSearch,
+      );
       if (response.status && response.data) {
         const childrenObj = response.data.children;
         const rawChildren = childrenObj.data || [];
-        
+
         setChildrenList(rawChildren);
         setTotalPages(childrenObj.last_page || 1);
-        
+
         // If no activeRoomId is set, and API returns a selected_room, we could set it
         if (!activeRoomId && response.data.selected_room) {
           setActiveRoom(response.data.selected_room.id);
@@ -104,10 +108,14 @@ export default function LearningProgressPage() {
         <div className="flex-1">
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Room</label>
           <Select value={String(activeRoomId || "")} onValueChange={setActiveRoom}>
-            <SelectTrigger><SelectValue placeholder="Select Room" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Room" />
+            </SelectTrigger>
             <SelectContent>
               {rooms.map((r) => (
-                <SelectItem key={r.id} value={String(r.id)}>{r.name}</SelectItem>
+                <SelectItem key={r.id} value={String(r.id)}>
+                  {r.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -159,11 +167,9 @@ function ChildCard({ child }) {
   const [imgError, setImgError] = useState(false);
   const dob = child.dob;
   const gender = child.gender || "—";
-  
+
   // Construct image URL
-  const photo = child.imageUrl 
-    ? `https://mydiaree.com.au/${child.imageUrl}` 
-    : null;
+  const photo = child.imageUrl ? `${IMG_BASE_API}${child.imageUrl}` : null;
 
   const fullName = `${child.name} ${child.lastname || ""}`.trim();
 
@@ -171,9 +177,9 @@ function ChildCard({ child }) {
     <div className="overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md flex flex-col h-full">
       <div className="aspect-[4/3] w-full overflow-hidden bg-muted flex items-center justify-center">
         {photo && !imgError ? (
-          <img 
-            src={photo} 
-            alt={fullName} 
+          <img
+            src={photo}
+            alt={fullName}
             className="h-full w-full object-cover"
             onError={() => setImgError(true)}
           />
@@ -220,7 +226,10 @@ function ChildCard({ child }) {
             }
           />
         </div>
-        <Button asChild className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button
+          asChild
+          className="mt-4 w-full bg-primary text-primary-foreground hover:bg-primary/90"
+        >
           <Link to={`/learning-progress/${child.id}`}>
             <LineChart className="mr-2 h-4 w-4" />
             View Progress

@@ -45,8 +45,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { IMG_BASE_API } from "../api/imageapi";
 
-const imageBase = "https://mydiaree.com.au/";
+const imageBase = IMG_BASE_API;
 
 const toId = (value) => String(value ?? "");
 
@@ -463,11 +464,19 @@ export default function RoomDetailsPage() {
         <AlertDialogContent className="rounded-3xl p-6">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl">
-              Delete {selectedChildrenNames.length === 1 ? "this child" : `${selectedChildrenNames.length} children`}?
+              Delete{" "}
+              {selectedChildrenNames.length === 1
+                ? "this child"
+                : `${selectedChildrenNames.length} children`}
+              ?
             </AlertDialogTitle>
             <AlertDialogDescription className="font-medium text-muted-foreground space-y-3">
               <span>
-                Are you sure you want to delete {selectedChildrenNames.length === 1 ? "the following child profile" : "the following child profiles"}?
+                Are you sure you want to delete{" "}
+                {selectedChildrenNames.length === 1
+                  ? "the following child profile"
+                  : "the following child profiles"}
+                ?
               </span>
               {selectedChildrenNames.length > 0 && (
                 <ul className="mt-2 max-h-32 overflow-y-auto rounded-xl border border-border bg-muted/40 p-3 text-sm space-y-1.5 font-semibold text-foreground">
@@ -480,7 +489,8 @@ export default function RoomDetailsPage() {
                 </ul>
               )}
               <span>
-                This action cannot be undone. The child profile(s) and all associated diary records, observations, and progress reports will be permanently deleted.
+                This action cannot be undone. The child profile(s) and all associated diary records,
+                observations, and progress reports will be permanently deleted.
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -666,9 +676,9 @@ function ManageEducatorsModal({ centerId, selected, onToggle, onClose, onSubmit,
           per_page: 20,
         });
         const items = response.data?.staff?.data || [];
-        const activeItems = items.filter(s => s.status === "ACTIVE");
-        
-        setStaffList(prev => page === 1 ? activeItems : [...prev, ...activeItems]);
+        const activeItems = items.filter((s) => s.status === "ACTIVE");
+
+        setStaffList((prev) => (page === 1 ? activeItems : [...prev, ...activeItems]));
         const pagination = response.pagination || response.data?.staff || {};
         setHasMore(pagination.current_page < pagination.last_page);
       } catch (error) {
@@ -680,16 +690,19 @@ function ManageEducatorsModal({ centerId, selected, onToggle, onClose, onSubmit,
     fetchStaff();
   }, [centerId, debouncedQuery, page]);
 
-  const lastElementRef = useCallback(node => {
-    if (isLoading) return;
-    if (observer.current) observer.current.disconnect();
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        setPage(prev => prev + 1);
-      }
-    });
-    if (node) observer.current.observe(node);
-  }, [isLoading, hasMore]);
+  const lastElementRef = useCallback(
+    (node) => {
+      if (isLoading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setPage((prev) => prev + 1);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isLoading, hasMore],
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm">
@@ -730,7 +743,7 @@ function ManageEducatorsModal({ centerId, selected, onToggle, onClose, onSubmit,
                 const id = toId(educator.staffid || educator.id || educator.userid);
                 const checked = selected.includes(id);
                 const isLastElement = staffList.length === index + 1;
-                
+
                 return (
                   <button
                     type="button"

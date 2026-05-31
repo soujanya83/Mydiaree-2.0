@@ -31,6 +31,7 @@ import { staffService } from "@/services/admin/staffService";
 import { AddStaffModal } from "@/components/staff/AddStaffModal";
 import { useCentreStore } from "@/stores/centreStore";
 import { Pagination } from "@/components/common/Pagination";
+import { IMG_BASE_API } from "../api/imageapi";
 
 function getInitials(name = "") {
   return name
@@ -93,7 +94,7 @@ export default function StaffSettingsPage() {
     avatar: s.imageUrl
       ? s.imageUrl.startsWith("http")
         ? s.imageUrl
-        : `https://mydiaree.com.au/${s.imageUrl}`
+        : `${IMG_BASE_API}${s.imageUrl}`
       : "",
     contact: s.contactNo || "",
     active: s.status === "ACTIVE",
@@ -118,14 +119,16 @@ export default function StaffSettingsPage() {
         const staffData = res.data.staff;
         const staffList = staffData?.data || staffData || [];
         setStaff(mapStaff(staffList));
-        setPagination(res.pagination || {
-          current_page: staffData?.current_page || 1,
-          last_page: staffData?.last_page || 1,
-          total: staffData?.total || 0,
-          from: staffData?.from,
-          to: staffData?.to,
-          per_page: staffData?.per_page || 10,
-        });
+        setPagination(
+          res.pagination || {
+            current_page: staffData?.current_page || 1,
+            last_page: staffData?.last_page || 1,
+            total: staffData?.total || 0,
+            from: staffData?.from,
+            to: staffData?.to,
+            per_page: staffData?.per_page || 10,
+          },
+        );
       } else {
         setStaff([]);
         toast.error(res.message || "Failed to load staff");
@@ -225,10 +228,13 @@ export default function StaffSettingsPage() {
         const updatedStaff = mapStaffMember(res.data);
         setStaff((arr) =>
           arr.map((s) =>
-            s.id === staffMember.id || s.userid === userId ? { ...s, ...updatedStaff } : s
-          )
+            s.id === staffMember.id || s.userid === userId ? { ...s, ...updatedStaff } : s,
+          ),
         );
-        toast.success(res.message || (opt ? "Staff access granted successfully" : "Staff access revoked successfully"));
+        toast.success(
+          res.message ||
+            (opt ? "Staff access granted successfully" : "Staff access revoked successfully"),
+        );
       } else {
         toast.error(res.message || "Failed to update staff access");
       }
@@ -259,7 +265,10 @@ export default function StaffSettingsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-10 gap-2 rounded-xl bg-card/60 backdrop-blur border-border/60 shadow-sm font-medium">
+                <Button
+                  variant="outline"
+                  className="h-10 gap-2 rounded-xl bg-card/60 backdrop-blur border-border/60 shadow-sm font-medium"
+                >
                   {activeCenter?.name ?? "Select Center"}
                   <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
@@ -277,7 +286,10 @@ export default function StaffSettingsPage() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button onClick={() => setModal({ open: true, initial: null })} className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20">
+            <Button
+              onClick={() => setModal({ open: true, initial: null })}
+              className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20"
+            >
               <Plus className="h-4 w-4" />
               Add Staff
             </Button>
@@ -309,7 +321,9 @@ export default function StaffSettingsPage() {
           </div>
           <h3 className="text-lg font-bold tracking-tight text-foreground">No Staff Found</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            {query ? "Try adjusting your search filters." : "You haven't added any staff to this center yet."}
+            {query
+              ? "Try adjusting your search filters."
+              : "You haven't added any staff to this center yet."}
           </p>
         </div>
       ) : (
@@ -320,7 +334,7 @@ export default function StaffSettingsPage() {
               const isUpdatingAccess = accessUpdatingId === s.id;
               const isAdmin = s.admin === "1";
               const wifiAccessUntil = getWifiAccessUntil(s);
-              
+
               return (
                 <div
                   key={s.id}
@@ -338,7 +352,7 @@ export default function StaffSettingsPage() {
                     <div className="flex flex-col gap-1.5">
                       <div className="inline-flex items-center gap-1.5 rounded-full bg-secondary/50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">
                         <Briefcase className="h-3 w-3" />
-                        {isAdmin ? "Admin" : (s.title || "Staff")}
+                        {isAdmin ? "Admin" : s.title || "Staff"}
                       </div>
                       {s.active ? (
                         <div className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-success w-fit">
@@ -352,7 +366,7 @@ export default function StaffSettingsPage() {
                         </div>
                       )}
                     </div>
-                    
+
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -386,7 +400,11 @@ export default function StaffSettingsPage() {
                           </div>
                         )}
                         {ACCESS_OPTIONS.map((opt) => (
-                          <DropdownMenuItem key={opt.value} onClick={() => updateAccess(s, opt)} className="font-medium cursor-pointer">
+                          <DropdownMenuItem
+                            key={opt.value}
+                            onClick={() => updateAccess(s, opt)}
+                            className="font-medium cursor-pointer"
+                          >
                             Grant for {opt.label}
                           </DropdownMenuItem>
                         ))}
@@ -412,8 +430,10 @@ export default function StaffSettingsPage() {
                         </AvatarFallback>
                       </Avatar>
                     </div>
-                    <h3 className="text-lg font-bold tracking-tight text-foreground line-clamp-1">{s.name}</h3>
-                    
+                    <h3 className="text-lg font-bold tracking-tight text-foreground line-clamp-1">
+                      {s.name}
+                    </h3>
+
                     <div className="mt-3 space-y-2 w-full text-sm">
                       <div className="flex items-center justify-center gap-2 text-muted-foreground bg-background/40 py-1.5 px-3 rounded-lg w-full">
                         <Mail className="h-3.5 w-3.5 shrink-0 text-primary/60" />
@@ -421,11 +441,15 @@ export default function StaffSettingsPage() {
                       </div>
                       <div className="flex items-center justify-center gap-2 text-muted-foreground bg-background/40 py-1.5 px-3 rounded-lg w-full">
                         <Phone className="h-3.5 w-3.5 shrink-0 text-primary/60" />
-                        <span className="truncate text-xs font-medium">{s.contact || "No Contact"}</span>
+                        <span className="truncate text-xs font-medium">
+                          {s.contact || "No Contact"}
+                        </span>
                       </div>
                       <div className="flex items-center justify-center gap-2 text-muted-foreground bg-background/40 py-1.5 px-3 rounded-lg w-full">
                         <User className="h-3.5 w-3.5 shrink-0 text-primary/60" />
-                        <span className="truncate text-xs font-medium capitalize">{s.gender?.toLowerCase() || "Not Specified"}</span>
+                        <span className="truncate text-xs font-medium capitalize">
+                          {s.gender?.toLowerCase() || "Not Specified"}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -444,7 +468,7 @@ export default function StaffSettingsPage() {
                       <Check className="h-3.5 w-3.5" />
                       {s.active ? "Active" : "Inactive"}
                     </button>
-                    
+
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"

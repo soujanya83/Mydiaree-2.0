@@ -40,6 +40,7 @@ import { AddParentModal } from "@/components/parents/AddParentModal";
 import { Loader2 } from "lucide-react";
 import { useCentreStore } from "@/stores/centreStore";
 import { Pagination } from "@/components/common/Pagination";
+import { IMG_BASE_API } from "../api/imageapi";
 
 function getInitials(name = "") {
   return name
@@ -80,7 +81,7 @@ export default function ParentSettingsPage() {
       avatar: p.imageUrl
         ? p.imageUrl.startsWith("http")
           ? p.imageUrl
-          : `https://mydiaree.com.au/${p.imageUrl}`
+          : `${IMG_BASE_API}${p.imageUrl}`
         : "",
       contact: p.contactNo || "",
       children: (p.children || []).map((c) => ({

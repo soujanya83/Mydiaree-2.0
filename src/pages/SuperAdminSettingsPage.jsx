@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { AddSuperAdminModal } from "@/components/superadmin/AddSuperAdminModal";
 import { superAdminService } from "@/services/admin/superAdminService";
 import { toast } from "sonner";
+import { IMG_BASE_API } from "../api/imageapi";
 
 function getInitials(name) {
   return name
@@ -41,7 +42,7 @@ export default function SuperAdminSettingsPage() {
           avatar: admin.imageUrl
             ? admin.imageUrl.startsWith("http")
               ? admin.imageUrl
-              : `https://mydiaree.com.au/${admin.imageUrl}`
+              : `${IMG_BASE_API}${admin.imageUrl}`
             : "",
           originalData: admin,
         }));

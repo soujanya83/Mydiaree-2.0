@@ -31,8 +31,9 @@ import {
 import { useCentreStore } from "@/stores/centreStore";
 import { observationService } from "@/services/learning/observationService";
 import { cn } from "@/lib/utils";
+import { IMG_BASE_API } from "../api/imageapi";
 
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 
 function getMediaUrl(url) {
   if (!url) return "";

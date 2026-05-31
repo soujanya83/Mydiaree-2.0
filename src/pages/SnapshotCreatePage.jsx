@@ -32,10 +32,11 @@ import { staffService } from "@/services/admin/staffService";
 import { childrenService } from "@/services/centre/childrenService";
 import { useCentreStore } from "@/stores/centreStore";
 import { toast } from "sonner";
+import { IMG_BASE_API } from "../api/imageapi";
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.15)_1px,transparent_0)] [background-size:16px_16px]";
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 
 const avatarUrl = (url) => {
   if (!url) return null;

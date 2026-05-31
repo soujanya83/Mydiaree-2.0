@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ImageIcon } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
+import { IMG_BASE_API } from "../../api/imageapi";
 
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 
 function mediaUrl(item) {
   const raw = item?.media?.[0]?.mediaUrl || item?.mediaUrl || "";
@@ -13,7 +14,9 @@ function mediaUrl(item) {
 }
 
 function stripHtml(value = "") {
-  return String(value).replace(/<[^>]*>/g, "").trim();
+  return String(value)
+    .replace(/<[^>]*>/g, "")
+    .trim();
 }
 
 function itemTitle(item) {

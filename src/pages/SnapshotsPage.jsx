@@ -47,9 +47,10 @@ import { STATUS_FILTERS, DATE_FILTERS } from "@/components/snapshots/snapshotsDa
 import { NewSnapshotTitleModal } from "@/components/snapshots/NewSnapshotTitleModal";
 import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 import { Pagination } from "@/components/common/Pagination";
+import { IMG_BASE_API } from "../api/imageapi";
 
 const PAGE_SIZE = 12;
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 const SNAPSHOT_DATE_FILTERS = DATE_FILTERS.filter(
   (option) => option.value !== "yesterday" && option.value !== "last-month",
 );

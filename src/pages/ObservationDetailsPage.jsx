@@ -31,8 +31,9 @@ import { formatObsDate, statusBadgeClasses } from "@/components/observation/obse
 import { observationService } from "@/services/learning/observationService";
 import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
+import { IMG_BASE_API } from "../api/imageapi";
 
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 
 const TAB_ITEMS = [
   { id: "overview", label: "Overview", Icon: Eye },

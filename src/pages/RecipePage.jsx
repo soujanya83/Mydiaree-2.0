@@ -26,7 +26,7 @@ import {
   ChevronDown,
   ChefHat,
   Eye,
-  ZoomIn
+  ZoomIn,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -40,24 +40,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCentreStore } from "@/stores/centreStore";
 
-import {
-  RECIPE_MEAL_TYPES,
-  FOOD_TYPES,
-} from "@/components/recipes/recipesData";
+import { RECIPE_MEAL_TYPES, FOOD_TYPES } from "@/components/recipes/recipesData";
 import { AddRecipeModal } from "@/components/recipes/AddRecipeModal";
 import { toast } from "sonner";
 import { useRecipeStore } from "@/stores/recipeStore";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
-
+import { IMG_BASE_API } from "../api/imageapi";
 
 function formatDate(d) {
   if (!d) return "";
@@ -83,13 +75,7 @@ export default function RecipePage() {
   const { can } = usePermissions();
   const perms = ACTION_PERMISSIONS.recipe;
 
-  const {
-    recipesGrouped,
-    mealTypes,
-    isLoading,
-    fetchRecipes,
-    deleteRecipe,
-  } = useRecipeStore();
+  const { recipesGrouped, mealTypes, isLoading, fetchRecipes, deleteRecipe } = useRecipeStore();
 
   const [modal, setModal] = useState({ open: false, initial: null });
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -117,13 +103,17 @@ export default function RecipePage() {
   };
 
   const hasRecipes = Object.values(recipesGrouped).some((arr) => arr.length > 0);
-  
+
   // Use unique_meal_types from API if available, fallback to static types
-  const availableMealTypes = mealTypes?.length > 0 ? mealTypes : RECIPE_MEAL_TYPES.map(m => m.id.toUpperCase());
-  
+  const availableMealTypes =
+    mealTypes?.length > 0 ? mealTypes : RECIPE_MEAL_TYPES.map((m) => m.id.toUpperCase());
+
   // Clean up format for tabs display (e.g., "AFTERNOON_TEA" -> "Afternoon Tea")
   const formatTabLabel = (str) => {
-    return str.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    return str
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
   };
 
   return (
@@ -181,14 +171,22 @@ export default function RecipePage() {
             {availableMealTypes.map((mealType) => {
               const items = recipesGrouped[mealType] || [];
               return (
-                <TabsContent key={mealType} value={mealType} className="mt-0 focus-visible:outline-none focus-visible:ring-0">
+                <TabsContent
+                  key={mealType}
+                  value={mealType}
+                  className="mt-0 focus-visible:outline-none focus-visible:ring-0"
+                >
                   {items.length === 0 ? (
                     <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border/60 bg-card/40 py-24 text-center backdrop-blur">
                       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20 mb-4">
                         <UtensilsCrossed className="h-8 w-8" />
                       </div>
-                      <h3 className="text-lg font-bold tracking-tight text-foreground">No {formatTabLabel(mealType)} Recipes</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">Click "Add Recipe" to create your first one.</p>
+                      <h3 className="text-lg font-bold tracking-tight text-foreground">
+                        No {formatTabLabel(mealType)} Recipes
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Click "Add Recipe" to create your first one.
+                      </p>
                     </div>
                   ) : (
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -227,9 +225,12 @@ export default function RecipePage() {
             <div className="relative mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/20 to-indigo-500/20 text-primary shadow-inner shadow-primary/10 ring-1 ring-primary/20">
               <ChefHat className="h-10 w-10" />
             </div>
-            <h3 className="relative text-2xl font-bold tracking-tight text-foreground">Your Recipe Book is Empty</h3>
+            <h3 className="relative text-2xl font-bold tracking-tight text-foreground">
+              Your Recipe Book is Empty
+            </h3>
             <p className="relative mt-2 text-sm font-medium text-muted-foreground max-w-sm">
-              Start building your center's menu library. Click "Add Recipe" to create your first delicious entry.
+              Start building your center's menu library. Click "Add Recipe" to create your first
+              delicious entry.
             </p>
           </div>
         )}
@@ -246,11 +247,15 @@ export default function RecipePage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl">Delete recipe?</AlertDialogTitle>
             <AlertDialogDescription className="font-medium text-muted-foreground">
-              This will permanently remove <span className="font-bold text-foreground">"{confirmDelete?.itemName}"</span> from your center.
+              This will permanently remove{" "}
+              <span className="font-bold text-foreground">"{confirmDelete?.itemName}"</span> from
+              your center.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4">
-            <AlertDialogCancel disabled={isDeleting} className="rounded-xl font-semibold">Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting} className="rounded-xl font-semibold">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -295,9 +300,11 @@ export default function RecipePage() {
 }
 
 function RecipeCard({ recipe, onEdit, onDelete, onZoomImage, canEdit = true, canDelete = true }) {
-  const foodLabel = FOOD_TYPES.find((f) => f.id === recipe.foodType || f.id === recipe.foodType?.toLowerCase())?.label || recipe.foodType;
+  const foodLabel =
+    FOOD_TYPES.find((f) => f.id === recipe.foodType || f.id === recipe.foodType?.toLowerCase())
+      ?.label || recipe.foodType;
   const isVeg = recipe.foodType?.toLowerCase() === "veg";
-  
+
   const getCleanImageUrl = (url) => {
     if (!url) return null;
     let cleaned = url.replace(/\\/g, "/");
@@ -307,7 +314,7 @@ function RecipeCard({ recipe, onEdit, onDelete, onZoomImage, canEdit = true, can
       cleaned = "storage/" + cleaned;
     }
     if (cleaned.startsWith("http")) return cleaned;
-    return `https://mydiaree.com.au/${cleaned}`;
+    return `${IMG_BASE_API}${cleaned}`;
   };
 
   const imageUrl = getCleanImageUrl(recipe.image);
@@ -315,13 +322,15 @@ function RecipeCard({ recipe, onEdit, onDelete, onZoomImage, canEdit = true, can
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-3xl border border-border/60 bg-card/60 shadow-sm backdrop-blur transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10 hover:border-primary/30 h-full">
       <div className="pointer-events-none absolute -right-20 -top-20 h-40 w-40 rounded-full bg-primary/10 blur-3xl transition-opacity group-hover:bg-primary/20" />
-      
+
       {/* 1. Image Container (Top) */}
-      <div 
-        onClick={() => imageUrl && onZoomImage({ url: imageUrl, name: recipe.name, author: recipe.author })}
+      <div
+        onClick={() =>
+          imageUrl && onZoomImage({ url: imageUrl, name: recipe.name, author: recipe.author })
+        }
         className={cn(
           "relative h-48 w-full shrink-0 overflow-hidden bg-muted/40",
-          imageUrl ? "cursor-zoom-in" : ""
+          imageUrl ? "cursor-zoom-in" : "",
         )}
       >
         {imageUrl ? (
@@ -356,11 +365,14 @@ function RecipeCard({ recipe, onEdit, onDelete, onZoomImage, canEdit = true, can
                 "shrink-0 flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-widest shadow-sm",
                 isVeg
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50"
-                  : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50"
+                  : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50",
               )}
             >
               <div
-                className={cn("h-1.5 w-1.5 rounded-full shadow-sm", isVeg ? "bg-emerald-500 shadow-emerald-500/50" : "bg-rose-500 shadow-rose-500/50")}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full shadow-sm",
+                  isVeg ? "bg-emerald-500 shadow-emerald-500/50" : "bg-rose-500 shadow-rose-500/50",
+                )}
               />
               {foodLabel}
             </div>
@@ -370,7 +382,7 @@ function RecipeCard({ recipe, onEdit, onDelete, onZoomImage, canEdit = true, can
         <div className="mb-4 space-y-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-indigo-500/20 text-primary text-[10px] font-bold shadow-inner ring-1 ring-primary/30">
-               {(recipe.author || "?").charAt(0).toUpperCase()}
+              {(recipe.author || "?").charAt(0).toUpperCase()}
             </div>
             <p className="font-semibold text-foreground line-clamp-1">
               <span className="text-muted-foreground font-medium mr-1">By:</span>
@@ -400,7 +412,7 @@ function RecipeCard({ recipe, onEdit, onDelete, onZoomImage, canEdit = true, can
                   {ing.name}
                 </Badge>
               ))}
-              
+
               {recipe.ingredients.length > 4 && (
                 <TooltipProvider delayDuration={50}>
                   <Tooltip>
@@ -412,7 +424,10 @@ function RecipeCard({ recipe, onEdit, onDelete, onZoomImage, canEdit = true, can
                         +{recipe.ingredients.length - 4} more
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="bg-card text-card-foreground border shadow-xl max-w-[240px] p-2.5 rounded-2xl">
+                    <TooltipContent
+                      side="top"
+                      className="bg-card text-card-foreground border shadow-xl max-w-[240px] p-2.5 rounded-2xl"
+                    >
                       <div className="flex flex-wrap gap-1">
                         {recipe.ingredients.slice(4).map((ing) => (
                           <Badge
@@ -433,7 +448,12 @@ function RecipeCard({ recipe, onEdit, onDelete, onZoomImage, canEdit = true, can
         )}
 
         {/* Actions */}
-        <div className={cn("flex items-center justify-end gap-1.5 pt-3 border-t border-border/50", recipe.ingredients?.length === 0 && "mt-auto")}>
+        <div
+          className={cn(
+            "flex items-center justify-end gap-1.5 pt-3 border-t border-border/50",
+            recipe.ingredients?.length === 0 && "mt-auto",
+          )}
+        >
           {recipe.videoUrl && (
             <a
               href={recipe.videoUrl}

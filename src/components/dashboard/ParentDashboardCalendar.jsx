@@ -28,14 +28,12 @@ import {
 import { SectionCard } from "@/components/common/SectionCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { IMG_BASE_API } from "../../api/imageapi";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 
 const DAY_TYPES = [
   {
@@ -102,7 +100,9 @@ function buildDayMap(calendarEvents = []) {
 }
 
 function stripHtml(value = "") {
-  return String(value).replace(/<[^>]*>/g, "").trim();
+  return String(value)
+    .replace(/<[^>]*>/g, "")
+    .trim();
 }
 
 function mediaUrl(raw) {
@@ -152,7 +152,8 @@ function DayDetailCard({ entry, typeKey, meta }) {
   const mediaImages = parseMediaList(entry.announcementMedia);
   const childPhoto = typeKey === "birthdays" ? mediaUrl(entry.imageUrl) : null;
   const images = childPhoto ? [childPhoto, ...mediaImages] : mediaImages;
-  const accentColor = entry.eventColor && entry.eventColor.startsWith("#") ? entry.eventColor : null;
+  const accentColor =
+    entry.eventColor && entry.eventColor.startsWith("#") ? entry.eventColor : null;
 
   return (
     <article
@@ -163,12 +164,15 @@ function DayDetailCard({ entry, typeKey, meta }) {
     >
       {images[0] && (
         <div className="relative aspect-[21/9] overflow-hidden bg-muted/30">
-          <img src={images[0]} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]" />
+          <img
+            src={images[0]}
+            alt=""
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
           {images.length > 1 && (
             <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-              <ImageIcon className="h-3 w-3" />
-              +{images.length - 1} more
+              <ImageIcon className="h-3 w-3" />+{images.length - 1} more
             </span>
           )}
         </div>

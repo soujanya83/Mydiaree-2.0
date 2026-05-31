@@ -35,6 +35,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { IMG_BASE_API } from "../api/imageapi";
 
 export default function RoomsPage() {
   const navigate = useNavigate();
@@ -175,10 +176,7 @@ export default function RoomsPage() {
                 className="h-10 bg-background pl-9"
               />
             </div>
-            <CentreSelect
-              icon={null}
-              triggerClassName="h-10 w-full bg-background lg:w-60"
-            />
+            <CentreSelect icon={null} triggerClassName="h-10 w-full bg-background lg:w-60" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-10 w-full bg-background lg:w-40">
                 <SelectValue placeholder="Status" />
@@ -387,7 +385,7 @@ function RoomCard({ room, checked, onToggle, onOpen, onDelete, canDelete = true 
                             key={ed.userid || ed.id || `${ed.name}-${index}`}
                             src={
                               ed.imageUrl && !ed.imageUrl.startsWith("http")
-                                ? `https://mydiaree.com.au/${ed.imageUrl}`
+                                ? `${IMG_BASE_API}${ed.imageUrl}`
                                 : ed.imageUrl ||
                                   `https://ui-avatars.com/api/?name=${encodeURIComponent(ed.name || "Educator")}&background=EEF2FF&color=4338CA`
                             }
@@ -427,7 +425,7 @@ function RoomCard({ room, checked, onToggle, onOpen, onDelete, canDelete = true 
                               key={child.id || `${fullName}-${index}`}
                               src={
                                 child.imageUrl && !child.imageUrl.startsWith("http")
-                                  ? `https://mydiaree.com.au/${child.imageUrl}`
+                                  ? `${IMG_BASE_API}${child.imageUrl}`
                                   : child.imageUrl ||
                                     `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=FDF4FF&color=C026D3`
                               }

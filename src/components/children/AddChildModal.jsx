@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { DAYS, GENDER_OPTIONS, STATUS_OPTIONS } from "./childrenData";
 import { toast } from "sonner";
+import { IMG_BASE_API } from "../../api/imageapi";
 
 const blank = {
   firstname: "",
@@ -128,7 +129,7 @@ export function AddChildModal({ open, onClose, onSubmit, room, initial, isSaving
           initial.imageUrl
             ? initial.imageUrl.startsWith("http")
               ? initial.imageUrl
-              : `https://mydiaree.com.au/${initial.imageUrl}`
+              : `${IMG_BASE_API}${initial.imageUrl}`
             : "",
         );
       } else {

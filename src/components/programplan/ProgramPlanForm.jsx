@@ -36,8 +36,9 @@ import { programPlanService } from "@/services/learning/programPlanService";
 import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { IMG_BASE_API } from "../../api/imageapi";
 
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 const avatarUrl = (url) => {
   if (!url) return null;
   return url.startsWith("http") ? url : `${IMG_BASE}${url}`;

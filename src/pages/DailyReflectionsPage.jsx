@@ -55,6 +55,7 @@ import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 import { Pagination } from "@/components/common/Pagination";
+import { IMG_BASE_API } from "../api/imageapi";
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
@@ -87,17 +88,13 @@ const getReflectionPagination = (response) => {
 const getMediaUrl = (media) => {
   const rawUrl = media?.mediaUrl || media?.url || "";
   if (!rawUrl) return "";
-  return rawUrl.startsWith("http")
-    ? rawUrl
-    : `https://mydiaree.com.au/${rawUrl.replace(/^\/+/, "")}`;
+  return rawUrl.startsWith("http") ? rawUrl : `${IMG_BASE_API}${rawUrl.replace(/^\/+/, "")}`;
 };
 
 const getAvatarUrl = (imageUrl, name = "User", tone = "EEF2FF", color = "4338CA") => {
   const rawUrl = String(imageUrl || "").trim();
   if (rawUrl) {
-    return rawUrl.startsWith("http")
-      ? rawUrl
-      : `https://mydiaree.com.au/${rawUrl.replace(/^\/+/, "")}`;
+    return rawUrl.startsWith("http") ? rawUrl : `${IMG_BASE_API}${rawUrl.replace(/^\/+/, "")}`;
   }
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${tone}&color=${color}`;
 };

@@ -44,6 +44,7 @@ import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
 import { StatusTriangle } from "@/components/lessonplan/StatusTriangle";
 import { nextStatus } from "@/components/lessonplan/progressData";
+import { IMG_BASE_API } from "../api/imageapi";
 
 const TABS = [
   { id: "observations", label: "Observations", Icon: Eye },
@@ -73,7 +74,7 @@ const DEV_MILESTONE_STATUSES = ["Introduced", "Working towards", "Achieved"];
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.15)_1px,transparent_0)] [background-size:16px_16px]";
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 const LINK_PICKER_PAGE_SIZE = 12;
 
 const avatarUrl = (url) => {

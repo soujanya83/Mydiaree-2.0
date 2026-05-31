@@ -8,8 +8,9 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { childDisplayName } from "@/utils/parentDashboardText";
+import { IMG_BASE_API } from "../../api/imageapi";
 
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 
 function childImageUrl(url) {
   if (!url) return null;

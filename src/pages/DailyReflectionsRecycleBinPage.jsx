@@ -22,8 +22,9 @@ import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationM
 import { useCentreStore } from "@/stores/centreStore";
 import { reflectionService } from "@/services/learning/reflectionService";
 import { statusBadgeClasses } from "@/components/reflection/reflectionsData";
+import { IMG_BASE_API } from "../api/imageapi";
 
-const IMG_BASE = "https://mydiaree.com.au/";
+const IMG_BASE = IMG_BASE_API;
 
 const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";

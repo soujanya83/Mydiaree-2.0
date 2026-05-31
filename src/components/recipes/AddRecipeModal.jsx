@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,15 +19,12 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ChefHat, Utensils, Video, X, Upload, Loader2, Image as ImageIcon } from "lucide-react";
-import {
-  RECIPE_MEAL_TYPES,
-  FOOD_TYPES,
-} from "./recipesData";
+import { RECIPE_MEAL_TYPES, FOOD_TYPES } from "./recipesData";
 import { useIngredientStore } from "@/stores/ingredientStore";
 import { useRecipeStore } from "@/stores/recipeStore";
 import { useCentreStore } from "@/stores/centreStore";
 import { toast } from "sonner";
-
+import { IMG_BASE_API } from "../../api/imageapi";
 
 const empty = {
   name: "",
@@ -55,28 +58,30 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
     }
   }, [open, fetchIngredients]);
 
-
   useEffect(() => {
     if (open) {
       if (initial) {
         // Handle various potential keys and data types for ingredients
-        const rawIngs = initial.ingredients || initial.ingredient || initial.recipe_ingredients || [];
+        const rawIngs =
+          initial.ingredients || initial.ingredient || initial.recipe_ingredients || [];
         let ingList = [];
-        
+
         if (Array.isArray(rawIngs)) {
           ingList = rawIngs;
-        } else if (typeof rawIngs === 'string' && rawIngs.includes(',')) {
-          ingList = rawIngs.split(',').map(s => s.trim());
+        } else if (typeof rawIngs === "string" && rawIngs.includes(",")) {
+          ingList = rawIngs.split(",").map((s) => s.trim());
         } else if (rawIngs) {
           ingList = [rawIngs];
         }
 
-        const names = ingList.map(item => {
-          if (typeof item === 'object' && item.name) return item.name;
-          // If it's an ID (number or string), find the name in our global list
-          const found = allIngredients.find(ai => String(ai.id) === String(item));
-          return found ? found.name : item;
-        }).filter(Boolean);
+        const names = ingList
+          .map((item) => {
+            if (typeof item === "object" && item.name) return item.name;
+            // If it's an ID (number or string), find the name in our global list
+            const found = allIngredients.find((ai) => String(ai.id) === String(item));
+            return found ? found.name : item;
+          })
+          .filter(Boolean);
 
         const getCleanImageUrl = (url) => {
           if (!url) return "";
@@ -86,7 +91,7 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
             cleaned = "storage/" + cleaned;
           }
           if (cleaned.startsWith("http")) return cleaned;
-          return `https://mydiaree.com.au/${cleaned}`;
+          return `${IMG_BASE_API}${cleaned}`;
         };
 
         setForm({
@@ -108,16 +113,14 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
     }
   }, [open, initial, allIngredients]);
 
-
-
-
   const set = (k, v) => {
     setForm((f) => ({ ...f, [k]: v }));
     // Proactively clear error validation for edited field
     if (k === "name") setErrors((prev) => ({ ...prev, itemName: null }));
     if (k === "foodType") setErrors((prev) => ({ ...prev, foodtype: null }));
     if (k === "mealType") setErrors((prev) => ({ ...prev, mealType: null }));
-    if (k === "ingredients") setErrors((prev) => ({ ...prev, ingredient: null, ingredients: null }));
+    if (k === "ingredients")
+      setErrors((prev) => ({ ...prev, ingredient: null, ingredients: null }));
     if (k === "description") setErrors((prev) => ({ ...prev, recipe: null }));
   };
 
@@ -154,17 +157,18 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
     set("videoFile", file);
   };
 
-
   const submit = async () => {
     if (loading) return;
     setLoading(true);
     setErrors({});
-    
+
     // Find ingredient IDs from names
-    const selectedIngIds = form.ingredients.map(name => {
-      const found = allIngredients.find(i => i.name === name);
-      return found ? found.id : null;
-    }).filter(id => id !== null);
+    const selectedIngIds = form.ingredients
+      .map((name) => {
+        const found = allIngredients.find((i) => i.name === name);
+        return found ? found.id : null;
+      })
+      .filter((id) => id !== null);
 
     const payload = {
       centerId: activeCentreId,
@@ -202,20 +206,16 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
     }
   };
 
-
-
   const filteredIngs = allIngredients.filter(
     (o) =>
-      o.name.toLowerCase().includes(ingQuery.toLowerCase()) &&
-      !form.ingredients.includes(o.name)
+      o.name.toLowerCase().includes(ingQuery.toLowerCase()) && !form.ingredients.includes(o.name),
   );
-
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-3xl border-border/60 bg-card/95 backdrop-blur shadow-2xl max-h-[92vh] flex flex-col">
         <div className="absolute top-0 right-0 h-40 w-40 -translate-y-1/2 translate-x-1/3 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-        
+
         <DialogHeader className="px-6 pb-2 pt-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
@@ -226,7 +226,9 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                 {initial ? "Edit Recipe" : "Create New Recipe"}
               </DialogTitle>
               <p className="text-sm font-medium text-muted-foreground mt-0.5">
-                {initial ? "Update your recipe details and ingredients" : "Add a new culinary masterpiece to your collection"}
+                {initial
+                  ? "Update your recipe details and ingredients"
+                  : "Add a new culinary masterpiece to your collection"}
               </p>
             </div>
           </div>
@@ -237,7 +239,7 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
             <h3 className="text-xs font-bold text-foreground uppercase tracking-widest opacity-70">
               Basic Information
             </h3>
-            
+
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-sm font-bold flex items-center gap-0.5">
@@ -263,9 +265,11 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                   Food Type <span className="text-red-500 font-bold">*</span>
                 </Label>
                 <Select value={form.foodType} onValueChange={(v) => set("foodType", v)}>
-                  <SelectTrigger className={`h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium ${
-                    errors.foodtype ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
-                  }`}>
+                  <SelectTrigger
+                    className={`h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium ${
+                      errors.foodtype ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
+                    }`}
+                  >
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -288,9 +292,11 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                   Meal Type <span className="text-red-500 font-bold">*</span>
                 </Label>
                 <Select value={form.mealType} onValueChange={(v) => set("mealType", v)}>
-                  <SelectTrigger className={`h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium ${
-                    errors.mealType ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
-                  }`}>
+                  <SelectTrigger
+                    className={`h-11 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium ${
+                      errors.mealType ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
+                    }`}
+                  >
                     <SelectValue placeholder="Select Meal Type" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
@@ -330,16 +336,21 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                     }}
                     placeholder="Search ingredients..."
                     className={`h-11 pl-10 rounded-xl bg-background/50 focus-visible:ring-primary/20 font-medium ${
-                      (errors.ingredient || errors.ingredients) ? "border-red-500/70 focus-visible:ring-red-500/20" : ""
+                      errors.ingredient || errors.ingredients
+                        ? "border-red-500/70 focus-visible:ring-red-500/20"
+                        : ""
                     }`}
                   />
                 </div>
                 {(errors.ingredient || errors.ingredients) && (
                   <p className="text-xs font-medium text-red-500 px-1 mt-1 animate-in fade-in-50 duration-150">
-                    {errors.ingredient?.[0] || errors.ingredient || errors.ingredients?.[0] || errors.ingredients}
+                    {errors.ingredient?.[0] ||
+                      errors.ingredient ||
+                      errors.ingredients?.[0] ||
+                      errors.ingredients}
                   </p>
                 )}
-                
+
                 {ingOpen && filteredIngs.length > 0 && (
                   <div className="absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-border/60 bg-popover/95 backdrop-blur shadow-lg p-1 animate-in fade-in zoom-in-95 duration-200">
                     {filteredIngs.map((o) => (
@@ -363,9 +374,9 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
             {form.ingredients.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
                 {form.ingredients.map((ing) => (
-                  <Badge 
-                    key={ing} 
-                    variant="secondary" 
+                  <Badge
+                    key={ing}
+                    variant="secondary"
                     className="pl-3 pr-1 py-1 gap-1 rounded-full bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary transition-all font-bold"
                   >
                     {ing}
@@ -427,11 +438,11 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                   onChange={handleFile}
                   className="hidden"
                 />
-                <div 
+                <div
                   onClick={() => fileRef.current?.click()}
                   className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all cursor-pointer p-4 h-32 ${
-                    form.image 
-                      ? "border-primary/40 bg-primary/5" 
+                    form.image
+                      ? "border-primary/40 bg-primary/5"
                       : "border-border/60 bg-muted/10 hover:bg-muted/20 hover:border-primary/20"
                   }`}
                 >
@@ -455,7 +466,9 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-sm text-primary">
                         <ImageIcon className="h-5 w-5" />
                       </div>
-                      <span className="text-xs font-bold text-muted-foreground">Add Recipe Photo</span>
+                      <span className="text-xs font-bold text-muted-foreground">
+                        Add Recipe Photo
+                      </span>
                     </>
                   )}
                 </div>
@@ -475,11 +488,11 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                   onChange={handleVideoFile}
                   className="hidden"
                 />
-                <div 
+                <div
                   onClick={() => videoFileRef.current?.click()}
                   className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed transition-all cursor-pointer p-4 h-32 ${
-                    form.videoFile 
-                      ? "border-primary/40 bg-primary/5" 
+                    form.videoFile
+                      ? "border-primary/40 bg-primary/5"
                       : "border-border/60 bg-muted/10 hover:bg-muted/20 hover:border-primary/20"
                   }`}
                 >
@@ -524,16 +537,16 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
         </div>
 
         <DialogFooter className="flex items-center justify-end gap-3 border-t border-border/50 px-6 py-4 bg-muted/10">
-          <Button 
-            variant="ghost" 
-            onClick={() => onOpenChange(false)} 
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
             disabled={loading}
             className="rounded-xl font-bold h-11"
           >
             Cancel
           </Button>
-          <Button 
-            onClick={submit} 
+          <Button
+            onClick={submit}
             disabled={loading}
             className="rounded-xl h-11 px-8 bg-gradient-to-r from-primary to-indigo-500 text-white font-bold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all active:scale-95"
           >
@@ -542,8 +555,10 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
               </>
+            ) : initial ? (
+              "Update Recipe"
             ) : (
-              initial ? "Update Recipe" : "Save Recipe"
+              "Save Recipe"
             )}
           </Button>
         </DialogFooter>

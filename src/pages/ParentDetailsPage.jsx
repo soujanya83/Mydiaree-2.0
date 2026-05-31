@@ -1,16 +1,27 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Mail, Phone, Calendar, User, Users, Clock, ShieldCheck, Activity } from "lucide-react";
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  Calendar,
+  User,
+  Users,
+  Clock,
+  ShieldCheck,
+  Activity,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { parentService } from "@/services/admin/parentService";
+import { IMG_BASE_API } from "../api/imageapi";
 
 function getImageUrl(imageUrl) {
   if (!imageUrl) return "";
-  return imageUrl.startsWith("http") ? imageUrl : `https://mydiaree.com.au/${imageUrl}`;
+  return imageUrl.startsWith("http") ? imageUrl : `${IMG_BASE_API}${imageUrl}`;
 }
 
 function getInitials(name = "") {
@@ -55,7 +66,8 @@ export default function ParentDetailsPage() {
         if (detailsRes.status === "success" || detailsRes.status === true || detailsRes.success) {
           setData({
             ...detailsRes,
-            children: childrenRes?.status === true ? childrenRes.children || [] : detailsRes.children || [],
+            children:
+              childrenRes?.status === true ? childrenRes.children || [] : detailsRes.children || [],
           });
         } else {
           toast.error(detailsRes.message || "Failed to load parent details.");
@@ -85,8 +97,14 @@ export default function ParentDetailsPage() {
           <User className="h-8 w-8" />
         </div>
         <h3 className="text-xl font-bold tracking-tight text-foreground">Parent Not Found</h3>
-        <p className="mt-2 text-sm text-muted-foreground">The requested parent details could not be found.</p>
-        <Button onClick={() => navigate("/parent-settings")} variant="outline" className="mt-6 h-11 rounded-xl px-6 font-semibold">
+        <p className="mt-2 text-sm text-muted-foreground">
+          The requested parent details could not be found.
+        </p>
+        <Button
+          onClick={() => navigate("/parent-settings")}
+          variant="outline"
+          className="mt-6 h-11 rounded-xl px-6 font-semibold"
+        >
           <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
         </Button>
       </div>
@@ -144,10 +162,15 @@ export default function ParentDetailsPage() {
                   </AvatarFallback>
                 </Avatar>
                 {parent.status === "ACTIVE" && (
-                  <div className="absolute bottom-2 right-2 h-5 w-5 rounded-full border-2 border-background bg-success shadow-sm" title="Active Account"></div>
+                  <div
+                    className="absolute bottom-2 right-2 h-5 w-5 rounded-full border-2 border-background bg-success shadow-sm"
+                    title="Active Account"
+                  ></div>
                 )}
               </div>
-              <h2 className="text-2xl font-extrabold tracking-tight text-foreground">{parent.name}</h2>
+              <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+                {parent.name}
+              </h2>
               <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 {parent.userType || "Parent"}
@@ -159,8 +182,12 @@ export default function ParentDetailsPage() {
                     <Mail className="h-5 w-5" />
                   </div>
                   <div className="flex flex-col items-start overflow-hidden text-left">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email Address</span>
-                    <span className="w-full truncate text-sm font-semibold text-foreground">{parent.emailid || parent.email || "No email"}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Email Address
+                    </span>
+                    <span className="w-full truncate text-sm font-semibold text-foreground">
+                      {parent.emailid || parent.email || "No email"}
+                    </span>
                   </div>
                 </div>
 
@@ -169,8 +196,12 @@ export default function ParentDetailsPage() {
                     <Phone className="h-5 w-5" />
                   </div>
                   <div className="flex flex-col items-start text-left">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Contact Number</span>
-                    <span className="text-sm font-semibold text-foreground">{parent.contactNo || "Not provided"}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Contact Number
+                    </span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {parent.contactNo || "Not provided"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -186,7 +217,7 @@ export default function ParentDetailsPage() {
               <Activity className="h-5 w-5 text-primary" />
               Account Details
             </h3>
-            
+
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -201,9 +232,7 @@ export default function ParentDetailsPage() {
                 <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   <Calendar className="h-3.5 w-3.5" /> Date of Birth
                 </span>
-                <p className="text-sm font-medium text-foreground">
-                  {formatDate(parent.dob)}
-                </p>
+                <p className="text-sm font-medium text-foreground">{formatDate(parent.dob)}</p>
               </div>
 
               <div className="space-y-1.5">
@@ -237,12 +266,14 @@ export default function ParentDetailsPage() {
                 {children?.length || 0} Total
               </span>
             </div>
-            
-            {(!children || children.length === 0) ? (
+
+            {!children || children.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-background/40 py-12 text-center">
                 <Users className="mb-3 h-10 w-10 text-muted-foreground/40" />
                 <h4 className="text-sm font-semibold text-foreground">No Children Linked</h4>
-                <p className="mt-1 text-xs text-muted-foreground">This parent account does not have any linked children yet.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This parent account does not have any linked children yet.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -253,14 +284,22 @@ export default function ParentDetailsPage() {
                     className="flex items-center gap-4 rounded-2xl border border-border/50 bg-background/50 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md cursor-pointer group"
                   >
                     <Avatar className="h-14 w-14 shrink-0 border-2 border-background shadow-sm">
-                      <AvatarImage src={getImageUrl(child.imageUrl)} alt={child.full_name || child.name} className="object-cover" />
+                      <AvatarImage
+                        src={getImageUrl(child.imageUrl)}
+                        alt={child.full_name || child.name}
+                        className="object-cover"
+                      />
                       <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                        {getInitials(child.full_name || `${child.name || ""} ${child.lastname || ""}`)}
+                        {getInitials(
+                          child.full_name || `${child.name || ""} ${child.lastname || ""}`,
+                        )}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                       <span className="truncate text-sm font-bold text-foreground group-hover:text-primary transition-colors">
-                        {child.full_name || `${child.name || ""} ${child.lastname || ""}`.trim() || "Unnamed Child"}
+                        {child.full_name ||
+                          `${child.name || ""} ${child.lastname || ""}`.trim() ||
+                          "Unnamed Child"}
                       </span>
                       <div className="mt-1 flex flex-wrap gap-1.5">
                         <span className="inline-flex w-fit items-center rounded-md bg-secondary/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-secondary-foreground">

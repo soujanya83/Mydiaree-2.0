@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { ActivityEditModal } from "./ActivityEditModal";
 import { DeleteConfirmationModal } from "@/components/common/DeleteConfirmationModal";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { IMG_BASE_API } from "../../api/imageapi";
 
 const MULTI_ENTRY_ACTIVITIES = new Set(["sleep", "sunscreen", "toileting", "bottle"]);
 
@@ -463,7 +464,7 @@ export function ChildDiaryCard({
                   src={
                     child.imageUrl.startsWith("http")
                       ? child.imageUrl
-                      : `https://mydiaree.com.au/${child.imageUrl}`
+                      : `${IMG_BASE_API}${child.imageUrl}`
                   }
                   alt={child.name}
                   className="object-cover"
