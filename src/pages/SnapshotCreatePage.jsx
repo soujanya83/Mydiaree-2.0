@@ -98,6 +98,10 @@ export default function SnapshotCreatePage() {
   const [details, setDetails] = useState("");
   const [status, setStatus] = useState("draft");
   const [media, setMedia] = useState([]); // { file, preview, isExisting, url, id }
+  const [deletingMediaIds, setDeletingMediaIds] = useState([]);
+
+  const existingMedia = media.filter((item) => item.isExisting);
+  const newMedia = media.filter((item) => !item.isExisting);
 
   const [showRoomsPicker, setShowRoomsPicker] = useState(false);
   const [showChildrenPicker, setShowChildrenPicker] = useState(false);
@@ -348,15 +352,34 @@ export default function SnapshotCreatePage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const removeMedia = (index) => {
+  const removeNewMedia = (item) => {
     setMedia((prev) => {
-      const removed = prev[index];
-      if (removed?.preview) {
-        URL.revokeObjectURL(removed.preview);
-        mediaPreviewUrlsRef.current.delete(removed.preview);
+      if (item.preview) {
+        URL.revokeObjectURL(item.preview);
+        mediaPreviewUrlsRef.current.delete(item.preview);
       }
-      return prev.filter((_, i) => i !== index);
+      return prev.filter((mediaItem) => mediaItem !== item);
     });
+  };
+
+  const removeExistingMedia = async (item) => {
+    if (!item.id || deletingMediaIds.includes(item.id)) return;
+
+    setDeletingMediaIds((prev) => [...prev, item.id]);
+    try {
+      const res = await snapshotService.deleteSnapshotMedia(item.id);
+      if (res.status) {
+        setMedia((prev) => prev.filter((mediaItem) => mediaItem !== item));
+        toast.success(res.message || "Media deleted successfully");
+      } else {
+        toast.error(res.message || "Failed to delete media");
+      }
+    } catch (error) {
+      console.error("Failed to delete snapshot media:", error);
+      toast.error("Failed to delete media");
+    } finally {
+      setDeletingMediaIds((prev) => prev.filter((mediaId) => mediaId !== item.id));
+    }
   };
 
   useEffect(() => {
@@ -576,47 +599,58 @@ export default function SnapshotCreatePage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                {media.map((m, i) => (
-                  <div
-                    key={i}
-                    className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted"
-                  >
-                    {isVideoMedia(m) ? (
-                      <video
-                        src={m.isExisting ? m.url : m.preview}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        muted
-                        playsInline
-                        preload="metadata"
-                      />
-                    ) : (
-                      <img
-                        src={m.isExisting ? m.url : m.preview}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        alt="preview"
-                      />
-                    )}
-                    <button
-                      onClick={() => removeMedia(i)}
-                      className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
+              {isEdit && (
+                <div>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Already Added Media ({existingMedia.length})
+                  </p>
+                  {existingMedia.length ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {existingMedia.map((item) => (
+                        <SnapshotMediaPreview
+                          key={item.id}
+                          item={item}
+                          isDeleting={deletingMediaIds.includes(item.id)}
+                          onRemove={() => removeExistingMedia(item)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+                      No previously added media.
+                    </p>
+                  )}
+                </div>
+              )}
 
-                {media.length < 10 && (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-6 transition-colors hover:border-primary/40 hover:bg-primary/5 ${PATTERN_BG}`}
-                  >
-                    <Upload className="h-5 w-5 text-primary" />
-                    <span className="mt-2 text-[10px] font-bold text-foreground uppercase tracking-tighter">
-                      Add
-                    </span>
-                  </button>
+              <div className={isEdit ? "mt-5" : ""}>
+                {isEdit && (
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Newly Added Media ({newMedia.length})
+                  </p>
                 )}
+                <div className="grid grid-cols-2 gap-3">
+                  {newMedia.map((item) => (
+                    <SnapshotMediaPreview
+                      key={item.preview}
+                      item={item}
+                      onRemove={() => removeNewMedia(item)}
+                    />
+                  ))}
+
+                  {media.length < 10 && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-6 transition-colors hover:border-primary/40 hover:bg-primary/5 ${PATTERN_BG}`}
+                    >
+                      <Upload className="h-5 w-5 text-primary" />
+                      <span className="mt-2 text-[10px] font-bold text-foreground uppercase tracking-tighter">
+                        Add
+                      </span>
+                    </button>
+                  )}
+                </div>
               </div>
               <input
                 type="file"
@@ -1002,6 +1036,43 @@ function Avatar({ name, imageUrl }) {
           .toUpperCase()
           .slice(0, 2)
       )}
+    </div>
+  );
+}
+
+function SnapshotMediaPreview({ item, isDeleting = false, onRemove }) {
+  const src = item.isExisting ? item.url : item.preview;
+
+  return (
+    <div className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
+      {isVideoMedia(item) ? (
+        <video
+          src={src}
+          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          muted
+          playsInline
+          preload="metadata"
+        />
+      ) : (
+        <img
+          src={src}
+          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          alt="preview"
+        />
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={isDeleting}
+        className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 disabled:cursor-wait disabled:opacity-100"
+        aria-label="Remove media"
+      >
+        {isDeleting ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <X className="h-3.5 w-3.5" />
+        )}
+      </button>
     </div>
   );
 }

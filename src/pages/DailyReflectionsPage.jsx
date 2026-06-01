@@ -690,7 +690,6 @@ function ReflectionCard({
 }) {
   const mediaItems = refl.media || [];
   const [imgIdx, setImgIdx] = useState(0);
-  const cur = mediaItems[imgIdx];
   const childTags = (refl.children || []).map((tag) => ({
     id: tag.childid || tag.child?.id || tag.id,
     name: tag.child ? getPersonName(tag.child) : `Child ${tag.childid || ""}`.trim(),
@@ -713,7 +712,7 @@ function ReflectionCard({
     if (mediaItems.length <= 1) return;
     const interval = setInterval(() => {
       setImgIdx((prev) => (prev + 1) % mediaItems.length);
-    }, 3000);
+    }, 7000);
     return () => clearInterval(interval);
   }, [mediaItems.length]);
 
@@ -727,21 +726,28 @@ function ReflectionCard({
           className="block h-full w-full text-left"
           title="Open media gallery"
         >
-          {cur ? (
-            <div className="relative h-full w-full">
-              {isImageMedia(cur) ? (
-                <img
-                  key={cur.id || imgIdx}
-                  src={getMediaUrl(cur)}
-                  alt={cleanTitle}
-                  className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-slate-900/10">
-                  <Video className="h-10 w-10 text-slate-400" />
+          {mediaItems.length ? (
+            <div
+              className="flex h-full transition-transform duration-700 ease-in-out"
+              style={{ transform: `translateX(-${imgIdx * 100}%)` }}
+            >
+              {mediaItems.map((item, index) => (
+                <div
+                  key={item.id || index}
+                  className="flex h-full w-full shrink-0 items-center justify-center bg-muted/40"
+                >
+                  {isImageMedia(item) ? (
+                    <img
+                      src={getMediaUrl(item)}
+                      alt={cleanTitle}
+                      className="h-full w-full object-contain"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <Video className="h-10 w-10 text-slate-400" />
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           ) : (
             <div className="flex h-full w-full items-center justify-center">

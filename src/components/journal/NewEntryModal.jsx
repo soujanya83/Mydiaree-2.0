@@ -621,7 +621,7 @@ export function NewEntryModal({
                       Nappy Status <span className="text-red-500">*</span>
                     </Label>
                     <div className="flex flex-wrap gap-2">
-                      {["clean", "wet", "solid", "successfully"].map((s) => (
+                      {["clean", "wet", "soiled", "successfully"].map((s) => (
                         <button
                           key={s}
                           type="button"

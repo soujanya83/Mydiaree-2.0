@@ -289,6 +289,8 @@ function RoomCard({ room, checked, onToggle, onOpen, onDelete, canDelete = true 
       }}
       className="group relative cursor-pointer overflow-hidden rounded-lg border border-border bg-card text-left shadow-sm transition-all hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
     >
+      <span className="absolute inset-x-0 top-0 h-1 bg-primary" />
+
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">

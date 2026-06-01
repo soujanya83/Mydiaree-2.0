@@ -302,22 +302,10 @@ export default function DailyReflectionCreatePage() {
       formData.append("selected_staff", staff.join(","));
       formData.append("eylf", eylf.join("\r\n"));
 
-      const retainedMediaIds = media
-        .filter((m) => m.isExisting && m.id !== undefined && m.id !== null)
-        .map((m) => String(m.id));
-
-      if (isEdit && retainedMediaIds.length) {
-        formData.append("existing_media_ids", retainedMediaIds.join(","));
-        retainedMediaIds.forEach((mediaId) => {
-          formData.append("existing_media[]", mediaId);
-          formData.append("old_media[]", mediaId);
-        });
-      }
-
       media
-        .filter((m) => !m.isExisting)
-        .forEach((m) => {
-          formData.append("media[]", m.file);
+        .filter((item) => !item.isExisting)
+        .forEach((item) => {
+          formData.append("media[]", item.file);
         });
 
       const res = await reflectionService.storeReflection(formData);

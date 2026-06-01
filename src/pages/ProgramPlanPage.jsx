@@ -898,6 +898,8 @@ export default function ProgramPlanPage() {
                   whileHover={{ y: -4 }}
                   className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-5 shadow-sm backdrop-blur transition-shadow hover:shadow-xl hover:shadow-primary/5"
                 >
+                  <span className="absolute inset-x-0 top-0 h-1 bg-primary" />
+
                   {/* gradient ring on hover */}
                   <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 ring-1 ring-primary/30 transition-opacity group-hover:opacity-100" />
                   <div className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-primary/5 blur-2xl transition-all duration-500 group-hover:bg-primary/10" />

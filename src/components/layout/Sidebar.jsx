@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown, Sparkles, X } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navConfig } from "@/constants/nav";
 import { parentNavConfig } from "@/constants/parentNav";
@@ -16,6 +16,7 @@ import logoShort from "@/assets/mydiearee_short_logo.png";
 
 export function Sidebar() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const mobileOpen = useUiStore((s) => s.mobileSidebarOpen);
   const setMobileOpen = useUiStore((s) => s.setMobileSidebarOpen);
   const expandedGroups = useUiStore((s) => s.expandedGroups);
@@ -91,6 +92,18 @@ export function Sidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
+        <button
+          onClick={toggleSidebar}
+          className="absolute right-0 top-8 z-10 hidden h-9 w-9 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-sidebar-border bg-card text-foreground shadow-sm transition-colors hover:bg-muted lg:inline-flex"
+          aria-label="Toggle sidebar"
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="h-5 w-5" />
+          ) : (
+            <PanelLeftClose className="h-5 w-5" />
+          )}
+        </button>
+
         {/* Brand */}
         <div
           className={cn(

@@ -192,7 +192,9 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
                 {key === "sleep" ? (
                   <>
                     <div className="space-y-1.5">
-                      <Label>Sleep Time <span className="text-red-500">*</span></Label>
+                      <Label>
+                        Sleep Time <span className="text-red-500">*</span>
+                      </Label>
                       <Input type="time" {...register("sleepTime")} />
                       {errors.sleepTime && (
                         <p className="text-red-500 text-xs">{errors.sleepTime.message}</p>
@@ -208,31 +210,36 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
                   </>
                 ) : (
                   <div className="space-y-1.5">
-                    <Label>Time <span className="text-red-500">*</span></Label>
+                    <Label>
+                      Time <span className="text-red-500">*</span>
+                    </Label>
                     <Input type="time" {...register("time")} />
-                    {errors.time && (
-                      <p className="text-red-500 text-xs">{errors.time.message}</p>
-                    )}
+                    {errors.time && <p className="text-red-500 text-xs">{errors.time.message}</p>}
                   </div>
                 )}
 
                 {["breakfast", "lunch", "late_snacks", "bottle"].includes(key) && (
                   <div className="space-y-1.5">
-                    <Label>{key === "bottle" ? "Bottle Details" : "Item"} <span className="text-red-500">*</span></Label>
+                    <Label>
+                      {key === "bottle" ? "Bottle Details" : "Item"}{" "}
+                      <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       {...register("item")}
-                      placeholder={key === "bottle" ? "e.g. 120ml formula" : "e.g. Toast with butter"}
+                      placeholder={
+                        key === "bottle" ? "e.g. 120ml formula" : "e.g. Toast with butter"
+                      }
                     />
-                    {errors.item && (
-                      <p className="text-red-500 text-xs">{errors.item.message}</p>
-                    )}
+                    {errors.item && <p className="text-red-500 text-xs">{errors.item.message}</p>}
                   </div>
                 )}
               </div>
 
               {key === "lunch" && (
                 <div className="mt-4 space-y-2">
-                  <Label>No of Serve <span className="text-red-500">*</span></Label>
+                  <Label>
+                    No of Serve <span className="text-red-500">*</span>
+                  </Label>
                   <div className="flex flex-wrap gap-2">
                     {[1, 2, 3, 4, 5].map((val) => (
                       <button
@@ -250,17 +257,17 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
                       </button>
                     ))}
                   </div>
-                  {errors.serve && (
-                    <p className="text-red-500 text-xs">{errors.serve.message}</p>
-                  )}
+                  {errors.serve && <p className="text-red-500 text-xs">{errors.serve.message}</p>}
                 </div>
               )}
 
               {key === "toileting" && (
                 <div className="mt-4 space-y-2">
-                  <Label>Nappy Status <span className="text-red-500">*</span></Label>
+                  <Label>
+                    Nappy Status <span className="text-red-500">*</span>
+                  </Label>
                   <div className="flex flex-wrap gap-2">
-                    {["clean", "wet", "solid", "soiled", "successfully"].map((s) => (
+                    {["clean", "wet", "soiled", "successfully"].map((s) => (
                       <button
                         key={s}
                         type="button"
@@ -276,9 +283,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
                       </button>
                     ))}
                   </div>
-                  {errors.status && (
-                    <p className="text-red-500 text-xs">{errors.status.message}</p>
-                  )}
+                  {errors.status && <p className="text-red-500 text-xs">{errors.status.message}</p>}
                 </div>
               )}
             </section>
@@ -292,10 +297,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
               {["sunscreen", "toileting"].includes(key) && (
                 <div className="mb-4 space-y-1.5">
                   <Label>Signature (Optional)</Label>
-                  <Input
-                    {...register("signature")}
-                    placeholder="Enter your name"
-                  />
+                  <Input {...register("signature")} placeholder="Enter your name" />
                   {errors.signature && (
                     <p className="text-red-500 text-xs">{errors.signature.message}</p>
                   )}

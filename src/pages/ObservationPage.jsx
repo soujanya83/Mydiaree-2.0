@@ -921,8 +921,6 @@ function ObservationCard({
     };
   }, [obs.id, commentRefreshTick]);
 
-  const cover = images[currentIdx];
-
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
       {/* 1. Image Container (Top) */}
@@ -938,15 +936,24 @@ function ObservationCard({
         tabIndex={0}
         className="group relative block h-48 w-full shrink-0 cursor-pointer overflow-hidden bg-muted/40"
       >
-        {cover ? (
-          <div className="relative h-full w-full">
-            <img
-              key={cover.id || currentIdx}
-              src={getMediaUrl(cover.mediaUrl)}
-              alt={stripHtml(obs.obestitle) || "Observation Media"}
-              className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
-              loading="lazy"
-            />
+        {images.length ? (
+          <div
+            className="flex h-full transition-transform duration-700 ease-in-out"
+            style={{ transform: `translateX(-${currentIdx * 100}%)` }}
+          >
+            {images.map((image, index) => (
+              <div
+                key={image.id || index}
+                className="flex h-full w-full shrink-0 items-center justify-center bg-muted/40"
+              >
+                <img
+                  src={getMediaUrl(image.mediaUrl)}
+                  alt={stripHtml(obs.obestitle) || "Observation Media"}
+                  className="h-full w-full object-contain"
+                  loading="lazy"
+                />
+              </div>
+            ))}
           </div>
         ) : (
           <div className="flex h-full w-full items-center justify-center">

@@ -820,7 +820,6 @@ function SnapshotCard({
     return () => clearInterval(interval);
   }, [images.length]);
 
-  const cover = images[currentIdx];
   const childTags = snap.children || [];
   const roomTags = snap.rooms || [];
   const creatorName = getPersonName(snap.creator, "Unknown creator");
@@ -832,15 +831,24 @@ function SnapshotCard({
       {/* 1. Image Container (Top) */}
       <div className="group relative h-48 w-full shrink-0 overflow-hidden bg-muted/40">
         <button type="button" onClick={onOpen} className="block h-full w-full cursor-pointer">
-          {cover ? (
-            <div className="relative h-full w-full">
-              <img
-                key={cover.id}
-                src={getMediaUrl(cover.mediaUrl)}
-                alt={snap.title}
-                className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
-                loading="lazy"
-              />
+          {images.length ? (
+            <div
+              className="flex h-full transition-transform duration-700 ease-in-out"
+              style={{ transform: `translateX(-${currentIdx * 100}%)` }}
+            >
+              {images.map((image, index) => (
+                <div
+                  key={image.id || index}
+                  className="flex h-full w-full shrink-0 items-center justify-center bg-muted/40"
+                >
+                  <img
+                    src={getMediaUrl(image.mediaUrl)}
+                    alt={snap.title}
+                    className="h-full w-full object-contain"
+                    loading="lazy"
+                  />
+                </div>
+              ))}
             </div>
           ) : (
             <div className="flex h-full w-full items-center justify-center">

@@ -1,4 +1,4 @@
-import { LogOut, Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ThemeSwitcher } from "@/components/common/ThemeSwitcher";
 import { useUiStore } from "@/stores/uiStore";
@@ -20,8 +20,6 @@ import { NotificationDropdown } from "@/components/layout/NotificationDropdown";
 import { IMG_BASE_API } from "../../api/imageapi";
 
 export function Header() {
-  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
-  const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleMobile = useUiStore((s) => s.toggleMobileSidebar);
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
@@ -47,15 +45,6 @@ export function Header() {
         aria-label="Open menu"
       >
         <Menu className="h-5 w-5" />
-      </button>
-
-      {/* Desktop collapse toggle */}
-      <button
-        onClick={toggleSidebar}
-        className="hidden lg:inline-flex h-9 w-9 items-center justify-center rounded-md text-foreground hover:bg-muted"
-        aria-label="Toggle sidebar"
-      >
-        {collapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
       </button>
 
       {/* Search */}

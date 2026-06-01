@@ -707,13 +707,13 @@ export default function ObservationCreatePage() {
           if (res.status) {
             const d = res.data;
             setObsData(d);
-            setTitle(stripHtmlText(d.obestitle || d.title));
-            setObservation(stripHtmlText(d.notes));
-            setLearningAnalysis(stripHtmlText(d.reflection));
+            setTitle(stripHtmlText(d.obestitle));
+            setObservation(stripHtmlText(d.title));
+            setLearningAnalysis(stripHtmlText(d.notes));
             setChildVoice(stripHtmlText(d.child_voice));
             setFuturePlan(stripHtmlText(d.future_plan));
             setImplementation(stripHtmlText(d.implementation));
-            setCriticalReflection(stripHtmlText(d.critical_reflection));
+            setCriticalReflection(stripHtmlText(d.reflection));
             setRooms(d.room ? d.room.split(",") : []);
             setChildren(d.child ? d.child.map((c) => String(c.childId)) : []);
             setEducators(d.tagged_staff ? d.tagged_staff.split(",") : []);
@@ -800,12 +800,12 @@ export default function ObservationCreatePage() {
       const payload = {
         center_id: activeCentreId,
         obestitle: title,
-        title: title,
-        notes: observation,
-        reflection: learningAnalysis,
+        title: observation,
+        notes: learningAnalysis,
+        reflection: criticalReflection,
         child_voice: childVoice,
         future_plan: futurePlan,
-        implmentation: implementation, // Note: backend uses 'implmentation' (missing 'e')
+        implementation: implementation, // Note: backend uses 'implmentation' (missing 'e')
         selected_rooms: rooms, // Will be appended as selected_rooms[] by service
         selected_children: children.join(","), // Screenshot shows comma-separated string
         selected_staff: educators, // Will be appended as selected_staff[] by service
@@ -1300,7 +1300,7 @@ export default function ObservationCreatePage() {
                     <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600">
                       <Sparkles className="h-5 w-5" />
                     </div>
-                    <h3 className="text-base font-bold text-foreground">Analysis & Outcomes</h3>
+                    <h3 className="text-base font-bold text-foreground">Learning and Outcomes</h3>
                   </div>
 
                   <div className="space-y-6">
@@ -1311,7 +1311,7 @@ export default function ObservationCreatePage() {
                       <Textarea
                         value={learningAnalysis}
                         onChange={(e) => setLearningAnalysis(e.target.value)}
-                        rows={4}
+                        rows={6}
                         placeholder="Interpret the learning through the lens of developmental milestones or EYLF outcomes..."
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
                       />
@@ -1324,8 +1324,41 @@ export default function ObservationCreatePage() {
                       <Textarea
                         value={childVoice}
                         onChange={(e) => setChildVoice(e.target.value)}
-                        rows={3}
+                        rows={6}
                         placeholder="Quotes from the child or descriptions of their non-verbal expressions..."
+                        className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
+                      />
+                    </FormGroup>
+
+                    <FormGroup label="Future Plan">
+                      <Textarea
+                        value={futurePlan}
+                        onChange={(e) => setFuturePlan(e.target.value)}
+                        rows={6}
+                        placeholder="What will you do next to support this learning?"
+                        className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
+                      />
+                    </FormGroup>
+
+                    <FormGroup label="Implementation">
+                      <Textarea
+                        value={implementation}
+                        onChange={(e) => setImplementation(e.target.value)}
+                        rows={6}
+                        placeholder="How was this plan implemented?"
+                        className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
+                      />
+                    </FormGroup>
+
+                    <FormGroup
+                      label="Critical Reflection"
+                      info="Reflect on what worked, what changed, and what could be improved."
+                    >
+                      <Textarea
+                        value={criticalReflection}
+                        onChange={(e) => setCriticalReflection(e.target.value)}
+                        rows={6}
+                        placeholder="Add your critical reflection..."
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
                       />
                     </FormGroup>
@@ -1333,7 +1366,7 @@ export default function ObservationCreatePage() {
                 </section>
               </div>
 
-              {/* Sidebar: Media & Plans */}
+              {/* Sidebar: Media */}
               <div className="space-y-8">
                 {/* Media Section */}
                 <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
@@ -1398,33 +1431,6 @@ export default function ObservationCreatePage() {
                       accept="image/*,video/*"
                       onChange={handleMediaSelect}
                     />
-                  </div>
-                </section>
-
-                {/* Plans */}
-                <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                  <h3 className="mb-4 text-sm font-bold text-foreground uppercase tracking-wider">
-                    Next Steps
-                  </h3>
-                  <div className="space-y-4">
-                    <FormGroup label="Future Plan">
-                      <Textarea
-                        value={futurePlan}
-                        onChange={(e) => setFuturePlan(e.target.value)}
-                        rows={3}
-                        placeholder="What will you do next to support this learning?"
-                        className="text-xs border-none bg-muted/20"
-                      />
-                    </FormGroup>
-                    <FormGroup label="Implementation">
-                      <Textarea
-                        value={implementation}
-                        onChange={(e) => setImplementation(e.target.value)}
-                        rows={3}
-                        placeholder="How was this plan implemented?"
-                        className="text-xs border-none bg-muted/20"
-                      />
-                    </FormGroup>
                   </div>
                 </section>
               </div>

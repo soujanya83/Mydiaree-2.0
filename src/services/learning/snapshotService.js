@@ -51,7 +51,7 @@ function buildSnapshotListFormData(centerId, options = {}) {
 
   appendIfPresent(formData, "room_id", roomId);
   appendIfPresent(formData, "search", search?.trim());
-  appendIfPresent(formData, 'child_name', child_name);
+  appendIfPresent(formData, "child_name", child_name);
 
   if (status && status !== "all") {
     formData.append("status", STATUS_MAP[status] || status);
@@ -67,7 +67,7 @@ function buildSnapshotListFormData(centerId, options = {}) {
       }
     }
   }
-   
+
   appendIfPresent(formData, "child_id", childId);
   appendIfPresent(formData, "author", author);
 
@@ -100,6 +100,11 @@ export const snapshotService = {
 
   async deleteSnapshot(id) {
     const res = await api.delete(`/snapshot/snapshotsdelete/${id}`);
+    return res.data;
+  },
+
+  async deleteSnapshotMedia(id) {
+    const res = await api.delete(`/snapshot/snapshot-media/${id}`);
     return res.data;
   },
 

@@ -330,9 +330,10 @@ function normalizeObservation(obs, allRooms) {
   return {
     raw: obs,
     id: obs.id,
-    title: stripHtml(obs.obestitle || obs.title || obs.notes) || "Untitled observation",
-    notes: stripHtml(obs.notes),
-    reflection: stripHtml(obs.reflection),
+    title: stripHtml(obs.obestitle) || "Untitled observation",
+    notes: stripHtml(obs.title),
+    learningAnalysis: stripHtml(obs.notes),
+    criticalReflection: stripHtml(obs.reflection || obs.critical_reflection),
     futurePlan: stripHtml(obs.future_plan),
     implementation: stripHtml(obs.implementation),
     childVoice: stripHtml(obs.child_voice),
@@ -437,10 +438,11 @@ function TabBar({ active, onChange }) {
 function OverviewTab({ observation }) {
   const textSections = [
     { label: "Observation", value: observation.notes, Icon: FileText },
-    { label: "Learning Analysis", value: observation.reflection, Icon: Sparkles },
+    { label: "Learning Analysis", value: observation.learningAnalysis, Icon: Sparkles },
     { label: "Child Voice", value: observation.childVoice, Icon: MessageSquare },
     { label: "Future Plan", value: observation.futurePlan, Icon: TrendingUp },
     { label: "Implementation", value: observation.implementation, Icon: CheckCircle2 },
+    { label: "Critical Reflection", value: observation.criticalReflection, Icon: Sparkles },
   ];
 
   return (

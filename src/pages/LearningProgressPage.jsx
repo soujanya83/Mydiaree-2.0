@@ -172,6 +172,13 @@ function ChildCard({ child }) {
   const photo = child.imageUrl ? `${IMG_BASE_API}${child.imageUrl}` : null;
 
   const fullName = `${child.name} ${child.lastname || ""}`.trim();
+  const initials = fullName
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
     <div className="overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-md flex flex-col h-full">
@@ -191,23 +198,27 @@ function ChildCard({ child }) {
         )}
       </div>
       <div className="p-4 flex flex-col flex-1">
-        <div className="mb-3 flex items-center gap-2 text-lg font-semibold line-clamp-1">
-          <Baby className="h-5 w-5 text-primary flex-shrink-0" />
-          {fullName}
+        <div className="mb-3 flex items-center gap-2.5 text-lg font-semibold line-clamp-1">
+          <div className="h-8 w-8 shrink-0 rounded-full overflow-hidden border-2 border-primary/20 bg-primary/10 flex items-center justify-center">
+            {photo && !imgError ? (
+              <img
+                src={photo}
+                alt={fullName}
+                className="h-full w-full object-cover"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <span className="text-xs font-bold text-primary">{initials || "?"}</span>
+            )}
+          </div>
+          <span className="truncate">{fullName}</span>
         </div>
         <div className="space-y-2 text-sm flex-1">
           <Row icon={Cake} label="DOB" value={formatDob(dob)} />
           <Row
             icon={Baby}
             label="Age"
-            value={
-              <span className="flex items-center gap-2">
-                {ageFromDob(dob)}
-                <Badge variant="secondary" className="bg-primary/10 text-primary">
-                  {parseInt(ageFromDob(dob) || "0", 10)}y
-                </Badge>
-              </span>
-            }
+            value={ageFromDob(dob)}
           />
           <Row
             icon={VenetianMask}

@@ -49,11 +49,11 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-screen grid-cols-1 bg-primary/5 lg:grid-cols-2 overflow-y-hidden">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-10 text-primary-foreground lg:flex">
-        <div className="relative z-10 flex items-center justify-between gap-4">
+        <div className="relative z-10 flex items-center justify-between gap-4 mb-1">
           <img
             src={longLogo}
             alt="MyDiaree"
-            className="h-14 w-auto max-w-[230px] rounded-md px-3 py-2"
+            className="h-14 w-auto max-w-[230px] rounded-full px-3 py-1 bg-white"
           />
           <div className="flex items-center gap-2 rounded-md border border-white/20 bg-white/15 px-3 py-2 text-xs font-semibold backdrop-blur">
             <ShieldCheck className="h-4 w-4" />
