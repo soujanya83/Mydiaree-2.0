@@ -138,7 +138,7 @@ export const programPlanService = {
     appendIfPresent(formData, "working", plan.whatIsWorking);
     appendIfPresent(formData, "notworking", plan.whatIsNotWorking);
 
-    const res = await api.post("/LessonPlanList/save_program_planinDB", formData, {
+    const res = await api.post("/program-plan/store", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
