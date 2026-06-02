@@ -38,5 +38,5 @@ jobs:
             --delete \
             --exclude='.htaccess' \
             -e "ssh -i ~/.ssh/private_key -p ${{ secrets.EC2_PORT }}" \
-            build/ \
+            dist/ \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/var/www/html/react_frontend/
