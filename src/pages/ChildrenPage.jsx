@@ -514,7 +514,7 @@ function ChildCard({
           <img
             src={imageUrl}
             alt={child.name}
-            className="h-full w-full object-cover transition-opacity duration-1000 animate-in fade-in"
+            className="h-full w-full object-contain transition-opacity duration-1000 animate-in fade-in"
             loading="lazy"
           />
         ) : (

@@ -104,7 +104,7 @@ export default function ChildDetailsPage() {
               <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-primary/40 to-indigo-500/40 opacity-70 blur-md"></div>
               <div className="relative h-32 w-32 shrink-0 overflow-hidden rounded-full border-2 border-background bg-muted shadow-md">
                 {imageUrl ? (
-                  <img src={imageUrl} alt={fullName} className="h-full w-full object-cover" />
+                  <img src={imageUrl} alt={fullName} className="h-full w-full object-contain" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center bg-muted/50">
                     <Users className="h-10 w-10 text-muted-foreground/40" />
