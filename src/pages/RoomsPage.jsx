@@ -322,7 +322,7 @@ function RoomCard({ room, checked, onToggle, onOpen, onDelete, canDelete = true 
               </div>
               <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                 <Building2 className="h-3.5 w-3.5" />
-                Age {room.ageFrom ?? 0} to {room.ageTo ?? 0} years
+                Age {room.ageFrom ?? 0} to {room.ageTo ?? 0} months
               </p>
             </div>
           </div>

@@ -160,7 +160,11 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-foreground">Password</label>
-                <button type="button" className="text-xs font-medium text-primary hover:underline">
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
                   Forgot?
                 </button>
               </div>

@@ -134,14 +134,20 @@ export function ProgramPlanView({ record, onBack, onEdit }) {
 
         <Card title="Additional Experiences" icon={Sparkles}>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {ADDITIONAL_FIELDS.map((f) =>
-              record[f.key] ? (
+            {ADDITIONAL_FIELDS.map((f) => {
+              if (!record[f.key]) return null;
+
+              if (isParent && ["whatIsWorking", "whatIsNotWorking"].includes(f.key)) {
+                return null;
+              }
+
+              return (
                 <div key={f.key} className="rounded-lg border border-border bg-muted/20 p-3">
                   <div className="mb-1 text-xs font-semibold text-primary">{f.label}</div>
                   <p className="whitespace-pre-wrap text-sm text-foreground">{record[f.key]}</p>
                 </div>
-              ) : null,
-            )}
+              );
+            })}
           </div>
         </Card>
       </div>

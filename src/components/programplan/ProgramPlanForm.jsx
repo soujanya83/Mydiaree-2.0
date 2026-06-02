@@ -37,6 +37,7 @@ import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { IMG_BASE_API } from "../../api/imageapi";
+import { useAuthStore } from "@/stores/authStore";
 
 const IMG_BASE = IMG_BASE_API;
 const avatarUrl = (url) => {
@@ -157,6 +158,7 @@ export function ProgramPlanForm({
   const finalIsSaving = isSaving || isSubmitting;
 
   const { activeCentreId } = useCentreStore();
+  const { user } = useAuthStore();
   const finalCentreId = centerId || defaults?.centreId || activeCentreId;
 
   const [data, setData] = useState(() => normalizeFormData(finalInitial, finalCentreId));
@@ -316,6 +318,7 @@ export function ProgramPlanForm({
       toast.error("Please select at least one child.");
       return;
     }
+    // data.educators.push(user.id);
     onSubmit({
       ...data,
       status,

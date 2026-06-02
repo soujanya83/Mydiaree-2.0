@@ -219,7 +219,7 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        {!collapsed && (
+        {/* {!collapsed && (
           <div className="border-t border-sidebar-border p-3">
             <div className="rounded-lg bg-sidebar-accent p-3">
               <p className="text-xs font-semibold text-sidebar-foreground">Need help?</p>
@@ -228,7 +228,7 @@ export function Sidebar() {
               </p>
             </div>
           </div>
-        )}
+        )} */}
       </aside>
     </>
   );
