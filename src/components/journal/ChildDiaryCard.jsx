@@ -104,7 +104,7 @@ function statusFor(def, entry) {
   const hasTime = !!(entry.time || entry.sleepTime);
   const hasItem = !!entry.item;
   if (hasTime && hasItem) return { label: "COMPLETED", tone: "success" };
-  if (hasTime || hasItem) return { label: "IN PROGRESS", tone: "warning" };
+  if (hasTime || hasItem) return { label: "COMPLETED", tone: "success" };
 
   return def.emptyStatus;
 }
