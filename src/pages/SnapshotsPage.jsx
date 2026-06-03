@@ -35,6 +35,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { CustomDateFilter } from "@/components/common/CustomDateFilter";
 import { PersonFilterPicker } from "@/components/common/PersonFilterPicker";
@@ -178,6 +184,7 @@ export default function SnapshotsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [gallerySnap, setGallerySnap] = useState(null);
   const [isPrinting, setIsPrinting] = useState(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
   const { can, isParent, hasFullAccess } = usePermissions();
   const perms = ACTION_PERMISSIONS.snapshots;
 
@@ -333,6 +340,27 @@ export default function SnapshotsPage() {
       toast.error("An error occurred while deleting");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleStatusUpdate = async (id, currentStatus) => {
+    const newStatus = currentStatus?.toLowerCase() === "published" ? "Draft" : "Published";
+    setStatusUpdatingId(id);
+    try {
+      const res = await snapshotService.updateSnapshotStatus(id, newStatus);
+      if (res.status) {
+        toast.success(res.message || "Snapshot status updated successfully");
+        setItems((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, status: newStatus } : s))
+        );
+      } else {
+        toast.error(res.message || "Failed to update status");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update status");
+      console.error("Status update error:", error);
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -546,6 +574,9 @@ export default function SnapshotsPage() {
               canEdit={can(perms.edit)}
               canDelete={can(perms.delete)}
               canPrint={!isParent}
+              isParent={isParent}
+              isStatusUpdating={statusUpdatingId === s.id}
+              onStatusChange={(currentStatus) => handleStatusUpdate(s.id, currentStatus)}
             />
           ))}
         </div>
@@ -823,6 +854,9 @@ function SnapshotCard({
   canEdit = true,
   canDelete = true,
   canPrint = true,
+  isParent = false,
+  isStatusUpdating = false,
+  onStatusChange,
 }) {
   const images = snap.media || [];
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -915,15 +949,34 @@ function SnapshotCard({
           <h3 className="line-clamp-2 flex-1 text-base font-semibold leading-tight text-foreground">
             {cleanTitle}
           </h3>
-          <span
-            className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-              snap.status?.toLowerCase() === "published"
-                ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
-                : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
-            }`}
-          >
-            {snap.status}
-          </span>
+          {isParent ? (
+            <span
+              className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                snap.status?.toLowerCase() === "published"
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                  : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+              }`}
+            >
+              {snap.status}
+            </span>
+          ) : (
+            <button
+              type="button"
+              disabled={isStatusUpdating}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onStatusChange) onStatusChange(snap.status);
+              }}
+              className={`flex shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide cursor-pointer transition-all hover:scale-105 active:scale-95 disabled:opacity-70 disabled:pointer-events-none ${
+                snap.status?.toLowerCase() === "published"
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900"
+                  : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900"
+              }`}
+            >
+              {isStatusUpdating && <Loader2 className="h-3 w-3 animate-spin" />}
+              {snap.status || "Draft"}
+            </button>
+          )}
         </div>
 
         <p className="mb-3 min-h-[2.5rem] line-clamp-2 text-sm text-muted-foreground">

@@ -113,6 +113,7 @@ export default function ChildrenPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
   const [selectedChildren, setSelectedChildren] = useState([]);
   const navigate = useNavigate();
 
@@ -193,6 +194,24 @@ export default function ChildrenPage() {
     } finally {
       setIsDeleting(false);
       setDeleteId(null);
+    }
+  };
+
+  const handleStatusUpdate = async (id) => {
+    setStatusUpdatingId(id);
+    try {
+      const res = await childrenService.toggleChildStatus(id);
+      if (res.success || res.status) {
+        toast.success(res.message || "Child status updated successfully");
+        fetchChildren(currentFilters);
+      } else {
+        toast.error(res.message || "Failed to update status");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update status");
+      console.error("Status update error:", error);
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -382,6 +401,8 @@ export default function ChildrenPage() {
                 onSelectToggle={() => handleSelectChild(child.id)}
                 canEdit={can(perms.edit)}
                 canDelete={can(perms.delete)}
+                isStatusUpdating={statusUpdatingId === child.id}
+                onStatusChange={() => handleStatusUpdate(child.id)}
               />
             ))}
           </div>
@@ -462,6 +483,8 @@ function ChildCard({
   onSelectToggle,
   canEdit = true,
   canDelete = true,
+  isStatusUpdating = false,
+  onStatusChange,
 }) {
   const isActive = child.status?.toLowerCase() === "active";
   const genderLabel = child.gender ? child.gender.toUpperCase() : "—";
@@ -470,16 +493,7 @@ function ChildCard({
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onSelectToggle}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelectToggle();
-        }
-      }}
-      className={`group flex cursor-pointer flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 ${
+      className={`group flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition focus-within:ring-2 focus-within:ring-primary/40 focus-within:ring-offset-2 ${
         isSelected
           ? "border-primary ring-2 ring-primary/20"
           : "border-border hover:shadow-md hover:border-primary/40"
@@ -488,7 +502,7 @@ function ChildCard({
       {/* 1. Image Container (Top) */}
       <div className="relative h-44 w-full shrink-0 overflow-hidden bg-muted/40">
         <div
-          className="absolute top-3 right-3 z-10"
+          className="absolute top-3 right-3 z-10 cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
             onSelectToggle();
@@ -532,15 +546,22 @@ function ChildCard({
           <h3 className="line-clamp-1 text-base font-semibold leading-tight text-foreground">
             {child.name} {child.lastname}
           </h3>
-          <span
-            className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+          <button
+            type="button"
+            disabled={isStatusUpdating}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onStatusChange) onStatusChange();
+            }}
+            className={`flex shrink-0 items-center justify-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide cursor-pointer transition-all hover:scale-105 active:scale-95 disabled:opacity-70 disabled:pointer-events-none ${
               isActive
-                ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
-                : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+                ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900"
+                : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400 hover:bg-orange-100 dark:hover:bg-orange-900"
             }`}
           >
+            {isStatusUpdating && <Loader2 className="h-3 w-3 animate-spin" />}
             {isActive ? "Active" : child.status || "Inactive"}
-          </span>
+          </button>
         </div>
 
         <div className="mb-4 flex flex-col gap-1.5 text-xs text-muted-foreground">

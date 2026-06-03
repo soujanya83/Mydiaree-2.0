@@ -142,4 +142,16 @@ export const snapshotService = {
     });
     return res.data;
   },
+
+  async updateSnapshotStatus(reflectionId, status) {
+    const formData = new FormData();
+    formData.append("reflectionId", reflectionId);
+    formData.append("status", status);
+    const res = await api.post("/snapshot/status/update", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data;
+  },
 };

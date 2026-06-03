@@ -91,4 +91,15 @@ export const childrenService = {
       throw error;
     }
   },
+
+  // 6. Toggle Child Status
+  toggleChildStatus: async (id) => {
+    try {
+      const response = await api.patch(`/children/${id}/toggle-status`);
+      return response.data;
+    } catch (error) {
+      console.error("Error toggling child status:", error);
+      throw error;
+    }
+  },
 };
