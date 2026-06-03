@@ -14,6 +14,7 @@ import {
   User,
   Loader2,
   CalendarClock,
+  DoorOpen,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
@@ -26,10 +27,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { staffService } from "@/services/admin/staffService";
 import { AddStaffModal } from "@/components/staff/AddStaffModal";
 import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
 import { Pagination } from "@/components/common/Pagination";
 import { IMG_BASE_API } from "../api/imageapi";
 
@@ -63,8 +72,10 @@ function getWifiAccessUntil(staffMember) {
 
 export default function StaffSettingsPage() {
   const { centres: storeCenters } = useCentreStore();
+  const { rooms, fetchRooms } = useRoomStore();
   const [staff, setStaff] = useState([]);
   const [centerId, setCenterId] = useState("");
+  const [roomId, setRoomId] = useState("all");
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -74,11 +85,12 @@ export default function StaffSettingsPage() {
     total: 0,
     from: null,
     to: null,
-    per_page: 10,
+    per_page: 12,
   });
   const searchTimerRef = useRef(null);
   const [modal, setModal] = useState({ open: false, initial: null });
   const [accessUpdatingId, setAccessUpdatingId] = useState(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
 
   const ACCESS_OPTIONS = [
     { label: "1 Hour", value: 1 },
@@ -105,7 +117,7 @@ export default function StaffSettingsPage() {
       ...mapStaffMember(s),
     }));
 
-  const fetchStaff = useCallback(async (cId, search = "", pg = 1) => {
+  const fetchStaff = useCallback(async (cId, search = "", pg = 1, selectedRoomId = "all") => {
     if (!cId) return;
     setLoading(true);
     try {
@@ -113,7 +125,8 @@ export default function StaffSettingsPage() {
         center_id: cId,
         search,
         page: pg,
-        per_page: 10,
+        per_page: 12,
+        roomid: selectedRoomId !== "all" ? selectedRoomId : undefined,
       });
       if (res.status && res.data) {
         const staffData = res.data.staff;
@@ -126,7 +139,7 @@ export default function StaffSettingsPage() {
             total: staffData?.total || 0,
             from: staffData?.from,
             to: staffData?.to,
-            per_page: staffData?.per_page || 10,
+            per_page: staffData?.per_page || 12,
           },
         );
       } else {
@@ -149,21 +162,25 @@ export default function StaffSettingsPage() {
     }
   }, [storeCenters, centerId]);
 
-  // Fetch when center or page changes
+  useEffect(() => {
+    if (centerId) fetchRooms(centerId);
+  }, [centerId, fetchRooms]);
+
+  // Fetch when center, room, or page changes
   useEffect(() => {
     if (centerId) {
-      fetchStaff(centerId, query, page);
+      fetchStaff(centerId, query, page, roomId);
     } else {
       setLoading(false);
     }
-  }, [centerId, page, fetchStaff]);
+  }, [centerId, roomId, page, fetchStaff]);
 
   const handleSearchChange = (value) => {
     setQuery(value);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
       setPage(1);
-      fetchStaff(centerId, value, 1);
+      fetchStaff(centerId, value, 1, roomId);
     }, 500);
   };
 
@@ -173,7 +190,13 @@ export default function StaffSettingsPage() {
 
   const handleCenterChange = (newCenterId) => {
     setCenterId(newCenterId);
+    setRoomId("all");
     setQuery("");
+    setPage(1);
+  };
+
+  const handleRoomChange = (newRoomId) => {
+    setRoomId(newRoomId);
     setPage(1);
   };
 
@@ -200,7 +223,7 @@ export default function StaffSettingsPage() {
       if (res.status) {
         toast.success(res.message || `Staff ${data.id ? "updated" : "added"} successfully`);
         setModal({ open: false, initial: null });
-        fetchStaff(centerId, query, page);
+        fetchStaff(centerId, query, page, roomId);
         return true;
       } else {
         toast.error(res.message || "Validation failed");
@@ -247,8 +270,29 @@ export default function StaffSettingsPage() {
     }
   };
 
-  const toggleActive = (id) => {
-    setStaff((arr) => arr.map((s) => (s.id === id ? { ...s, active: !s.active } : s)));
+  const toggleActive = async (id) => {
+    setStatusUpdatingId(id);
+    try {
+      const res = await staffService.updateStaffStatus(id);
+      if (res.status) {
+        setStaff((arr) =>
+          arr.map((s) => {
+            if (s.id === id) {
+              return { ...s, active: res.data?.user_status === "ACTIVE" };
+            }
+            return s;
+          })
+        );
+        toast.success(res.message || "User status updated successfully.");
+      } else {
+        toast.error(res.message || "Failed to update status");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update status");
+      console.error("Failed to update status:", error);
+    } finally {
+      setStatusUpdatingId(null);
+    }
   };
 
   return (
@@ -310,6 +354,22 @@ export default function StaffSettingsPage() {
             className="h-11 rounded-2xl border-border/60 bg-card/60 pl-10 backdrop-blur shadow-sm focus-visible:ring-primary/20 transition-all font-medium"
           />
         </div>
+        <Select value={roomId} onValueChange={handleRoomChange}>
+          <SelectTrigger className="h-11 w-56 rounded-2xl border-border/60 bg-card/60 shadow-sm backdrop-blur">
+            <DoorOpen className="mr-2 h-4 w-4 text-muted-foreground/70" />
+            <SelectValue placeholder="All Rooms" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Rooms</SelectItem>
+            {rooms
+              .filter((room) => String(room.centerid) === String(centerId))
+              .map((room) => (
+                <SelectItem key={room.id} value={String(room.id)}>
+                  {room.name}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {loading ? (
@@ -458,14 +518,19 @@ export default function StaffSettingsPage() {
                     <button
                       type="button"
                       onClick={() => toggleActive(s.id)}
+                      disabled={statusUpdatingId === s.id}
                       title={s.active ? "Deactivate Staff" : "Activate Staff"}
                       className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
                         s.active
                           ? "border-success/30 bg-success/10 text-success hover:bg-success/20"
                           : "border-muted-foreground/30 bg-muted text-muted-foreground hover:bg-muted-foreground/20"
-                      }`}
+                      } ${statusUpdatingId === s.id ? "opacity-70 pointer-events-none" : ""}`}
                     >
-                      <Check className="h-3.5 w-3.5" />
+                      {statusUpdatingId === s.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
                       {s.active ? "Active" : "Inactive"}
                     </button>
 

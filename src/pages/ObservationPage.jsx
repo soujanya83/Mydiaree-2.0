@@ -70,6 +70,7 @@ const PAGE_SIZE = 12;
 const OBSERVATION_DATE_FILTERS = DATE_FILTERS.filter((option) =>
   ["all", "today", "this-week", "this-month"].includes(option.value),
 );
+const OBSERVATION_ROOM_FILTER_KEY = "observation-room-filter";
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -132,10 +133,14 @@ function normalizeObservationItem(item) {
 export default function ObservationPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const { rooms, activeRoomId, setActiveRoom } = useRoomStore();
+  const { rooms } = useRoomStore();
   const { can, isParent, hasFullAccess } = usePermissions();
   const parentChildren = useParentDashboardStore((s) => s.children);
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
+  const [localRoomId, setLocalRoomId] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    return window.localStorage.getItem(OBSERVATION_ROOM_FILTER_KEY) || "all";
+  });
   const {
     filteredStaff,
     filteredChildren,
@@ -148,7 +153,7 @@ export default function ObservationPage() {
     loadMoreStaff,
     clearPersonSearch,
     hasMoreStaff,
-  } = useListFilterPeople({ activeCentreId, activeRoomId, rooms });
+  } = useListFilterPeople({ activeCentreId, activeRoomId: localRoomId, rooms });
   const perms = ACTION_PERMISSIONS.observation;
 
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -196,7 +201,7 @@ export default function ObservationPage() {
               childId: selectedChildId,
             }
           : {
-              roomId: activeRoomId || undefined,
+              roomId: localRoomId !== "all" ? localRoomId : undefined,
               search,
               status,
               dateRange,
@@ -225,7 +230,7 @@ export default function ObservationPage() {
   }, [
     activeCentreId,
     page,
-    activeRoomId,
+    localRoomId,
     status,
     search,
     author,
@@ -245,7 +250,7 @@ export default function ObservationPage() {
   useEffect(() => {
     setPage(1);
   }, [
-    activeRoomId,
+    localRoomId,
     status,
     search,
     author,
@@ -260,7 +265,17 @@ export default function ObservationPage() {
   useEffect(() => {
     setAuthor("all");
     setChildId("all");
-  }, [activeRoomId]);
+  }, [localRoomId]);
+
+  useEffect(() => {
+    window.localStorage.setItem(OBSERVATION_ROOM_FILTER_KEY, localRoomId);
+  }, [localRoomId]);
+
+  useEffect(() => {
+    if (localRoomId === "all" || rooms.length === 0) return;
+    const roomExists = rooms.some((room) => String(room.id) === String(localRoomId));
+    if (!roomExists) setLocalRoomId("all");
+  }, [localRoomId, rooms]);
 
   const filtered = items;
 
@@ -315,6 +330,7 @@ export default function ObservationPage() {
   };
 
   const resetFilters = () => {
+    setLocalRoomId("all");
     setStatus("all");
     setDateRange("all");
     setCustomFrom("");
@@ -373,7 +389,7 @@ export default function ObservationPage() {
               Reset all
             </button>
           </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Search</label>
               <div className="relative">
@@ -414,6 +430,23 @@ export default function ObservationPage() {
               />
             </div>
             <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Room</label>
+              <Select value={localRoomId} onValueChange={setLocalRoomId}>
+                <SelectTrigger className="h-9">
+                  <DoorOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="All Rooms" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Rooms</SelectItem>
+                  {rooms.map((room) => (
+                    <SelectItem key={room.id} value={String(room.id)}>
+                      {room.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <PersonFilterPicker
                 label="Author"
                 value={author}
@@ -442,7 +475,7 @@ export default function ObservationPage() {
                 allLabel="All children"
                 searchPlaceholder="Search children..."
                 emptyMessage={
-                  activeRoomId ? "No children in this room" : "Select a room to filter by child"
+                  localRoomId !== "all" ? "No children in this room" : "No children found"
                 }
                 maxVisibleRows={5}
               />
@@ -765,14 +798,14 @@ function ObservationGalleryModal({ obs, onClose }) {
         </div>
 
         <div
-          className="relative flex items-center justify-center bg-black"
+          className="relative flex items-center justify-center bg-black p-6"
           style={{ minHeight: "420px" }}
         >
           <img
             key={images[idx]?.id || idx}
             src={getMediaUrl(images[idx]?.mediaUrl)}
             alt={`${cleanTitle} - ${idx + 1}`}
-            className="max-h-[70vh] w-full object-contain transition-opacity duration-500 animate-in fade-in"
+            className="max-h-[70vh] w-full object-contain transition-opacity duration-500 animate-in fade-in rounded-lg"
           />
 
           {images.length > 1 && (

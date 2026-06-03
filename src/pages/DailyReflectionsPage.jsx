@@ -61,6 +61,7 @@ const PATTERN_BG =
   "bg-[radial-gradient(circle_at_1px_1px,hsl(var(--muted-foreground)/0.18)_1px,transparent_0)] [background-size:18px_18px]";
 
 const PAGE_SIZE = REFLECTION_DEFAULT_PER_PAGE;
+const DAILY_REFLECTION_ROOM_FILTER_KEY = "daily-reflections-room-filter";
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -118,7 +119,10 @@ export default function DailyReflectionsPage() {
   const navigate = useNavigate();
   const { activeCentreId } = useCentreStore();
   const { rooms } = useRoomStore();
-  const [localRoomId, setLocalRoomId] = useState("all");
+  const [localRoomId, setLocalRoomId] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    return window.localStorage.getItem(DAILY_REFLECTION_ROOM_FILTER_KEY) || "all";
+  });
   const { can, isParent, hasFullAccess } = usePermissions();
   const parentChildren = useParentDashboardStore((s) => s.children);
   const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
@@ -244,6 +248,16 @@ export default function DailyReflectionsPage() {
     setChildId("all");
   }, [localRoomId]);
 
+  useEffect(() => {
+    window.localStorage.setItem(DAILY_REFLECTION_ROOM_FILTER_KEY, localRoomId);
+  }, [localRoomId]);
+
+  useEffect(() => {
+    if (localRoomId === "all" || rooms.length === 0) return;
+    const roomExists = rooms.some((room) => String(room.id) === String(localRoomId));
+    if (!roomExists) setLocalRoomId("all");
+  }, [localRoomId, rooms]);
+
   const totalPages = Math.max(1, reflectionPagination.lastPage);
   const safePage = Math.min(page, totalPages);
   const pageItems = items;
@@ -253,7 +267,7 @@ export default function DailyReflectionsPage() {
     navigate(`/daily-reflections/create?title=${encodeURIComponent(title)}`);
   };
 
-  const handleDelete = async () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteModal.id) return;
     setIsDeleting(true);
     try {
@@ -266,10 +280,26 @@ export default function DailyReflectionsPage() {
         toast.error(res.message || "Failed to delete reflection");
       }
     } catch (error) {
-      console.error("Delete error:", error);
-      toast.error("An error occurred while deleting");
+      console.error("Failed to delete reflection", error);
+      toast.error("Failed to delete reflection");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleStatusChange = async (id, currentStatus) => {
+    const newStatus = currentStatus?.toLowerCase() === "published" ? "Draft" : "Published";
+    try {
+      const res = await reflectionService.updateStatus(id, newStatus);
+      if (res.status) {
+        toast.success(res.message || "Status updated successfully");
+        fetchReflections();
+      } else {
+        toast.error(res.message || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Failed to update status", error);
+      toast.error("Failed to update status");
     }
   };
 
@@ -327,27 +357,11 @@ export default function DailyReflectionsPage() {
               </Button>
             )}
             {!isParent && (
-              <>
-                <CentreSelect
-                  icon={Building2}
-                  triggerClassName="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20"
-                  placeholder="Centre"
-                />
-                <Select value={localRoomId} onValueChange={setLocalRoomId}>
-                  <SelectTrigger className="h-9 w-[180px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20">
-                    <DoorOpen className="mr-1.5 h-4 w-4" />
-                    <SelectValue placeholder="Room" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Rooms</SelectItem>
-                    {rooms.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </>
+              <CentreSelect
+                icon={Building2}
+                triggerClassName="h-9 w-[200px] border-emerald-500/40 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20"
+                placeholder="Centre"
+              />
             )}
           </>
         }
@@ -364,7 +378,7 @@ export default function DailyReflectionsPage() {
               Reset all
             </button>
           </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Search</label>
               <div className="relative">
@@ -403,6 +417,23 @@ export default function DailyReflectionsPage() {
                 setCustomTo={setCustomTo}
                 options={DATE_FILTERS}
               />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Room</label>
+              <Select value={localRoomId} onValueChange={setLocalRoomId}>
+                <SelectTrigger className="h-9">
+                  <DoorOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="All Rooms" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Rooms</SelectItem>
+                  {rooms.map((room) => (
+                    <SelectItem key={room.id} value={String(room.id)}>
+                      {room.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <PersonFilterPicker
@@ -472,6 +503,7 @@ export default function DailyReflectionsPage() {
               onViewDetails={() => navigate(`/daily-reflections/${r.id}`)}
               onViewGallery={() => setGalleryReflection(r)}
               onPrint={() => handlePrint(r.id)}
+              onStatusChange={(status) => handleStatusChange(r.id, status)}
               isPrinting={isPrintingId === r.id}
               canEdit={can(perms.edit)}
               canDelete={can(perms.delete)}
@@ -497,7 +529,7 @@ export default function DailyReflectionsPage() {
         open={deleteModal.open}
         isLoading={isDeleting}
         onClose={() => setDeleteModal({ open: false, id: null })}
-        onConfirm={handleDelete}
+        onConfirm={handleDeleteConfirm}
         title="Delete Reflection?"
         description="This will permanently remove this reflection and its shared media. Families will no longer be able to view it."
       />
@@ -603,14 +635,14 @@ function ReflectionGalleryModal({ reflection, onClose }) {
         </div>
 
         <div
-          className="relative flex items-center justify-center bg-black"
+          className="relative flex items-center justify-center bg-black p-6"
           style={{ minHeight: "420px" }}
         >
           {isVideoMedia(current) ? (
             <video
               key={current.id || idx}
               src={getMediaUrl(current)}
-              className="max-h-[70vh] w-full object-contain"
+              className="max-h-[70vh] w-full object-contain rounded-lg"
               controls
               autoPlay
               muted
@@ -621,7 +653,7 @@ function ReflectionGalleryModal({ reflection, onClose }) {
               key={current.id || idx}
               src={getMediaUrl(current)}
               alt={`${cleanTitle} - ${idx + 1}`}
-              className="max-h-[70vh] w-full object-contain transition-opacity duration-500 animate-in fade-in"
+              className="max-h-[70vh] w-full object-contain transition-opacity duration-500 animate-in fade-in rounded-lg"
             />
           )}
 
@@ -684,6 +716,7 @@ function ReflectionCard({
   onViewDetails,
   onViewGallery,
   onPrint,
+  onStatusChange,
   isPrinting,
   canEdit = true,
   canDelete = true,
@@ -801,15 +834,31 @@ function ReflectionCard({
           <h3 className="line-clamp-2 text-base font-semibold leading-tight text-foreground">
             {cleanTitle}
           </h3>
-          <span
-            className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-              refl.status?.toLowerCase() === "published"
-                ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
-                : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
-            }`}
-          >
-            {refl.status}
-          </span>
+          {canEdit ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onStatusChange?.(refl.status);
+              }}
+              className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide hover:opacity-80 transition-opacity ${
+                refl.status?.toLowerCase() === "published"
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                  : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+              }`}
+            >
+              {refl.status}
+            </button>
+          ) : (
+            <span
+              className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                refl.status?.toLowerCase() === "published"
+                  ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400"
+                  : "border-orange-200 bg-orange-50 text-orange-600 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-400"
+              }`}
+            >
+              {refl.status}
+            </span>
+          )}
         </div>
 
         <div className="mb-4 flex items-center justify-between gap-3">

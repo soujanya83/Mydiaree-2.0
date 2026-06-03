@@ -15,7 +15,7 @@ export const GENDER_OPTIONS = [
 
 export const STATUS_OPTIONS = [
   { value: "Active", label: "Active" },
-  { value: "Inactive", label: "Inactive" },
+  { value: "In Active", label: "Inactive" },
   { value: "Enrolled", label: "Enrolled" },
 ];
 

@@ -93,13 +93,14 @@ export default function SleepCheckPage() {
   const [totalPages, setTotalPages] = useState(1);
   const perPage = 10;
 
-  const visibleChildren = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return fetchedChildren.filter((c) => {
-      if (q && !c.name.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [fetchedChildren, search]);
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   const selectedSleepCheckCount = useMemo(
     () => fetchedChildren.filter((c) => cards[c.id]?.selected).length,
@@ -133,6 +134,7 @@ export default function SleepCheckPage() {
           date,
           per_page: perPage,
           page: currentPage,
+          search: debouncedSearch || undefined,
         };
       }
       const res = await sleepChecksService.getSleepChecks(params);
@@ -171,6 +173,7 @@ export default function SleepCheckPage() {
     date,
     perPage,
     currentPage,
+    debouncedSearch,
     parentChildren,
   ]);
 
@@ -181,7 +184,7 @@ export default function SleepCheckPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeCentreId, activeRoomId, date, selectedChildId]);
+  }, [activeCentreId, activeRoomId, date, selectedChildId, debouncedSearch]);
 
   const formatDateForSave = (dateStr) => {
     // Convert YYYY-MM-DD to DD-MM-YYYY
@@ -457,13 +460,13 @@ export default function SleepCheckPage() {
       {/* Children list */}
       {isFetching ? (
         <PageLoader label="Loading sleep checks…" />
-      ) : visibleChildren.length === 0 ? (
+      ) : fetchedChildren.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center text-sm text-muted-foreground">
           No children found in this room.
         </div>
       ) : (
         <div className="space-y-5">
-          {visibleChildren.map((child) => {
+          {fetchedChildren.map((child) => {
             const card = getCard(child.id);
             const fullName = [child.name, child.lastname].filter(Boolean).join(" ") || "??";
             const initials = fullName
@@ -710,7 +713,7 @@ export default function SleepCheckPage() {
       )}
 
       {/* Footer */}
-      {!isParent && visibleChildren.length > 0 && (
+      {!isParent && fetchedChildren.length > 0 && (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-border pt-6">
           {selectedSleepCheckCount === 2 && (
             <Button

@@ -100,6 +100,10 @@ export default function DailyReflectionCreatePage() {
   const [reflection, setReflection] = useState("");
   const [status, setStatus] = useState("draft");
   const [media, setMedia] = useState([]); // { file, preview, isExisting, url, id }
+  const [deletingMediaIds, setDeletingMediaIds] = useState([]);
+
+  const existingMedia = media.filter((item) => item.isExisting);
+  const newMedia = media.filter((item) => !item.isExisting);
 
   const [showRoomsPicker, setShowRoomsPicker] = useState(false);
   const [showChildrenPicker, setShowChildrenPicker] = useState(false);
@@ -185,28 +189,41 @@ export default function DailyReflectionCreatePage() {
   }, [isEdit, id, activeCentreId]);
 
   const fetchStaff = useCallback(
-    async (pageNumber, searchQuery) => {
-      if (!activeCentreId) {
+    async (pageNumber, searchQuery, roomIds) => {
+      if (!activeCentreId || roomIds.length === 0) {
         setStaffList([]);
         setStaffTotalPages(1);
         return;
       }
       setIsStaffLoading(true);
       try {
-        const response = await staffService.getStaffSettings({
-          center_id: activeCentreId,
-          search: searchQuery,
-          page: pageNumber,
-          per_page: 50,
-        });
-        if (response.status) {
-          const pageData = response.data?.staff?.data || response.data?.staff || [];
-          const activeStaff = pageData.filter((item) => item.status === "ACTIVE");
-          const lastPage = response.data?.staff?.last_page || response.pagination?.last_page || 1;
-          setStaffList((prev) => (pageNumber === 1 ? activeStaff : mergeById(prev, activeStaff)));
-          setAvailableStaff((prev) => mergeById(prev, activeStaff));
-          setStaffTotalPages(lastPage);
-        }
+        const responses = await Promise.all(
+          roomIds.map((roomId) =>
+            staffService.getStaffSettings({
+              center_id: activeCentreId,
+              search: searchQuery,
+              roomid: roomId,
+              page: pageNumber,
+              per_page: 50,
+            }),
+          ),
+        );
+        const pageData = responses.flatMap(
+          (response) => response.data?.staff?.data || response.data?.staff || [],
+        );
+        const activeStaff = mergeById(
+          [],
+          pageData.filter((item) => item.status === "ACTIVE"),
+        );
+        const lastPage = Math.max(
+          1,
+          ...responses.map(
+            (response) => response.data?.staff?.last_page || response.pagination?.last_page || 1,
+          ),
+        );
+        setStaffList((prev) => (pageNumber === 1 ? activeStaff : mergeById(prev, activeStaff)));
+        setAvailableStaff((prev) => mergeById(prev, activeStaff));
+        setStaffTotalPages(lastPage);
       } catch (error) {
         console.error("Failed to load staff:", error);
       } finally {
@@ -261,8 +278,8 @@ export default function DailyReflectionCreatePage() {
 
   useEffect(() => {
     setStaffPage(1);
-    fetchStaff(1, staffSearch);
-  }, [fetchStaff, staffSearch]);
+    fetchStaff(1, staffSearch, rooms);
+  }, [fetchStaff, staffSearch, rooms]);
 
   useEffect(() => {
     setChildrenPage(1);
@@ -273,7 +290,7 @@ export default function DailyReflectionCreatePage() {
     if (isStaffLoading || staffPage >= staffTotalPages) return;
     const nextPage = staffPage + 1;
     setStaffPage(nextPage);
-    fetchStaff(nextPage, staffSearch);
+    fetchStaff(nextPage, staffSearch, rooms);
   };
 
   const loadMoreChildren = () => {
@@ -343,15 +360,34 @@ export default function DailyReflectionCreatePage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const removeMedia = (index) => {
+  const removeNewMedia = (item) => {
     setMedia((prev) => {
-      const removed = prev[index];
-      if (removed?.preview) {
-        URL.revokeObjectURL(removed.preview);
-        mediaPreviewUrlsRef.current.delete(removed.preview);
+      if (item.preview) {
+        URL.revokeObjectURL(item.preview);
+        mediaPreviewUrlsRef.current.delete(item.preview);
       }
-      return prev.filter((_, i) => i !== index);
+      return prev.filter((mediaItem) => mediaItem !== item);
     });
+  };
+
+  const removeExistingMedia = async (item) => {
+    if (!item.id || deletingMediaIds.includes(item.id)) return;
+
+    setDeletingMediaIds((prev) => [...prev, item.id]);
+    try {
+      const res = await reflectionService.deleteReflectionMedia(item.id);
+      if (res.status) {
+        setMedia((prev) => prev.filter((mediaItem) => mediaItem !== item));
+        toast.success(res.message || "Media deleted successfully");
+      } else {
+        toast.error(res.message || "Failed to delete media");
+      }
+    } catch (error) {
+      console.error("Failed to delete reflection media:", error);
+      toast.error("Failed to delete media");
+    } finally {
+      setDeletingMediaIds((prev) => prev.filter((mediaId) => mediaId !== item.id));
+    }
   };
 
   useEffect(() => {
@@ -474,7 +510,11 @@ export default function DailyReflectionCreatePage() {
                 id,
                 label: availableRooms.find((r) => String(r.id) === String(id))?.name || id,
               }))}
-              onRemove={(id) => setRooms((prev) => prev.filter((x) => x !== id))}
+              onRemove={(id) => {
+                setRooms((prev) => prev.filter((x) => x !== id));
+                setChildren([]);
+                setStaff([]);
+              }}
               onClick={() => setShowRoomsPicker(true)}
               placeholder="Select rooms"
             />
@@ -513,7 +553,13 @@ export default function DailyReflectionCreatePage() {
                 label: availableStaff.find((s) => String(s.id) === String(id))?.name || id,
               }))}
               onRemove={(id) => setStaff((prev) => prev.filter((x) => x !== id))}
-              onClick={() => setShowStaffPicker(true)}
+              onClick={() => {
+                if (rooms.length === 0) {
+                  toast.error("Please select a room first.");
+                  return;
+                }
+                setShowStaffPicker(true);
+              }}
               placeholder="Select staff"
             />
           </div>
@@ -615,46 +661,59 @@ export default function DailyReflectionCreatePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {media.map((m, i) => (
-                  <div
-                    key={i}
-                    className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted"
-                  >
-                    {isVideoMedia(m) ? (
-                      <video
-                        src={m.isExisting ? m.url : m.preview}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        muted
-                        playsInline
-                        preload="metadata"
-                      />
+                {isEdit && (
+                  <div className="col-span-2">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Already Added Media ({existingMedia.length})
+                    </p>
+                    {existingMedia.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {existingMedia.map((item) => (
+                          <ReflectionMediaPreview
+                            key={item.id}
+                            item={item}
+                            isDeleting={deletingMediaIds.includes(item.id)}
+                            onRemove={() => removeExistingMedia(item)}
+                          />
+                        ))}
+                      </div>
                     ) : (
-                      <img
-                        src={m.isExisting ? m.url : m.preview}
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        alt="preview"
-                      />
+                      <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+                        No previously added media.
+                      </p>
                     )}
-                    <button
-                      onClick={() => removeMedia(i)}
-                      className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
                   </div>
-                ))}
-
-                {media.length < 10 && (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-6 transition-colors hover:border-primary/40 hover:bg-primary/5 ${PATTERN_BG}`}
-                  >
-                    <Upload className="h-5 w-5 text-primary" />
-                    <span className="mt-2 text-[10px] font-bold text-foreground uppercase tracking-tighter">
-                      Add
-                    </span>
-                  </button>
                 )}
+
+                <div className={isEdit ? "col-span-2 mt-5" : "col-span-2"}>
+                  {isEdit && (
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Newly Added Media ({newMedia.length})
+                    </p>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    {newMedia.map((item) => (
+                      <ReflectionMediaPreview
+                        key={item.preview}
+                        item={item}
+                        onRemove={() => removeNewMedia(item)}
+                      />
+                    ))}
+
+                    {media.length < 10 && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-6 transition-colors hover:border-primary/40 hover:bg-primary/5 ${PATTERN_BG}`}
+                      >
+                        <Upload className="h-5 w-5 text-primary" />
+                        <span className="mt-2 text-[10px] font-bold text-foreground uppercase tracking-tighter">
+                          Add
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
               <input
                 type="file"
@@ -714,6 +773,8 @@ export default function DailyReflectionCreatePage() {
         onClose={() => setShowRoomsPicker(false)}
         onSave={(v) => {
           setRooms(v);
+          setChildren([]);
+          setStaff([]);
           setShowRoomsPicker(false);
         }}
       />
@@ -758,6 +819,11 @@ export default function DailyReflectionCreatePage() {
         onSearchChange={setStaffSearch}
         onLoadMore={loadMoreStaff}
         hasMore={staffPage < staffTotalPages}
+        emptyMessage={
+          rooms.length === 0
+            ? "Please select a room first to see educators"
+            : "No educators found in selected rooms"
+        }
         onClose={() => setShowStaffPicker(false)}
         onSave={(v) => {
           setStaff(v);
@@ -1040,6 +1106,43 @@ function Avatar({ name, imageUrl }) {
           .toUpperCase()
           .slice(0, 2)
       )}
+    </div>
+  );
+}
+
+function ReflectionMediaPreview({ item, isDeleting = false, onRemove }) {
+  const src = item.isExisting ? item.url : item.preview;
+
+  return (
+    <div className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">
+      {isVideoMedia(item) ? (
+        <video
+          src={src}
+          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          muted
+          playsInline
+          preload="metadata"
+        />
+      ) : (
+        <img
+          src={src}
+          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          alt="preview"
+        />
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={isDeleting}
+        className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 disabled:cursor-wait disabled:opacity-100"
+        aria-label="Remove media"
+      >
+        {isDeleting ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <X className="h-3.5 w-3.5" />
+        )}
+      </button>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
   ChevronRight,
   DoorOpen,
   GraduationCap,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -40,7 +41,7 @@ import { IMG_BASE_API } from "../api/imageapi";
 export default function RoomsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
-  const { rooms, isLoading, isSubmitting, fetchRooms, createRoom, bulkDeleteRooms } =
+  const { rooms, isLoading, isSubmitting, fetchRooms, createRoom, updateRoom, bulkDeleteRooms } =
     useRoomStore();
   const { can } = usePermissions();
   const perms = ACTION_PERMISSIONS.rooms;
@@ -49,6 +50,7 @@ export default function RoomsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState(null);
 
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState({ open: false, ids: [] });
@@ -121,19 +123,37 @@ export default function RoomsPage() {
   };
 
   const handleNew = () => {
+    setEditingRoom(null);
+    setModalOpen(true);
+  };
+
+  const handleEdit = (room) => {
+    setEditingRoom(room);
     setModalOpen(true);
   };
 
   const handleSubmit = async (data) => {
     try {
-      await createRoom({
-        ...data,
-        centerId: activeCentreId,
-      });
-      toast.success("Room created successfully");
+      const response = editingRoom
+        ? await updateRoom({
+            ...data,
+            id: editingRoom.id,
+            centerId: activeCentreId,
+          })
+        : await createRoom({
+            ...data,
+            centerId: activeCentreId,
+          });
+
+      if (response?.status === false || response?.success === false) {
+        throw new Error(response?.message || "Operation failed");
+      }
+
+      toast.success(editingRoom ? "Room updated successfully" : "Room created successfully");
       setModalOpen(false);
+      setEditingRoom(null);
     } catch (error) {
-      toast.error(error.message || "Operation failed");
+      toast.error(error?.response?.data?.message || error.message || "Operation failed");
     }
   };
 
@@ -218,7 +238,9 @@ export default function RoomsPage() {
               checked={selected.includes(room.id)}
               onToggle={() => toggleSelect(room.id)}
               onOpen={() => navigate(`/rooms/${room.id}`)}
+              onEdit={() => handleEdit(room)}
               onDelete={() => handleDeleteOne(room.id)}
+              canEdit={can(perms.edit)}
               canDelete={can(perms.delete)}
             />
           ))}
@@ -229,8 +251,10 @@ export default function RoomsPage() {
         open={modalOpen}
         onClose={() => {
           setModalOpen(false);
+          setEditingRoom(null);
         }}
         onSubmit={handleSubmit}
+        initial={editingRoom}
       />
 
       <DeleteConfirmationModal
@@ -272,7 +296,16 @@ function RoomStat({ icon: Icon, label, value, tone }) {
   );
 }
 
-function RoomCard({ room, checked, onToggle, onOpen, onDelete, canDelete = true }) {
+function RoomCard({
+  room,
+  checked,
+  onToggle,
+  onOpen,
+  onEdit,
+  onDelete,
+  canEdit = true,
+  canDelete = true,
+}) {
   const isActive = String(room.status || "").toLowerCase() === "active";
   const educators = room.educators || [];
   const childCount = room.children?.length || 0;
@@ -328,6 +361,18 @@ function RoomCard({ room, checked, onToggle, onOpen, onDelete, canDelete = true 
           </div>
 
           <div className="flex items-center gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+            {canEdit && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="rounded-md p-1.5 text-primary hover:bg-primary/10"
+                title="Edit"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            )}
             {canDelete && (
               <button
                 onClick={(e) => {

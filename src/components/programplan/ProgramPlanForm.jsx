@@ -257,9 +257,10 @@ export function ProgramPlanForm({
   };
 
   // Fetch educators
-  const fetchEducators = useCallback(async (page, search, centerId) => {
-    if (!centerId) {
+  const fetchEducators = useCallback(async (page, search, centerId, roomId) => {
+    if (!centerId || !roomId) {
       setEducatorsList([]);
+      setAvailableEducators([]);
       setEducatorsTotalPages(1);
       return;
     }
@@ -268,6 +269,7 @@ export function ProgramPlanForm({
       const response = await staffService.getStaffSettings({
         center_id: centerId,
         search: search,
+        roomid: roomId,
         page: page,
         per_page: 50,
       });
@@ -277,6 +279,7 @@ export function ProgramPlanForm({
         const activeStaff = staffData.filter((s) => s.status === "ACTIVE");
 
         setEducatorsList((prev) => (page === 1 ? activeStaff : [...prev, ...activeStaff]));
+        setAvailableEducators((prev) => (page === 1 ? activeStaff : [...prev, ...activeStaff]));
         setEducatorsTotalPages(lastPage);
       }
     } catch (error) {
@@ -288,14 +291,14 @@ export function ProgramPlanForm({
 
   useEffect(() => {
     setEducatorsPage(1);
-    fetchEducators(1, educatorsSearch, finalCentreId);
-  }, [educatorsSearch, finalCentreId, fetchEducators]);
+    fetchEducators(1, educatorsSearch, finalCentreId, data.roomId);
+  }, [educatorsSearch, finalCentreId, fetchEducators, data.roomId]);
 
   const handleLoadMoreEducators = () => {
     if (educatorsPage < educatorsTotalPages && !isLoadingEducators) {
       const nextPage = educatorsPage + 1;
       setEducatorsPage(nextPage);
-      fetchEducators(nextPage, educatorsSearch, finalCentreId);
+      fetchEducators(nextPage, educatorsSearch, finalCentreId, data.roomId);
     }
   };
 
@@ -359,6 +362,8 @@ export function ProgramPlanForm({
                   setData((previous) => ({
                     ...previous,
                     roomId: v,
+                    roomIds: [v],
+                    educators: [],
                     children: [],
                   }));
                 }}

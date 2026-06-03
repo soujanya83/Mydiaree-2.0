@@ -66,7 +66,7 @@ export default function ParentSettingsPage() {
     total: 0,
     from: null,
     to: null,
-    per_page: 10,
+    per_page: 12,
   });
   const searchTimerRef = useRef(null);
   const navigate = useNavigate();
@@ -100,7 +100,7 @@ export default function ParentSettingsPage() {
         center_id: cId,
         search,
         page: pg,
-        per_page: 10,
+        per_page: 12,
       });
       if (res.status !== "error" && res.data) {
         const fetchedChildren = res.data.children || [];
@@ -117,7 +117,7 @@ export default function ParentSettingsPage() {
             total: parentData?.total || 0,
             from: parentData?.from,
             to: parentData?.to,
-            per_page: parentData?.per_page || 10,
+            per_page: parentData?.per_page || 12,
           },
         );
       } else {

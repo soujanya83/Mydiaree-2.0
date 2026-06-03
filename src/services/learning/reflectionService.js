@@ -109,6 +109,11 @@ export const reflectionService = {
     return res.data;
   },
 
+  async deleteReflectionMedia(id) {
+    const res = await api.delete(`/reflection/reflection-media/${id}`);
+    return res.data;
+  },
+
   async getEylfOutcomes() {
     const res = await api.get("/LessonPlanList/eylf");
     return res.data;

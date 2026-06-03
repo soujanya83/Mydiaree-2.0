@@ -67,26 +67,43 @@ export default function DailyReflectionDetailsPage() {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        const response = await reflectionService.getReflectionById(id);
-        if (response?.status && response?.data?.reflection) {
-          setReflection(response.data.reflection);
-          setRooms(response.data.rooms || []);
-        } else {
-          toast.error("Reflection not found");
-        }
-      } catch (error) {
-        console.error("Failed to fetch reflection:", error);
-        toast.error("An error occurred while fetching details");
-      } finally {
-        setLoading(false);
+  const fetchReflectionData = async () => {
+    setLoading(true);
+    try {
+      const response = await reflectionService.getReflectionById(id);
+      if (response?.status && response?.data?.reflection) {
+        setReflection(response.data.reflection);
+        setRooms(response.data.rooms || []);
+      } else {
+        toast.error("Reflection not found");
       }
+    } catch (error) {
+      console.error("Failed to fetch reflection:", error);
+      toast.error("An error occurred while fetching details");
+    } finally {
+      setLoading(false);
     }
-    fetchData();
+  };
+
+  useEffect(() => {
+    fetchReflectionData();
   }, [id]);
+
+  const handleStatusChange = async (currentStatus) => {
+    const newStatus = currentStatus?.toLowerCase() === "published" ? "Draft" : "Published";
+    try {
+      const res = await reflectionService.updateStatus(id, newStatus);
+      if (res.status) {
+        toast.success(res.message || "Status updated successfully");
+        setReflection((prev) => ({ ...prev, status: newStatus }));
+      } else {
+        toast.error(res.message || "Failed to update status");
+      }
+    } catch (error) {
+      console.error("Failed to update status", error);
+      toast.error("Failed to update status");
+    }
+  };
 
   if (loading) {
     return (
@@ -166,11 +183,20 @@ export default function DailyReflectionDetailsPage() {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           <div className="absolute bottom-6 left-6 right-6">
-            <span
-              className={`mb-3 inline-flex rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${statusColors}`}
-            >
-              {reflection.status}
-            </span>
+            {can(perms.edit) ? (
+              <button
+                onClick={() => handleStatusChange(reflection.status)}
+                className={`mb-3 inline-flex rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider hover:opacity-80 transition-opacity ${statusColors}`}
+              >
+                {reflection.status}
+              </button>
+            ) : (
+              <span
+                className={`mb-3 inline-flex rounded-md border px-3 py-1 text-[11px] font-bold uppercase tracking-wider ${statusColors}`}
+              >
+                {reflection.status}
+              </span>
+            )}
             <h1 className="text-2xl font-bold text-white md:text-3xl lg:text-4xl">
               {stripHtml(reflection.title)}
             </h1>

@@ -99,8 +99,9 @@ export default function ChildrenPage() {
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [localRoomId, setLocalRoomId] = useState("all");
   const [genderFilter, setGenderFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("Active");
   const [sort, setSort] = useState("asc");
   const [page, setPage] = useState(1);
   const searchTimerRef = useRef(null);
@@ -118,7 +119,7 @@ export default function ChildrenPage() {
   const currentFilters = useMemo(
     () => ({
       center_id: activeCentreId,
-      room_id: activeRoomId,
+      room_id: localRoomId,
       gender:
         genderFilter === "all"
           ? "All"
@@ -130,9 +131,9 @@ export default function ChildrenPage() {
       search: search || undefined,
       sort: sort,
       page: page,
-      per_page: 10,
+      per_page: 12,
     }),
-    [activeCentreId, activeRoomId, genderFilter, statusFilter, search, sort, page],
+    [activeCentreId, localRoomId, genderFilter, statusFilter, search, sort, page],
   );
 
   useEffect(() => {
@@ -293,13 +294,14 @@ export default function ChildrenPage() {
             triggerClassName="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm"
             contentClassName="rounded-xl"
           />
-          <Select value={activeRoomId} onValueChange={setActiveRoom}>
+          <Select value={localRoomId} onValueChange={setLocalRoomId}>
             <SelectTrigger className="h-11 rounded-xl bg-card/60 backdrop-blur shadow-sm">
-              <SelectValue placeholder="Select Room" />
+              <SelectValue placeholder="All Rooms" />
             </SelectTrigger>
             <SelectContent className="rounded-xl">
+              <SelectItem value="all">All Rooms</SelectItem>
               {rooms.map((r) => (
-                <SelectItem key={r.id} value={r.id}>
+                <SelectItem key={r.id} value={String(r.id)}>
                   {r.name}
                 </SelectItem>
               ))}
@@ -336,10 +338,10 @@ export default function ChildrenPage() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="enrolled">Enrolled</SelectItem>
+                <SelectItem value="all">Show All</SelectItem>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="In Active">Inactive</SelectItem>
+                <SelectItem value="Enrolled">Enrolled</SelectItem>
               </SelectContent>
             </Select>
             <Select value={sort} onValueChange={setSort}>

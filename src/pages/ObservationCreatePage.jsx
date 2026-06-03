@@ -288,8 +288,12 @@ export default function ObservationCreatePage() {
   const [implementation, setImplementation] = useState("");
   const [criticalReflection, setCriticalReflection] = useState("");
   const [status, setStatus] = useState("draft");
-  const [media, setMedia] = useState([]); // { file, preview, isExisting, url }
+  const [media, setMedia] = useState([]); // { file, preview, isExisting, url, id }
+  const [deletingMediaIds, setDeletingMediaIds] = useState([]);
   const observationSavedInFlow = !isEdit && Boolean(savedObservationId);
+
+  const existingMedia = media.filter((item) => item.isExisting);
+  const newMedia = media.filter((item) => !item.isExisting);
 
   // Assessment state
   const [montessoriSubjects, setMontessoriSubjects] = useState([]);
@@ -348,30 +352,41 @@ export default function ObservationCreatePage() {
   const [showEducatorsPicker, setShowEducatorsPicker] = useState(false);
 
   const fetchEducators = useCallback(
-    async (pageNumber, searchQuery) => {
-      if (!activeCentreId) {
+    async (pageNumber, searchQuery, roomIds) => {
+      if (!activeCentreId || roomIds.length === 0) {
         setEducatorsList([]);
         setEducatorsTotalPages(1);
         return;
       }
       setIsEducatorsLoading(true);
       try {
-        const response = await staffService.getStaffSettings({
-          center_id: activeCentreId,
-          search: searchQuery,
-          page: pageNumber,
-          per_page: 50,
-        });
-        if (response.status) {
-          const pageData = response.data?.staff?.data || response.data?.staff || [];
-          const activeStaff = pageData.filter((item) => item.status === "ACTIVE");
-          const lastPage = response.data?.staff?.last_page || response.pagination?.last_page || 1;
-          setEducatorsList((prev) =>
-            pageNumber === 1 ? activeStaff : mergeById(prev, activeStaff),
-          );
-          setAvailableEducators((prev) => mergeById(prev, activeStaff));
-          setEducatorsTotalPages(lastPage);
-        }
+        const responses = await Promise.all(
+          roomIds.map((roomId) =>
+            staffService.getStaffSettings({
+              center_id: activeCentreId,
+              search: searchQuery,
+              roomid: roomId,
+              page: pageNumber,
+              per_page: 50,
+            }),
+          ),
+        );
+        const pageData = responses.flatMap(
+          (response) => response.data?.staff?.data || response.data?.staff || [],
+        );
+        const activeStaff = mergeById(
+          [],
+          pageData.filter((item) => item.status === "ACTIVE"),
+        );
+        const lastPage = Math.max(
+          1,
+          ...responses.map(
+            (response) => response.data?.staff?.last_page || response.pagination?.last_page || 1,
+          ),
+        );
+        setEducatorsList((prev) => (pageNumber === 1 ? activeStaff : mergeById(prev, activeStaff)));
+        setAvailableEducators((prev) => mergeById(prev, activeStaff));
+        setEducatorsTotalPages(lastPage);
       } catch (error) {
         console.error("Failed to load educators:", error);
       } finally {
@@ -426,8 +441,8 @@ export default function ObservationCreatePage() {
 
   useEffect(() => {
     setEducatorsPage(1);
-    fetchEducators(1, educatorsSearch);
-  }, [fetchEducators, educatorsSearch]);
+    fetchEducators(1, educatorsSearch, rooms);
+  }, [fetchEducators, educatorsSearch, rooms]);
 
   useEffect(() => {
     setChildrenPage(1);
@@ -689,7 +704,7 @@ export default function ObservationCreatePage() {
     if (isEducatorsLoading || educatorsPage >= educatorsTotalPages) return;
     const nextPage = educatorsPage + 1;
     setEducatorsPage(nextPage);
-    fetchEducators(nextPage, educatorsSearch);
+    fetchEducators(nextPage, educatorsSearch, rooms);
   };
 
   const loadMoreChildren = () => {
@@ -782,8 +797,33 @@ export default function ObservationCreatePage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const removeMedia = (index) => {
-    setMedia((prev) => prev.filter((_, i) => i !== index));
+  const removeNewMedia = (item) => {
+    setMedia((prev) => {
+      if (item.preview) {
+        URL.revokeObjectURL(item.preview);
+      }
+      return prev.filter((m) => m !== item);
+    });
+  };
+
+  const removeExistingMedia = async (item) => {
+    if (!item.id || deletingMediaIds.includes(item.id)) return;
+
+    setDeletingMediaIds((prev) => [...prev, item.id]);
+    try {
+      const res = await observationService.deleteObservationMedia(item.id);
+      if (res.status) {
+        setMedia((prev) => prev.filter((m) => m !== item));
+        toast.success(res.message || "Media deleted successfully");
+      } else {
+        toast.error(res.message || "Failed to delete media");
+      }
+    } catch (error) {
+      console.error("Failed to delete observation media:", error);
+      toast.error("Failed to delete media");
+    } finally {
+      setDeletingMediaIds((prev) => prev.filter((id) => id !== item.id));
+    }
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1214,7 +1254,11 @@ export default function ObservationCreatePage() {
                     id,
                     label: allRooms.find((r) => String(r.id) === String(id))?.name || id,
                   }))}
-                  onRemove={(id) => setRooms((prev) => prev.filter((x) => x !== id))}
+                  onRemove={(id) => {
+                    setRooms((prev) => prev.filter((x) => x !== id));
+                    setChildren([]);
+                    setEducators([]);
+                  }}
                   onClick={() => setShowRoomsPicker(true)}
                   placeholder="Select rooms"
                 />
@@ -1252,7 +1296,13 @@ export default function ObservationCreatePage() {
                     return { id, label: found ? found.name : id };
                   })}
                   onRemove={(id) => setEducators((prev) => prev.filter((x) => x !== id))}
-                  onClick={() => setShowEducatorsPicker(true)}
+                  onClick={() => {
+                    if (rooms.length === 0) {
+                      toast.error("Please select a room first.");
+                      return;
+                    }
+                    setShowEducatorsPicker(true);
+                  }}
                   placeholder="Select educators"
                 />
               </div>
@@ -1381,32 +1431,46 @@ export default function ObservationCreatePage() {
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
-                    {media.map((m, i) => (
-                      <div
-                        key={i}
-                        className="group relative aspect-video overflow-hidden rounded-xl border border-border bg-muted"
-                      >
-                        {String(m.mediaType || m.file?.type || "").startsWith("video/") ? (
-                          <video
-                            src={m.isExisting ? m.url : m.preview}
-                            className="h-full w-full object-cover"
-                            controls
-                          />
+                    {isEdit && (
+                      <div className="col-span-1">
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Already Added Media ({existingMedia.length})
+                        </p>
+                        {existingMedia.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-3">
+                            {existingMedia.map((item) => (
+                              <ObservationMediaPreview
+                                key={item.id}
+                                item={item}
+                                isDeleting={deletingMediaIds.includes(item.id)}
+                                onRemove={() => removeExistingMedia(item)}
+                              />
+                            ))}
+                          </div>
                         ) : (
-                          <img
-                            src={m.isExisting ? m.url : m.preview}
-                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                            alt="Observation media preview"
-                          />
+                          <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+                            No previously added media.
+                          </p>
                         )}
-                        <button
-                          onClick={() => removeMedia(i)}
-                          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
                       </div>
-                    ))}
+                    )}
+
+                    <div className={isEdit ? "col-span-1 mt-3" : "col-span-1"}>
+                      {isEdit && (
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Newly Added Media ({newMedia.length})
+                        </p>
+                      )}
+                      <div className="grid grid-cols-1 gap-3">
+                        {newMedia.map((item) => (
+                          <ObservationMediaPreview
+                            key={item.preview}
+                            item={item}
+                            onRemove={() => removeNewMedia(item)}
+                          />
+                        ))}
+                      </div>
+                    </div>
 
                     {media.length < 3 && (
                       <button
@@ -1618,6 +1682,8 @@ export default function ObservationCreatePage() {
         onClose={() => setShowRoomsPicker(false)}
         onSave={(v) => {
           setRooms(v);
+          setChildren([]);
+          setEducators([]);
           setShowRoomsPicker(false);
         }}
       />
@@ -1662,6 +1728,11 @@ export default function ObservationCreatePage() {
         onSearchChange={setEducatorsSearch}
         onLoadMore={loadMoreEducators}
         hasMore={educatorsPage < educatorsTotalPages}
+        emptyMessage={
+          rooms.length === 0
+            ? "Please select a room first to see educators"
+            : "No educators found in selected rooms"
+        }
         onClose={() => setShowEducatorsPicker(false)}
         onSave={(v) => {
           setEducators(v);
@@ -3020,6 +3091,34 @@ function Avatar({ name, imageUrl }) {
           .toUpperCase()
           .slice(0, 2)
       )}
+    </div>
+  );
+}
+
+function ObservationMediaPreview({ item, isDeleting = false, onRemove }) {
+  const src = item.isExisting ? item.url : item.preview;
+  const isVideo = String(item.mediaType || item.file?.type || "").startsWith("video/");
+
+  return (
+    <div className="group relative aspect-video overflow-hidden rounded-xl border border-border bg-muted">
+      {isVideo ? (
+        <video src={src} className="h-full w-full object-cover" controls playsInline />
+      ) : (
+        <img
+          src={src}
+          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          alt="Observation media preview"
+        />
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        disabled={isDeleting}
+        className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 disabled:cursor-wait disabled:opacity-100"
+        aria-label="Remove media"
+      >
+        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+      </button>
     </div>
   );
 }

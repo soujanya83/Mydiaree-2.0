@@ -346,13 +346,22 @@ export const observationService = {
     return observationService.saveObservation(data);
   },
 
-  // 7. Delete Observation
   deleteObservation: async (id) => {
     try {
       const response = await api.delete(`/observation/delete/${id}`);
       return response.data;
     } catch (error) {
       console.error("Error deleting observation:", error);
+      throw error;
+    }
+  },
+
+  deleteObservationMedia: async (id) => {
+    try {
+      const response = await api.delete(`/observation/observation-media/${id}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error deleting observation media:", error);
       throw error;
     }
   },

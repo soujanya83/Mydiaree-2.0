@@ -131,28 +131,41 @@ export default function SnapshotCreatePage() {
   }, [activeCentreId]);
 
   const fetchStaff = useCallback(
-    async (pageNumber, searchQuery) => {
-      if (!activeCentreId) {
+    async (pageNumber, searchQuery, roomIds) => {
+      if (!activeCentreId || roomIds.length === 0) {
         setStaffList([]);
         setStaffTotalPages(1);
         return;
       }
       setIsStaffLoading(true);
       try {
-        const response = await staffService.getStaffSettings({
-          center_id: activeCentreId,
-          search: searchQuery,
-          page: pageNumber,
-          per_page: 50,
-        });
-        if (response.status) {
-          const pageData = response.data?.staff?.data || response.data?.staff || [];
-          const activeStaff = pageData.filter((item) => item.status === "ACTIVE");
-          const lastPage = response.data?.staff?.last_page || response.pagination?.last_page || 1;
-          setStaffList((prev) => (pageNumber === 1 ? activeStaff : mergeById(prev, activeStaff)));
-          setAvailableStaff((prev) => mergeById(prev, activeStaff));
-          setStaffTotalPages(lastPage);
-        }
+        const responses = await Promise.all(
+          roomIds.map((roomId) =>
+            staffService.getStaffSettings({
+              center_id: activeCentreId,
+              search: searchQuery,
+              roomid: roomId,
+              page: pageNumber,
+              per_page: 50,
+            }),
+          ),
+        );
+        const pageData = responses.flatMap(
+          (response) => response.data?.staff?.data || response.data?.staff || [],
+        );
+        const activeStaff = mergeById(
+          [],
+          pageData.filter((item) => item.status === "ACTIVE"),
+        );
+        const lastPage = Math.max(
+          1,
+          ...responses.map(
+            (response) => response.data?.staff?.last_page || response.pagination?.last_page || 1,
+          ),
+        );
+        setStaffList((prev) => (pageNumber === 1 ? activeStaff : mergeById(prev, activeStaff)));
+        setAvailableStaff((prev) => mergeById(prev, activeStaff));
+        setStaffTotalPages(lastPage);
       } catch (error) {
         console.error("Failed to load staff:", error);
       } finally {
@@ -207,8 +220,8 @@ export default function SnapshotCreatePage() {
 
   useEffect(() => {
     setStaffPage(1);
-    fetchStaff(1, staffSearch);
-  }, [fetchStaff, staffSearch]);
+    fetchStaff(1, staffSearch, rooms);
+  }, [fetchStaff, staffSearch, rooms]);
 
   useEffect(() => {
     setChildrenPage(1);
@@ -219,7 +232,7 @@ export default function SnapshotCreatePage() {
     if (isStaffLoading || staffPage >= staffTotalPages) return;
     const nextPage = staffPage + 1;
     setStaffPage(nextPage);
-    fetchStaff(nextPage, staffSearch);
+    fetchStaff(nextPage, staffSearch, rooms);
   };
 
   const loadMoreChildren = () => {
@@ -503,7 +516,11 @@ export default function SnapshotCreatePage() {
                 id,
                 label: availableRooms.find((r) => String(r.id) === String(id))?.name || id,
               }))}
-              onRemove={(id) => setRooms((prev) => prev.filter((x) => x !== id))}
+              onRemove={(id) => {
+                setRooms((prev) => prev.filter((x) => x !== id));
+                setChildren([]);
+                setStaff([]);
+              }}
               onClick={() => setShowRoomsPicker(true)}
               placeholder="Select rooms"
             />
@@ -541,7 +558,13 @@ export default function SnapshotCreatePage() {
                 label: availableStaff.find((s) => String(s.id) === String(id))?.name || id,
               }))}
               onRemove={(id) => setStaff((prev) => prev.filter((x) => x !== id))}
-              onClick={() => setShowStaffPicker(true)}
+              onClick={() => {
+                if (rooms.length === 0) {
+                  toast.error("Please select a room first.");
+                  return;
+                }
+                setShowStaffPicker(true);
+              }}
               placeholder="Select staff"
             />
           </div>
@@ -711,6 +734,8 @@ export default function SnapshotCreatePage() {
         onClose={() => setShowRoomsPicker(false)}
         onSave={(v) => {
           setRooms(v);
+          setChildren([]);
+          setStaff([]);
           setShowRoomsPicker(false);
         }}
       />
@@ -755,6 +780,11 @@ export default function SnapshotCreatePage() {
         onSearchChange={setStaffSearch}
         onLoadMore={loadMoreStaff}
         hasMore={staffPage < staffTotalPages}
+        emptyMessage={
+          rooms.length === 0
+            ? "Please select a room first to see educators"
+            : "No educators found in selected rooms"
+        }
         onClose={() => setShowStaffPicker(false)}
         onSave={(v) => {
           setStaff(v);

@@ -343,10 +343,7 @@ function normalizeObservation(obs, allRooms) {
     rooms: roomNames,
     roomIds,
     children: obs.child || [],
-    taggedStaff: String(obs.tagged_staff || "")
-      .split(",")
-      .map((staffId) => staffId.trim())
-      .filter(Boolean),
+    taggedStaffDetails: Array.isArray(obs.tagged_staff_details) ? obs.tagged_staff_details : [],
     media,
   };
 }
@@ -792,8 +789,46 @@ function QuickFacts({ observation }) {
           }
         />
         <Fact label="Rooms" value={observation.rooms.join(", ") || "-"} />
-        <Fact label="Staff IDs" value={observation.taggedStaff.join(", ") || "-"} />
       </div>
+
+      {observation.taggedStaffDetails && observation.taggedStaffDetails.length > 0 && (
+        <div className="mt-5">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Tagged Staff
+          </p>
+          <div className="space-y-2.5">
+            {observation.taggedStaffDetails.map((staff) => (
+              <div
+                key={staff.id}
+                className="flex items-center gap-3 rounded-xl border border-border bg-background p-2.5 shadow-sm"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-black text-primary">
+                  {staff.imageUrl ? (
+                    <img
+                      src={mediaUrl(staff.imageUrl)}
+                      alt={staff.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                        e.target.nextSibling.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <span
+                    className="flex h-full w-full items-center justify-center"
+                    style={{ display: staff.imageUrl ? "none" : "flex" }}
+                  >
+                    {staff.name ? staff.name.charAt(0).toUpperCase() : "U"}
+                  </span>
+                </div>
+                <span className="text-sm font-bold text-foreground line-clamp-1">
+                  {staff.name}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

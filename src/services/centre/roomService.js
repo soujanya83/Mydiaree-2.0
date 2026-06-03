@@ -41,6 +41,30 @@ export const roomService = {
   },
 
   /**
+   * Update an existing room.
+   * POST /rooms/update  body (formData):
+   *   id, room_name, room_capacity, ageFrom, ageTo,
+   *   room_status, room_color, educators[]
+   */
+  async updateRoom({ id, name, capacity, ageFrom, ageTo, status, color, educatorIds }) {
+    const formData = new FormData();
+    formData.append("id", String(id));
+    formData.append("room_name", name);
+    formData.append("room_capacity", String(capacity));
+    formData.append("ageFrom", String(ageFrom));
+    formData.append("ageTo", String(ageTo));
+    formData.append("room_status", status);
+    formData.append("room_color", color || "#25176F");
+    educatorIds.forEach((educatorId) => {
+      formData.append("educators[]", String(educatorId));
+    });
+    const res = await api.post("/rooms/update", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
+
+  /**
    * Bulk delete rooms.
    * POST /rooms/bulk-delete  body (formData): selected_rooms[]
    */

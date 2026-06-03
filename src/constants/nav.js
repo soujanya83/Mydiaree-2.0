@@ -92,7 +92,7 @@ export const navConfig = [
     items: [
       { label: "QIP", to: "/qip", icon: ListChecks },
       { label: "Forms", to: "/forms", icon: FileText },
-      { label: "PTM", to: "/ptm", icon: CalendarCheck },
+      // { label: "PTM", to: "/ptm", icon: CalendarCheck },
     ],
   },
   {

@@ -1,9 +1,12 @@
 import api from "../../api/api";
 
 export const staffService = {
-  async getStaffSettings({ center_id, search = "", page = 1, per_page = 10 }) {
+  async getStaffSettings({ center_id, search = "", page = 1, per_page = 10, roomid }) {
+    const params = { center_id, search, page, per_page };
+    if (roomid) params.roomid = roomid;
+
     const res = await api.get(`/settings/staff_settings`, {
-      params: { center_id, search, page, per_page },
+      params,
     });
     return res.data;
   },
@@ -38,6 +41,11 @@ export const staffService = {
 
   async deleteStaff(id) {
     const res = await api.delete(`/settings/staff/destroy/${id}`);
+    return res.data;
+  },
+
+  async updateStaffStatus(id) {
+    const res = await api.post(`/settings/staff/status/${id}`);
     return res.data;
   },
 };

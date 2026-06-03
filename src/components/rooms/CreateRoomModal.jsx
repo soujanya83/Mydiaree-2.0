@@ -27,6 +27,7 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
   const { isSubmitting } = useRoomStore();
   const { activeCentreId } = useCentreStore();
   const [form, setForm] = useState(empty);
+  const isEdit = Boolean(initial);
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -56,12 +57,12 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
           center_id: activeCentreId,
           search: debouncedQuery,
           page,
-          per_page: 20,
+          per_page: 50,
         });
         const items = response.data?.staff?.data || [];
-        const activeItems = items.filter(s => s.status === "ACTIVE");
-        
-        setStaffList(prev => page === 1 ? activeItems : [...prev, ...activeItems]);
+        const activeItems = items.filter((s) => s.status === "ACTIVE");
+
+        setStaffList((prev) => (page === 1 ? activeItems : [...prev, ...activeItems]));
         const pagination = response.pagination || response.data?.staff || {};
         setHasMore(pagination.current_page < pagination.last_page);
       } catch (error) {
@@ -73,16 +74,19 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
     fetchStaff();
   }, [open, activeCentreId, debouncedQuery, page]);
 
-  const lastElementRef = useCallback(node => {
-    if (isLoading) return;
-    if (observer.current) observer.current.disconnect();
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        setPage(prev => prev + 1);
-      }
-    });
-    if (node) observer.current.observe(node);
-  }, [isLoading, hasMore]);
+  const lastElementRef = useCallback(
+    (node) => {
+      if (isLoading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && hasMore) {
+          setPage((prev) => prev + 1);
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isLoading, hasMore],
+  );
 
   useEffect(() => {
     if (open) {
@@ -97,7 +101,7 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
               color: initial.color || "#25176F",
               educatorIds: (initial.educators || []).map((e) => String(e.userid || e.id)),
             }
-          : empty
+          : empty,
       );
     }
   }, [open, initial]);
@@ -110,14 +114,15 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
       "educatorIds",
       form.educatorIds.includes(String(id))
         ? form.educatorIds.filter((x) => x !== String(id))
-        : [...form.educatorIds, String(id)]
+        : [...form.educatorIds, String(id)],
     );
 
   const canSubmit =
     form.name.trim() &&
     form.capacity !== "" &&
     form.fromAge !== "" &&
-    form.toAge !== "";
+    form.toAge !== "" &&
+    (!isEdit || form.educatorIds.length > 0);
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -137,7 +142,7 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
       <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-lg font-bold text-foreground">
-            {initial ? "Edit Room" : "Create Room"}
+            {isEdit ? "Edit Room" : "Create Room"}
           </h2>
           <button
             onClick={onClose}
@@ -147,7 +152,10 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
           </button>
         </div>
 
-        <div className="grid gap-5 overflow-y-auto px-6 py-5 sm:grid-cols-2" style={{ maxHeight: "70vh" }}>
+        <div
+          className="grid gap-5 overflow-y-auto px-6 py-5 sm:grid-cols-2"
+          style={{ maxHeight: "70vh" }}
+        >
           <Field label="Name" required>
             <Input
               value={form.name}
@@ -194,22 +202,26 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
             </Select>
           </Field>
           <Field label="Room Color" required>
-             <div className="flex items-center gap-3">
-               <input 
-                type="color" 
-                value={form.color} 
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={form.color}
                 onChange={(e) => set("color", e.target.value)}
                 className="h-10 w-20 cursor-pointer rounded border border-input bg-background p-1"
-               />
-               <Input 
-                value={form.color} 
+              />
+              <Input
+                value={form.color}
                 onChange={(e) => set("color", e.target.value)}
                 placeholder="#000000"
                 className="font-mono"
-               />
-             </div>
+              />
+            </div>
           </Field>
-          <Field label="Educators (Optional)" className="sm:col-span-2">
+          <Field
+            label={isEdit ? "Educators" : "Educators (Optional)"}
+            required={isEdit}
+            className="sm:col-span-2"
+          >
             <div className="mb-2">
               <Input
                 value={query}
@@ -220,7 +232,9 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
             </div>
             <div className="max-h-44 space-y-1.5 overflow-y-auto rounded-md border border-input bg-background p-2">
               {staffList.length === 0 && !isLoading ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No educators found for this center.</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  No educators found for this center.
+                </p>
               ) : (
                 staffList.map((ed, index) => {
                   const idStr = String(ed.staffid || ed.id || ed.userid);
@@ -257,7 +271,7 @@ export function CreateRoomModal({ open, onClose, onSubmit, initial }) {
             Cancel
           </Button>
           <Button disabled={!canSubmit || isSubmitting} onClick={handleSubmit}>
-            {isSubmitting ? "Submitting..." : (initial ? "Update" : "Submit")}
+            {isSubmitting ? "Submitting..." : isEdit ? "Update" : "Submit"}
           </Button>
         </div>
       </div>

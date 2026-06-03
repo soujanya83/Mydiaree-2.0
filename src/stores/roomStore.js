@@ -49,9 +49,7 @@ export const useRoomStore = create(
 
             // If current active room exists in the new list, keep it.
             // Otherwise, default to the first room if available.
-            const roomStillExists = newRooms.some(
-              (r) => String(r.id) === String(currentActiveId)
-            );
+            const roomStillExists = newRooms.some((r) => String(r.id) === String(currentActiveId));
 
             if (roomStillExists && currentActiveId) {
               // Keep current active room
@@ -90,6 +88,24 @@ export const useRoomStore = create(
         }
       },
 
+      updateRoom: async (payload) => {
+        set({ isSubmitting: true, error: null });
+        try {
+          const response = await roomService.updateRoom(payload);
+          if (response.status || response.success) {
+            await get().fetchRooms(payload.centerId);
+          }
+          set({ isSubmitting: false });
+          return response;
+        } catch (error) {
+          set({
+            isSubmitting: false,
+            error: error?.response?.data?.message || "Failed to update room",
+          });
+          throw error;
+        }
+      },
+
       bulkDeleteRooms: async (roomIds, centerId) => {
         set({ isSubmitting: true, error: null });
         try {
@@ -112,6 +128,6 @@ export const useRoomStore = create(
     {
       name: "room-storage",
       partialize: (state) => ({ activeRoomId: state.activeRoomId }),
-    }
-  )
+    },
+  ),
 );
