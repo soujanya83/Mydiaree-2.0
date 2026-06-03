@@ -1,5 +1,16 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Filter, Building, MapPin } from "lucide-react";
+import { Plus, Search, Pencil, Filter, Building, MapPin, Trash2, Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +23,9 @@ export default function SettingsPage() {
   const { centres, isLoading, fetchCentres } = useCentreStore();
   const [query, setQuery] = useState("");
   const [modal, setModal] = useState({ open: false, initial: null });
+  const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { hasFullAccess } = usePermissions();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -47,6 +61,25 @@ export default function SettingsPage() {
       const res = error?.response?.data || error;
       toast.error(res.message || "An error occurred while saving the center.");
       throw res;
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteModal.id) return;
+    setIsDeleting(true);
+    try {
+      const res = await centerService.deleteCenter(deleteModal.id);
+      if (res.status) {
+        toast.success(res.message || "Center deleted successfully");
+        fetchCentres();
+        setDeleteModal({ open: false, id: null });
+      } else {
+        toast.error(res.message || "Failed to delete center");
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to delete center");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -140,6 +173,16 @@ export default function SettingsPage() {
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
                 </button>
+                {hasFullAccess && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteModal({ open: true, id: c.id })}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-destructive/10 px-4 text-xs font-bold text-destructive transition-colors hover:bg-destructive/20 active:scale-95"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -152,6 +195,24 @@ export default function SettingsPage() {
         initial={modal.initial}
         onSave={handleSave}
       />
+
+      <AlertDialog open={deleteModal.open} onOpenChange={(o) => !isDeleting && setDeleteModal({ open: o, id: o ? deleteModal.id : null })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Center?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the center and its linked Centeradmin(s). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              {isDeleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
