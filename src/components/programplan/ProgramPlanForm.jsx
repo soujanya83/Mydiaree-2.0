@@ -226,6 +226,7 @@ export function ProgramPlanForm({
     try {
       const response = await childrenService.filterChildren({
         room_id: roomId,
+        status: "Active",
         center_id: centerId,
         search: search,
         page: page,

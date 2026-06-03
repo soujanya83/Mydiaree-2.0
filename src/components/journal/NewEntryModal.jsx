@@ -227,6 +227,7 @@ export function NewEntryModal({
       try {
         const response = await childrenService.filterChildren({
           center_id: centerId,
+          status: "Active",
           room_id: roomId,
           search: debouncedSearch || undefined,
           page: childrenPage,

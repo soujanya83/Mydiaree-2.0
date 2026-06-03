@@ -393,6 +393,7 @@ export default function ObservationCreatePage() {
         const responses = await Promise.all(
           roomIds.map((roomId) =>
             childrenService.filterChildren({
+              status: "Active",
               room_id: roomId,
               center_id: activeCentreId,
               search: searchQuery,
