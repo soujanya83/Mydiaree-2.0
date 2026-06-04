@@ -12,6 +12,7 @@ import {
   Save,
   X,
   Info,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -27,15 +28,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useChildrenStore } from "@/stores/childrenStore";
+import { useCentreStore } from "@/stores/centreStore";
+import { useRoomStore } from "@/stores/roomStore";
+import { childrenService } from "@/services/centre/childrenService";
 import { SignatureField } from "./SignaturePad";
 import { NATURE_OPTIONS } from "./accidentFormConstants";
 import { BodyInjuryDiagram } from "./BodyInjuryDiagram";
+import { generateMarkedBodyImage, blobToFile } from "@/utils/bodyInjuryImageGenerator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { IMG_BASE_API } from "../../api/imageapi";
 
 const INPUT_CLASS = "h-11 rounded-lg border-border/80 bg-background/80 focus-visible:ring-primary/25";
 const TEXTAREA_CLASS = "min-h-[88px] resize-y rounded-lg border-border/80 bg-background/80 focus-visible:ring-primary/25";
+
+const avatarUrl = (url) => {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${IMG_BASE_API}${url}`;
+};
+
+const calculateAgeFromDob = (dob) => {
+  if (!dob) return "";
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age.toString();
+};
 
 const empty = () => ({
   recorderName: "",
@@ -126,12 +148,53 @@ function normalizeInitial(initial) {
 
 export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
   const isEdit = mode === "edit";
-  const { children } = useChildrenStore();
+  const activeCentreId = useCentreStore((s) => s.activeCentreId);
+  const activeRoomId = useRoomStore((s) => s.activeRoomId);
   const [data, setData] = useState(() => ({ ...empty(), ...normalizeInitial(initial) }));
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isFetchingChildDetails, setIsFetchingChildDetails] = useState(false);
+  const [children, setChildren] = useState([]);
+  const [isLoadingChildren, setIsLoadingChildren] = useState(false);
 
   useEffect(() => {
     if (initial) setData({ ...empty(), ...normalizeInitial(initial) });
   }, [initial]);
+
+  // Fetch children using filterChildren API
+  useEffect(() => {
+    const fetchChildren = async () => {
+      if (!activeCentreId || !activeRoomId) {
+        setChildren([]);
+        return;
+      }
+      setIsLoadingChildren(true);
+      try {
+        const response = await childrenService.filterChildren({
+          room_id: activeRoomId,
+          status: "Active",
+          center_id: activeCentreId,
+          page: 1,
+          per_page: 100,
+        });
+        const childrenData = response.data?.data || response.data || [];
+        setChildren(Array.isArray(childrenData) ? childrenData : []);
+      } catch (error) {
+        console.error("Failed to load children:", error);
+        setChildren([]);
+      } finally {
+        setIsLoadingChildren(false);
+      }
+    };
+    fetchChildren();
+  }, [activeCentreId, activeRoomId]);
+
+  // Auto-calculate age when DOB changes
+  useEffect(() => {
+    if (data.childDob) {
+      const calculatedAge = calculateAgeFromDob(data.childDob);
+      set({ childAge: calculatedAge });
+    }
+  }, [data.childDob]);
 
   const set = (patch) => setData((p) => ({ ...p, ...patch }));
 
@@ -143,18 +206,44 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
     });
   };
 
-  const handleChildSelect = (id) => {
+  const handleChildSelect = async (id) => {
     const child = children.find((c) => String(c.id) === String(id));
     if (!child) return;
+
+    const dob = child.dob || data.childDob;
+    const calculatedAge = dob ? calculateAgeFromDob(dob) : (child.age || data.childAge);
+
     set({
       childId: id,
-      childDob: child.dob || data.childDob,
-      childAge: child.age || data.childAge,
+      childDob: dob,
+      childAge: calculatedAge,
       childGender: child.gender || data.childGender,
     });
+
+    // Fetch child details to auto-fill
+    if (id) {
+      setIsFetchingChildDetails(true);
+      try {
+        const res = await childrenService.getChildDetails(id);
+        const childDetails = res.data || res;
+        if (childDetails) {
+          const detailsDob = childDetails.dob || dob;
+          const detailsAge = detailsDob ? calculateAgeFromDob(detailsDob) : (childDetails.age || calculatedAge);
+          set({
+            childDob: detailsDob,
+            childAge: detailsAge,
+            childGender: childDetails.gender || data.childGender,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch child details:", error);
+      } finally {
+        setIsFetchingChildDetails(false);
+      }
+    }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!data.recorderName.trim()) {
       toast.error("Please enter Name under Details of person completing this record.");
       return;
@@ -163,7 +252,24 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
       toast.error("Please select a child.");
       return;
     }
-    onSubmit(data);
+
+    // Generate marked body diagram image if there are markers
+    let bodyInjuryImageFile = null;
+    if (data.bodyInjuryMarkers && data.bodyInjuryMarkers.length > 0) {
+      setIsGeneratingImage(true);
+      try {
+        const blob = await generateMarkedBodyImage(data.bodyInjuryMarkers);
+        bodyInjuryImageFile = blobToFile(blob);
+      } catch (error) {
+        console.error("Failed to generate body injury image:", error);
+        toast.error("Failed to generate body injury diagram image");
+        return;
+      } finally {
+        setIsGeneratingImage(false);
+      }
+    }
+
+    onSubmit({ ...data, bodyInjuryImageFile });
   };
 
   return (
@@ -249,24 +355,59 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
         <Section icon={Baby} title="Child Details" step={2}>
           <Grid2>
             <FormField label="Child" required hint="Select the child involved in this incident">
-              <Select value={data.childId || undefined} onValueChange={handleChildSelect}>
+              <Select value={data.childId || undefined} onValueChange={handleChildSelect} disabled={isFetchingChildDetails || isLoadingChildren}>
                 <SelectTrigger className={INPUT_CLASS}>
-                  <SelectValue placeholder="Select child…" />
+                  <SelectValue placeholder={isLoadingChildren ? "Loading children..." : "Select child…"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {children.length === 0 ? (
+                  {!activeCentreId || !activeRoomId ? (
                     <SelectItem value="_none" disabled>
-                      No children loaded
+                      Please select centre and room first
+                    </SelectItem>
+                  ) : isLoadingChildren ? (
+                    <SelectItem value="_none" disabled>
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading children...
+                      </div>
+                    </SelectItem>
+                  ) : children.length === 0 ? (
+                    <SelectItem value="_none" disabled>
+                      No children found
                     </SelectItem>
                   ) : (
-                    children.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </SelectItem>
-                    ))
+                    children.map((c) => {
+                      const img = avatarUrl(c.imageUrl);
+                      const fullName = `${c.name} ${c.lastname || ""}`.trim();
+                      return (
+                        <SelectItem key={c.id} value={String(c.id)}>
+                          <div className="flex items-center gap-2">
+                            {img ? (
+                              <img src={img} alt={fullName} className="h-5 w-5 rounded-full object-cover" />
+                            ) : (
+                              <div className="h-5 w-5 rounded-full bg-primary/20 text-primary text-[9px] font-bold flex items-center justify-center">
+                                {fullName
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                                  .slice(0, 2)}
+                              </div>
+                            )}
+                            <span>{fullName}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })
                   )}
                 </SelectContent>
               </Select>
+              {isFetchingChildDetails && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading child details...
+                </p>
+              )}
             </FormField>
             <FormField label="Date of Birth" hint="Auto-filled when child is selected">
               <Input
@@ -734,13 +875,22 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
             <span className="text-destructive">*</span> Required before saving
           </p>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onCancel}>
+            <Button variant="outline" onClick={onCancel} disabled={isGeneratingImage}>
               <X className="mr-1.5 h-4 w-4" />
               Cancel
             </Button>
-            <Button onClick={handleSave}>
-              <Save className="mr-1.5 h-4 w-4" />
-              {isEdit ? "Save changes" : "Save record"}
+            <Button onClick={handleSave} disabled={isGeneratingImage}>
+              {isGeneratingImage ? (
+                <>
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  Generating image...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-1.5 h-4 w-4" />
+                  {isEdit ? "Save changes" : "Save record"}
+                </>
+              )}
             </Button>
           </div>
         </div>

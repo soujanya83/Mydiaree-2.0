@@ -234,7 +234,9 @@ function MyProfilePage() {
               <div className="mt-5">
                 <h3 className="text-xl font-bold text-foreground">{profile?.name}</h3>
                 <p className="mt-1 text-sm font-medium capitalize text-muted-foreground">
-                  {profile?.userType}
+                  {profile?.userType?.toLowerCase() === "centeradmin"
+                    ? "Admin"
+                    : profile?.userType}
                 </p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-semibold text-success">

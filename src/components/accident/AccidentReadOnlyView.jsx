@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useChildrenStore } from "@/stores/childrenStore";
 import { toast } from "sonner";
-import { BodyInjuryDiagram } from "./BodyInjuryDiagram";
+import { IMG_BASE_API } from "../../api/imageapi";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [
@@ -32,6 +32,11 @@ const SECTIONS = [
   { key: "ack", title: "Parental acknowledgement", icon: CheckCircle2 },
   { key: "notes", title: "Additional notes", icon: StickyNote },
 ];
+
+const resolveImageUrl = (imageUrl) => {
+  if (!imageUrl) return "";
+  return imageUrl.startsWith("http") ? imageUrl : `${IMG_BASE_API}${imageUrl}`;
+};
 
 export function AccidentReadOnlyView({ record, onBack, onEdit }) {
   const children = useChildrenStore((s) => s.children);
@@ -133,10 +138,22 @@ export function AccidentReadOnlyView({ record, onBack, onEdit }) {
 
         <ViewSection step={4} title={SECTIONS[3].title} icon={SECTIONS[3].icon}>
           <div className="sm:col-span-2 mb-4">
-            <BodyInjuryDiagram
-              markers={record.bodyInjuryMarkers || []}
-              readOnly
-            />
+            {record.bodyInjuryImage ? (
+              <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                  Body Injury Diagram
+                </p>
+                <img
+                  src={resolveImageUrl(record.bodyInjuryImage)}
+                  alt="Body injury diagram with marked areas"
+                  className="max-w-full h-auto rounded-lg border border-border bg-white"
+                />
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border/60 bg-muted/10 p-6 text-center">
+                <p className="text-sm text-muted-foreground">No body injury diagram recorded.</p>
+              </div>
+            )}
           </div>
           <div className="sm:col-span-2">
             {record.natures?.length ? (

@@ -95,7 +95,9 @@ export function Header() {
                   {user?.name ?? "Nextgen Admin"}
                 </p>
                 <p className="mt-1 text-[10px] capitalize text-muted-foreground">
-                  {user?.userType ?? "superadmin"}
+                  {user?.userType?.toLowerCase() === "centeradmin"
+                    ? "Admin"
+                    : user?.userType ?? "superadmin"}
                 </p>
               </div>
             </button>

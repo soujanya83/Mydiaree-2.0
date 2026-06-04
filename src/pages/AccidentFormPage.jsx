@@ -46,11 +46,6 @@ import {
   NATURE_API_KEYS,
   natureLabelsFromApiRecord,
 } from "@/components/accident/accidentFormConstants";
-import {
-  BODY_INJURY_API_FIELD,
-  bodyInjuryMarkersFromRecord,
-  serializeBodyInjuryMarkers,
-} from "@/components/accident/bodyInjuryMarkers";
 
 const seedRecords = [
   {
@@ -189,7 +184,8 @@ export default function AccidentFormPage() {
           removedCircumstances: d.taken_removed,
           natures,
           natureOtherRemarks: d.other_remarks || d.remarks_other || "",
-          bodyInjuryMarkers: bodyInjuryMarkersFromRecord(d),
+          bodyInjuryImage: d.body_injury_image || null,
+          bodyInjuryMarkers: [], // Always empty for new implementation
           actionDetails: d.action_taken,
           emergencyAttended:
             d.emrg_serv_attend === "yes" || d.emrg_serv_attend === 1 ? "yes" : "no",
@@ -270,7 +266,7 @@ export default function AccidentFormPage() {
       missing_unaccounted: data.missingCircumstances,
       taken_removed: data.removedCircumstances,
       other_remarks: data.natureOtherRemarks,
-      [BODY_INJURY_API_FIELD]: serializeBodyInjuryMarkers(data.bodyInjuryMarkers),
+      body_injury_image: data.bodyInjuryImageFile || null,
       action_taken: data.actionDetails,
       emrg_serv_attend: data.emergencyAttended === "yes" ? "yes" : "no",
       med_attention: data.medicalSought === "yes" ? "yes" : "no",
