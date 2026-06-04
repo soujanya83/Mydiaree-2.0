@@ -52,7 +52,7 @@ function buildObservationListFormData(centerId, options = {}) {
   formData.append("page", page);
 
   appendIfPresent(formData, "room_id", roomId);
-  appendIfPresent(formData, "search", search?.trim());
+  appendIfPresent(formData, "search_by_title", search?.trim());
 
   if (status && status !== "all") {
     appendArray(formData, "observations[]", STATUS_MAP[status] || status);

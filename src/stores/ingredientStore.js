@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { ingredientService } from "@/services/nutrition/ingredientService";
+import { ingredientTypeService } from "@/services/nutrition/ingredientTypeService";
 
 export const useIngredientStore = create((set, get) => ({
+  ingredientTypes: [],
   ingredients: [],
   isLoading: false,
   error: null,
@@ -9,7 +11,20 @@ export const useIngredientStore = create((set, get) => ({
   fetchIngredients: async () => {
     set({ isLoading: true, error: null });
     try {
-      const ingredients = await ingredientService.getIngredients();
+      const types = await ingredientService.getIngredients();
+      set({ ingredientTypes: types, ingredients: types, isLoading: false });
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error?.message || "Failed to fetch ingredients",
+      });
+    }
+  },
+
+  fetchIngredientsForRecipe: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const ingredients = await ingredientService.getIngredientsForRecipe();
       set({ ingredients, isLoading: false });
     } catch (error) {
       set({
@@ -19,14 +34,11 @@ export const useIngredientStore = create((set, get) => ({
     }
   },
 
-  addIngredient: async (name) => {
+  addIngredient: async (name, ingredientTypeId) => {
     set({ isLoading: true, error: null });
     try {
-      const newIngredient = await ingredientService.createIngredient(name);
-      set((state) => ({
-        ingredients: [...state.ingredients, newIngredient],
-        isLoading: false,
-      }));
+      const newIngredient = await ingredientService.createIngredient(name, ingredientTypeId);
+      await get().fetchIngredients();
       return newIngredient;
     } catch (error) {
       set({
@@ -41,12 +53,7 @@ export const useIngredientStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const updated = await ingredientService.updateIngredient(id, name);
-      set((state) => ({
-        ingredients: state.ingredients.map((item) =>
-          item.id === id ? { ...item, ...updated } : item
-        ),
-        isLoading: false,
-      }));
+      await get().fetchIngredients();
       return updated;
     } catch (error) {
       set({
@@ -61,15 +68,73 @@ export const useIngredientStore = create((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await ingredientService.deleteIngredient(id);
-      set((state) => ({
-        ingredients: state.ingredients.filter((item) => item.id !== id),
-        isLoading: false,
-      }));
+      await get().fetchIngredients();
       return true;
     } catch (error) {
       set({
         isLoading: false,
         error: error?.message || "Failed to delete ingredient",
+      });
+      throw error;
+    }
+  },
+
+  moveIngredientType: async (ingredientId, ingredientTypeId) => {
+    set({ isLoading: true, error: null });
+    try {
+      await ingredientService.moveIngredientType(ingredientId, ingredientTypeId);
+      await get().fetchIngredients();
+      return true;
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error?.message || "Failed to move ingredient",
+      });
+      throw error;
+    }
+  },
+
+  // Type management methods
+  addType: async (name) => {
+    set({ isLoading: true, error: null });
+    try {
+      const newType = await ingredientTypeService.createType(name);
+      await get().fetchIngredients();
+      return newType;
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error?.message || "Failed to add type",
+      });
+      throw error;
+    }
+  },
+
+  updateType: async (id, name) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updated = await ingredientTypeService.updateType(id, name);
+      await get().fetchIngredients();
+      return updated;
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error?.message || "Failed to update type",
+      });
+      throw error;
+    }
+  },
+
+  deleteType: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await ingredientTypeService.deleteType(id);
+      await get().fetchIngredients();
+      return true;
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error?.message || "Failed to delete type",
       });
       throw error;
     }

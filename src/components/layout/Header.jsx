@@ -50,7 +50,7 @@ export function Header() {
 
       {/* Logo in center */}
       <div className="hidden lg:flex flex-1 justify-center">
-        <img src={logoLong} alt="MyDiaree" className="h-8 w-auto" />
+        <img src={logoLong} alt="MyDiaree" className="h-16 w-auto" />
       </div>
 
       {/* Search */}

@@ -106,7 +106,7 @@ function birthdayAge(dob, year) {
   return Number.isFinite(birthYear) ? year - birthYear : null;
 }
 
-function stripHtml(value = "") {
+export function stripHtml(value = "") {
   return String(value)
     .replace(/<[^>]*>/g, "")
     .trim();

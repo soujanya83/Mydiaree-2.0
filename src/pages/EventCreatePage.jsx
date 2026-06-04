@@ -35,6 +35,7 @@ import { announcementService } from "@/services/centre/announcementService";
 import { holidayService } from "@/services/centre/holidayService";
 import { useCentreStore } from "@/stores/centreStore";
 import { mapAnnouncementRecord, toApiAudience, toApiType } from "@/components/events/eventMappers";
+import { stripHtml } from "../components/dashboard/DashboardCalendar";
 
 export default function EventCreatePage() {
   const navigate = useNavigate();
@@ -86,7 +87,11 @@ export default function EventCreatePage() {
               setForm({
                 type: "Public Holiday",
                 title: existing.occasion,
-                date: existing.Holiday_date ? existing.Holiday_date.split("T")[0] : new Date(new Date().getFullYear(), existing.month - 1, existing.date + 1).toISOString().split("T")[0],
+                date: existing.Holiday_date
+                  ? existing.Holiday_date.split("T")[0]
+                  : new Date(new Date().getFullYear(), existing.month - 1, existing.date + 1)
+                      .toISOString()
+                      .split("T")[0],
                 access: "All",
                 description: "",
                 eventColor: "#0d6efd",
@@ -231,7 +236,7 @@ export default function EventCreatePage() {
         // Format date to DD/MM/YYYY for holiday API
         const d = new Date(form.date);
         const formattedDate = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-        
+
         const payload = {
           centerid: activeCentreId || "1",
           date: formattedDate,
@@ -281,7 +286,8 @@ export default function EventCreatePage() {
         return;
       }
       toast.error(
-        error?.response?.data?.message || `Failed to ${isEdit ? "update" : "create"} ${label.toLowerCase()}`,
+        error?.response?.data?.message ||
+          `Failed to ${isEdit ? "update" : "create"} ${label.toLowerCase()}`,
       );
     } finally {
       setIsSubmitting(false);
@@ -374,13 +380,15 @@ export default function EventCreatePage() {
                     Title <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    value={form.title}
+                    value={stripHtml(form.title)}
                     onChange={(e) => update("title", e.target.value)}
                     disabled={isView}
                     placeholder="Enter a clear, descriptive title"
                     className="h-11"
                   />
-                  {formErrors.title && <p className="text-sm text-destructive">{formErrors.title}</p>}
+                  {formErrors.title && (
+                    <p className="text-sm text-destructive">{formErrors.title}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -516,7 +524,9 @@ export default function EventCreatePage() {
                         <Plus className="h-4 w-4" /> Add Children
                       </Button>
                     </div>
-                    {formErrors.childId && <p className="text-sm text-destructive">{formErrors.childId}</p>}
+                    {formErrors.childId && (
+                      <p className="text-sm text-destructive">{formErrors.childId}</p>
+                    )}
                   </SectionCard>
                 </>
               )}
@@ -535,7 +545,11 @@ export default function EventCreatePage() {
                       <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Status
                       </Label>
-                      <Select value={form.status} onValueChange={(v) => update("status", v)} disabled={isView}>
+                      <Select
+                        value={form.status}
+                        onValueChange={(v) => update("status", v)}
+                        disabled={isView}
+                      >
                         <SelectTrigger className="h-11">
                           <SelectValue />
                         </SelectTrigger>
@@ -546,7 +560,8 @@ export default function EventCreatePage() {
                       </Select>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Marking a holiday as inactive will hide it from the calendar and list for parents/staff.
+                      Marking a holiday as inactive will hide it from the calendar and list for
+                      parents/staff.
                     </p>
                   </div>
                 ) : (
@@ -555,14 +570,16 @@ export default function EventCreatePage() {
                       Description <span className="text-destructive">*</span>
                     </Label>
                     <Textarea
-                      value={form.description}
+                      value={stripHtml(form.description)}
                       onChange={(e) => update("description", e.target.value)}
                       disabled={isView}
                       rows={18}
                       placeholder="Describe the event in detail…"
                       className="resize-none"
                     />
-                    {formErrors.text && <p className="text-sm text-destructive">{formErrors.text}</p>}
+                    {formErrors.text && (
+                      <p className="text-sm text-destructive">{formErrors.text}</p>
+                    )}
                     <p className="text-right text-xs text-muted-foreground">
                       {form.description.length} characters
                     </p>
@@ -585,7 +602,11 @@ export default function EventCreatePage() {
                   ) : (
                     <Save className="h-4 w-4 mr-2" />
                   )}
-                  {isSubmitting ? "Saving..." : isEdit ? `Update ${noun.toLowerCase()}` : `Save ${noun.toLowerCase()}`}
+                  {isSubmitting
+                    ? "Saving..."
+                    : isEdit
+                      ? `Update ${noun.toLowerCase()}`
+                      : `Save ${noun.toLowerCase()}`}
                 </Button>
               </div>
             </div>

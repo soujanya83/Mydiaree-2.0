@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Search, Sparkles, Loader2, Carrot, Wheat, Milk, Flame, Package, ArrowLeft, ShieldAlert } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Sparkles, Loader2, Carrot, Wheat, Milk, Flame, Package, ArrowLeft, ShieldAlert, Tag,FolderPlus, ArrowRight, ChefHat } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
@@ -16,46 +16,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AddIngredientModal } from "@/components/ingredients/AddIngredientModal";
+import { IngredientTypeModal } from "@/components/ingredients/IngredientTypeModal";
+import { MoveIngredientModal } from "@/components/ingredients/MoveIngredientModal";
 import { toast } from "sonner";
 import { useIngredientStore } from "@/stores/ingredientStore";
 import { cn } from "@/lib/utils";
-
-const CATEGORY_RULES = [
-  {
-    name: "Baking & Grains",
-    keywords: ["flour", "sugar", "baking", "soda", "yeast", "cocoa", "chocolate", "starch", "powder", "oil"],
-    color: "emerald",
-    icon: "Wheat",
-  },
-  {
-    name: "Dairy & Fats",
-    keywords: ["butter", "milk", "cream", "cheese", "yogurt", "ghee", "fat"],
-    color: "sky",
-    icon: "Milk",
-  },
-  {
-    name: "Spices & Herbs",
-    keywords: ["coriander", "chilli", "ginger", "garlic", "salt", "pepper", "cinnamon", "vanilla", "essence", "oregano", "parsley", "basil", "spice", "herb"],
-    color: "rose",
-    icon: "Flame",
-  },
-  {
-    name: "Fresh Produce",
-    keywords: ["fruits", "vegetables", "apple", "banana", "orange", "lemon", "tomato", "onion", "carrot", "berries"],
-    color: "amber",
-    icon: "Carrot",
-  },
-];
-
-const getCategory = (name) => {
-  const lower = name.toLowerCase();
-  for (const cat of CATEGORY_RULES) {
-    if (cat.keywords.some((kw) => lower.includes(kw))) {
-      return cat;
-    }
-  }
-  return { name: "Other Ingredients", color: "indigo", icon: "Package" };
-};
 
 const ICON_MAP = {
   Wheat: Wheat,
@@ -63,6 +28,8 @@ const ICON_MAP = {
   Flame: Flame,
   Carrot: Carrot,
   Package: Package,
+  Tag: Tag,
+  ChefHat: ChefHat,
 };
 
 const COLOR_MAP = {
@@ -96,20 +63,32 @@ const COLOR_MAP = {
     text: "text-indigo-600",
     badge: "bg-indigo-500/10 text-indigo-700 hover:bg-indigo-500/20",
   },
+  primary: {
+    border: "border-primary/10 hover:border-primary/25",
+    bg: "bg-primary/10",
+    text: "text-primary",
+    badge: "bg-primary/10 text-primary hover:bg-primary/20",
+  },
 };
 
 export default function IngredientsPage() {
   const {
+    ingredientTypes,
     ingredients,
     isLoading,
     fetchIngredients,
     addIngredient,
     updateIngredient,
     deleteIngredient,
+    addType,
+    updateType,
+    deleteType,
   } = useIngredientStore();
 
   const [query, setQuery] = useState("");
-  const [modal, setModal] = useState({ open: false, initial: null });
+  const [modal, setModal] = useState({ open: false, initial: null, preSelectedTypeId: null });
+  const [typeModal, setTypeModal] = useState({ open: false, initial: null });
+  const [moveModal, setMoveModal] = useState({ open: false, ingredient: null });
   const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
@@ -118,33 +97,12 @@ export default function IngredientsPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return ingredients;
-    return ingredients.filter((i) => i.name.toLowerCase().includes(q));
-  }, [ingredients, query]);
-
-  const groupedCategories = useMemo(() => {
-    const list = CATEGORY_RULES.map((cat) => ({
-      ...cat,
-      items: [],
-    }));
-    const others = { name: "Other Ingredients", color: "indigo", icon: "Package", items: [] };
-
-    filtered.forEach((ing) => {
-      const cat = getCategory(ing.name);
-      if (cat.name === "Other Ingredients") {
-        others.items.push(ing);
-      } else {
-        const found = list.find((c) => c.name === cat.name);
-        if (found) {
-          found.items.push(ing);
-        } else {
-          others.items.push(ing);
-        }
-      }
-    });
-
-    return [...list, others].filter((g) => g.items.length > 0);
-  }, [filtered]);
+    if (!q) return ingredientTypes;
+    return ingredientTypes.map((type) => ({
+      ...type,
+      ingredients: type.ingredients?.filter((i) => i.name.toLowerCase().includes(q)) || [],
+    })).filter((type) => type.ingredients.length > 0);
+  }, [ingredientTypes, query]);
 
   const handleSave = async (data) => {
     try {
@@ -152,11 +110,34 @@ export default function IngredientsPage() {
         await updateIngredient(data.id, data.name);
         toast.success("Ingredient successfully updated");
       } else {
-        await addIngredient(data.name);
+        await addIngredient(data.name, data.ingredientTypeId || modal.preSelectedTypeId);
         toast.success("Ingredient successfully added to pantry");
       }
     } catch (error) {
       toast.error(error?.message || "Failed to save ingredient");
+    }
+  };
+
+  const handleTypeSave = async (data) => {
+    try {
+      if (data.id) {
+        await updateType(data.id, data.name);
+        toast.success("Type successfully updated");
+      } else {
+        await addType(data.name);
+        toast.success("Type successfully added");
+      }
+    } catch (error) {
+      toast.error(error?.message || "Failed to save type");
+    }
+  };
+
+  const handleTypeDelete = async (id) => {
+    try {
+      await deleteType(id);
+      toast.success("Type successfully deleted");
+    } catch (error) {
+      toast.error(error?.message || "Failed to delete type");
     }
   };
 
@@ -182,13 +163,23 @@ export default function IngredientsPage() {
         description="Manage, categorise and track culinary raw items for menus and recipes"
         breadcrumbs={[{ label: "Ingredients" }]}
         actions={
-          <Button
-            onClick={() => setModal({ open: true, initial: null })}
-            className="h-10 gap-1.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 shadow-md shadow-primary/20 hover:scale-[1.01] transition-transform font-bold"
-          >
-            <Plus className="h-4.5 w-4.5" />
-            Add Ingredient
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setTypeModal({ open: true, initial: null })}
+              variant="outline"
+              className="h-10 gap-1.5 rounded-xl font-bold"
+            >
+              <FolderPlus className="h-4.5 w-4.5" />
+              Add Type
+            </Button>
+            <Button
+              onClick={() => setModal({ open: true, initial: null })}
+              className="h-10 gap-1.5 rounded-xl bg-gradient-to-r from-primary to-indigo-500 shadow-md shadow-primary/20 hover:scale-[1.01] transition-transform font-bold"
+            >
+              <Plus className="h-4.5 w-4.5" />
+              Add Ingredient
+            </Button>
+          </div>
         }
       />
 
@@ -229,11 +220,11 @@ export default function IngredientsPage() {
       </div>
 
       {/* Content Grid */}
-      {isLoading && ingredients.length === 0 ? (
+      {isLoading && ingredientTypes.length === 0 ? (
         <div className="py-24">
           <PageLoader label="Fetching ingredients list..." size="sm" />
         </div>
-      ) : groupedCategories.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/60 p-16 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground/40 border border-dashed">
             <Carrot className="h-7 w-7" />
@@ -250,48 +241,80 @@ export default function IngredientsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {groupedCategories.map((group) => {
-            const colors = COLOR_MAP[group.color] || COLOR_MAP.indigo;
-            const IconComp = ICON_MAP[group.icon] || Package;
+          {filtered.map((type) => {
+            const colors = COLOR_MAP.primary;
+            const IconComp = ChefHat;
 
             return (
               <div
-                key={group.name}
+                key={type.id}
                 className={cn(
-                  "flex flex-col rounded-3xl border bg-card shadow-sm p-6 relative overflow-hidden transition-all duration-200 hover:shadow-md",
+                  "flex flex-col rounded-3xl border border-border/60 bg-gradient-to-br from-card to-card/80 shadow-lg shadow-primary/5 p-6 relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1",
                   colors.border
                 )}
               >
-                {/* Category Card Header */}
-                <div className="flex items-center justify-between mb-5 pb-4 border-b border-border/40">
-                  <div className="flex items-center gap-2.5">
-                    <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl", colors.bg, colors.text)}>
+                {/* Premium gradient background effect */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+
+                {/* Type Card Header */}
+                <div className="flex items-center justify-between mb-5 pb-4 border-b border-border/40 relative">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-indigo-500 text-white shadow-lg shadow-primary/20", colors.bg, colors.text)}>
                       <IconComp className="h-5 w-5" />
                     </div>
-                    <span className="font-extrabold text-foreground text-base sm:text-lg tracking-tight">{group.name}</span>
+                    <span className="font-extrabold text-foreground text-base sm:text-lg tracking-tight">{type.name}</span>
                   </div>
-                  <Badge className={cn("font-bold rounded-full text-xs border-none px-2.5 py-0.5", colors.badge)}>
-                    {group.items.length}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={cn("font-bold rounded-full text-xs border-none px-2.5 py-0.5 shadow-sm", colors.badge)}>
+                      {type.ingredients?.length || 0}
+                    </Badge>
+                    <button
+                      type="button"
+                      onClick={() => setTypeModal({ open: true, initial: type })}
+                      className="flex h-8 w-8 items-center justify-center rounded-xl border border-border/60 bg-card/80 text-muted-foreground hover:text-primary hover:border-primary/30 transition-all hover:bg-primary/10 active:scale-90"
+                      title="Edit Type"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
 
+                {/* Add Ingredient Button */}
+                <button
+                  type="button"
+                  onClick={() => setModal({ open: true, initial: null, preSelectedTypeId: type.id })}
+                  className="mb-4 flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-primary/10 to-indigo-500/10 border border-primary/20 px-4 py-2.5 text-sm font-bold text-primary hover:from-primary/20 hover:to-indigo-500/20 hover:border-primary/30 transition-all active:scale-95 relative"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Ingredient
+                </button>
+
                 {/* Scrollable list of ingredients inside card */}
-                <div className="space-y-2.5 flex-1 max-h-[270px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-                  {group.items.map((ing) => (
+                <div className="space-y-2.5 flex-1 max-h-[270px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent relative">
+                  {type.ingredients?.map((ing) => (
                     <div
                       key={ing.id}
-                      className="group flex items-center justify-between rounded-xl bg-muted/20 px-4 py-3 hover:bg-muted/40 transition-colors"
+                      className="group flex items-center justify-between rounded-2xl bg-card/60 border border-border/40 px-4 py-3 hover:bg-card/80 hover:border-primary/30 transition-all duration-200"
                     >
                       <span className="font-bold text-foreground text-sm sm:text-base tracking-tight truncate pr-2">
                         {ing.name}
                       </span>
 
                       {/* Actions on hover */}
-                      <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0">
+                      <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setMoveModal({ open: true, ingredient: ing })}
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-border/60 bg-card/80 text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary hover:border-primary/30 active:scale-90"
+                          title="Move to Type"
+                        >
+                          <ArrowRight className="h-4 w-4" />
+                        </button>
                         <button
                           type="button"
                           onClick={() => setModal({ open: true, initial: ing })}
-                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-card text-primary transition-all hover:bg-primary/10 active:scale-90"
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-border/60 bg-card/80 text-primary transition-all hover:bg-primary/10 hover:border-primary/30 active:scale-90"
                           title="Edit Ingredient"
                         >
                           <Pencil className="h-4 w-4" />
@@ -299,7 +322,7 @@ export default function IngredientsPage() {
                         <button
                           type="button"
                           onClick={() => setConfirmDelete(ing)}
-                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-red-500/10 bg-card text-red-500 transition-all hover:bg-red-50 hover:text-red-700 active:scale-90"
+                          className="flex h-8 w-8 items-center justify-center rounded-xl border border-red-500/20 bg-card/80 text-red-500 transition-all hover:bg-red-50 hover:border-red-500/40 active:scale-90"
                           title="Delete Ingredient"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -319,6 +342,21 @@ export default function IngredientsPage() {
         onOpenChange={(o) => setModal((m) => ({ ...m, open: o }))}
         initial={modal.initial}
         onSave={handleSave}
+        preSelectedTypeId={modal.preSelectedTypeId}
+      />
+
+      <IngredientTypeModal
+        open={typeModal.open}
+        onOpenChange={(o) => setTypeModal((m) => ({ ...m, open: o }))}
+        initial={typeModal.initial}
+        onSave={handleTypeSave}
+        onDelete={handleTypeDelete}
+      />
+
+      <MoveIngredientModal
+        open={moveModal.open}
+        onOpenChange={(o) => setMoveModal((m) => ({ ...m, open: o }))}
+        ingredient={moveModal.ingredient}
       />
 
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>

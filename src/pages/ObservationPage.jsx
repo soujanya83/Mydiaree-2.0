@@ -391,7 +391,7 @@ export default function ObservationPage() {
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Search</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Search By Title</label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input

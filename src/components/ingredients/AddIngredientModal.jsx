@@ -10,17 +10,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Carrot, Loader2 } from "lucide-react";
+import { useIngredientStore } from "@/stores/ingredientStore";
 
-export function AddIngredientModal({ open, onOpenChange, initial, onSave }) {
+export function AddIngredientModal({ open, onOpenChange, initial, onSave, preSelectedTypeId }) {
   const [name, setName] = useState("");
+  const [ingredientTypeId, setIngredientTypeId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const { ingredientTypes } = useIngredientStore();
 
   useEffect(() => {
     if (open) {
       setName(initial?.name || "");
+      setIngredientTypeId(initial?.ingredient_type_id?.toString() || preSelectedTypeId?.toString() || "");
       setIsSaving(false);
     }
-  }, [open, initial]);
+  }, [open, initial, preSelectedTypeId]);
 
   const isEdit = !!initial?.id;
 
@@ -28,10 +32,17 @@ export function AddIngredientModal({ open, onOpenChange, initial, onSave }) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed || isSaving) return;
-    
+    if (!isEdit && !ingredientTypeId) {
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await onSave?.({ id: initial?.id, name: trimmed });
+      await onSave?.({
+        id: initial?.id,
+        name: trimmed,
+        ingredientTypeId: isEdit ? undefined : ingredientTypeId,
+      });
       onOpenChange(false);
     } finally {
       setIsSaving(false);
@@ -60,32 +71,54 @@ export function AddIngredientModal({ open, onOpenChange, initial, onSave }) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
-          <div className="space-y-2 px-6 py-4">
-            <Label htmlFor="ingredient-name" className="text-sm font-bold text-foreground">
-              Ingredient Name
-            </Label>
-            <Input
-              id="ingredient-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Organic Honey"
-              autoFocus
-              className="h-11 rounded-xl bg-muted/40 px-4 focus-visible:ring-primary/20 font-medium"
-            />
+          <div className="space-y-4 px-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="ingredient-name" className="text-sm font-bold text-foreground">
+                Ingredient Name
+              </Label>
+              <Input
+                id="ingredient-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Organic Honey"
+                autoFocus
+                className="h-11 rounded-xl bg-muted/40 px-4 focus-visible:ring-primary/20 font-medium"
+              />
+            </div>
+            {!isEdit && (
+              <div className="space-y-2">
+                <Label htmlFor="ingredient-type" className="text-sm font-bold text-foreground">
+                  Type <span className="text-destructive font-bold ml-0.5">*</span>
+                </Label>
+                <select
+                  id="ingredient-type"
+                  value={ingredientTypeId}
+                  onChange={(e) => setIngredientTypeId(e.target.value)}
+                  className="h-11 w-full rounded-xl bg-muted/40 px-4 focus-visible:ring-primary/20 font-medium border border-border"
+                >
+                  <option value="">Select a type</option>
+                  {ingredientTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <DialogFooter className="flex justify-end gap-2 border-t border-border/50 bg-muted/10 px-6 py-4">
-            <Button 
-              type="button" 
-              variant="ghost" 
+            <Button
+              type="button"
+              variant="ghost"
               onClick={() => onOpenChange(false)}
               className="rounded-xl font-semibold"
               disabled={isSaving}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               type="submit"
-              disabled={isSaving || !name.trim()}
+              disabled={isSaving || !name.trim() || (!isEdit && !ingredientTypeId)}
               className="rounded-xl bg-gradient-to-r from-primary to-indigo-500 text-white font-semibold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30"
             >
               {isSaving ? (

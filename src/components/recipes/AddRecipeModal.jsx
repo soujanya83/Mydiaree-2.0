@@ -39,7 +39,7 @@ const empty = {
 
 export function AddRecipeModal({ open, onOpenChange, initial }) {
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
-  const { ingredients: allIngredients, fetchIngredients } = useIngredientStore();
+  const { ingredients: allIngredients, fetchIngredientsForRecipe } = useIngredientStore();
   const { addRecipe, updateRecipe } = useRecipeStore();
 
   const [form, setForm] = useState(empty);
@@ -53,10 +53,10 @@ export function AddRecipeModal({ open, onOpenChange, initial }) {
 
   useEffect(() => {
     if (open) {
-      fetchIngredients();
+      fetchIngredientsForRecipe();
       setErrors({}); // Reset error messages on open
     }
-  }, [open, fetchIngredients]);
+  }, [open, fetchIngredientsForRecipe]);
 
   useEffect(() => {
     if (open) {
