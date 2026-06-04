@@ -4,6 +4,7 @@ import { centerService } from "@/services/admin/centerService";
 export const useCentreStore = create((set, get) => ({
   centres: [],
   activeCentreId: localStorage.getItem("activeCentreId") || null,
+  activeCenterDetails: null,
   isLoading: false,
   error: null,
 
@@ -46,10 +47,28 @@ export const useCentreStore = create((set, get) => ({
         set({ isLoading: false, error: "Failed to fetch centers" });
       }
     } catch (error) {
-      set({ 
-        isLoading: false, 
-        error: error?.response?.data?.message || "Something went wrong" 
+      set({
+        isLoading: false,
+        error: error?.response?.data?.message || "Something went wrong"
       });
+    }
+  },
+
+  fetchActiveCenterDetails: async (centerId) => {
+    if (!centerId) {
+      set({ activeCenterDetails: null });
+      return;
+    }
+    try {
+      const response = await centerService.getCenterDetails(centerId);
+      if (response.status && response.data?.center) {
+        set({ activeCenterDetails: response.data.center });
+      } else {
+        set({ activeCenterDetails: null });
+      }
+    } catch (error) {
+      console.error("Failed to fetch center details:", error);
+      set({ activeCenterDetails: null });
     }
   },
 }));

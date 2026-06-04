@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Filter, Building, MapPin, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, Pencil, Filter, Building, MapPin, Trash2, Loader2, Eye } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCentreStore } from "@/stores/centreStore";
 import { AddCenterModal } from "@/components/centers/AddCenterModal";
+import { CenterDetailsModal } from "@/components/centers/CenterDetailsModal";
 import { centerService } from "@/services/admin/centerService";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ export default function SettingsPage() {
   const [modal, setModal] = useState({ open: false, initial: null });
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [detailsModal, setDetailsModal] = useState({ open: false, centerId: null });
   const { hasFullAccess } = usePermissions();
 
   const filtered = useMemo(() => {
@@ -167,6 +169,14 @@ export default function SettingsPage() {
               <div className="mt-auto flex items-center justify-end gap-2 border-t border-border/50 pt-4 relative">
                 <button
                   type="button"
+                  onClick={() => setDetailsModal({ open: true, centerId: c.id })}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-muted/50 px-4 text-xs font-bold text-foreground transition-colors hover:bg-muted active:scale-95"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  View
+                </button>
+                <button
+                  type="button"
                   onClick={() => setModal({ open: true, initial: c })}
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-primary/10 px-4 text-xs font-bold text-primary transition-colors hover:bg-primary/20 active:scale-95"
                 >
@@ -194,6 +204,12 @@ export default function SettingsPage() {
         onOpenChange={(o) => setModal((m) => ({ ...m, open: o }))}
         initial={modal.initial}
         onSave={handleSave}
+      />
+
+      <CenterDetailsModal
+        open={detailsModal.open}
+        onOpenChange={(o) => setDetailsModal((m) => ({ ...m, open: o }))}
+        centerId={detailsModal.centerId}
       />
 
       <AlertDialog open={deleteModal.open} onOpenChange={(o) => !isDeleting && setDeleteModal({ open: o, id: o ? deleteModal.id : null })}>

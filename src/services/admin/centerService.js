@@ -28,4 +28,20 @@ export const centerService = {
     const res = await api.delete(`/settings/center/${id}/destroy`);
     return res.data;
   },
+
+  async getCenterDetails(id) {
+    const res = await api.get("/settings/center/edit", {
+      params: { id },
+    });
+    return res.data;
+  },
+
+  async updateCenterLogo(formData) {
+    const res = await api.post("/settings/center/logo/update", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data;
+  },
 };

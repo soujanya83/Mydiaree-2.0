@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ThemeSwitcher } from "@/components/common/ThemeSwitcher";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
+import logoLong from "@/assets/mydiaree_long_logo.png";
 
 import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { isParentUser } from "@/constants/parentAccess";
@@ -46,6 +47,11 @@ export function Header() {
       >
         <Menu className="h-5 w-5" />
       </button>
+
+      {/* Logo in center */}
+      <div className="hidden lg:flex flex-1 justify-center">
+        <img src={logoLong} alt="MyDiaree" className="h-8 w-auto" />
+      </div>
 
       {/* Search */}
       {/* <div className="relative hidden max-w-md flex-1 md:block">

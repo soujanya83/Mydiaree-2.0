@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown, PanelLeftClose, PanelLeftOpen, Sparkles, X } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, Sparkles, X, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navConfig } from "@/constants/nav";
 import { parentNavConfig } from "@/constants/parentNav";
@@ -11,6 +11,7 @@ import {
   FULL_ACCESS_ADMIN_ROUTES,
   SUPERADMIN_ONLY_ROUTES,
 } from "@/constants/permissionMap";
+import { useCentreStore } from "@/stores/centreStore";
 import logoLong from "@/assets/mydiaree_long_logo.png";
 import logoShort from "@/assets/mydiearee_short_logo.png";
 
@@ -21,6 +22,7 @@ export function Sidebar() {
   const setMobileOpen = useUiStore((s) => s.setMobileSidebarOpen);
   const expandedGroups = useUiStore((s) => s.expandedGroups);
   const toggleGroup = useUiStore((s) => s.toggleGroup);
+  const activeCenterDetails = useCentreStore((s) => s.activeCenterDetails);
 
   const pathname = useLocation().pathname;
   const isActive = (to) => pathname === to || pathname.startsWith(to + "/");
@@ -113,9 +115,27 @@ export function Sidebar() {
         >
           <Link to="/dashboard" className="flex items-center justify-center">
             {collapsed ? (
-              <img src={logoShort} alt="MyDiaree" className="h-8 w-auto" />
+              activeCenterDetails?.center_logo_url ? (
+                <img
+                  src={activeCenterDetails.center_logo_url}
+                  alt={activeCenterDetails.centerName || "Center"}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Building2 className="h-4 w-4" />
+                </div>
+              )
+            ) : activeCenterDetails?.center_logo_url ? (
+              <img
+                src={activeCenterDetails.center_logo_url}
+                alt={activeCenterDetails.centerName || "Center"}
+                className="h-10 w-auto max-w-[140px] object-contain"
+              />
             ) : (
-              <img src={logoLong} alt="MyDiaree" className="h-10 w-auto" />
+              <div className="flex h-10 items-center justify-center">
+                <Building2 className="h-6 w-6 text-primary" />
+              </div>
             )}
           </Link>
           {!collapsed && (

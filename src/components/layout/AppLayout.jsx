@@ -15,6 +15,7 @@ export default function AppLayout() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const fetchCentres = useCentreStore((s) => s.fetchCentres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
+  const fetchActiveCenterDetails = useCentreStore((s) => s.fetchActiveCenterDetails);
 
   const fetchRooms = useRoomStore((s) => s.fetchRooms);
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
@@ -41,6 +42,13 @@ export default function AppLayout() {
       fetchRooms(activeCentreId);
     }
   }, [activeCentreId, fetchRooms]);
+
+  // Fetch active center details when centre changes
+  useEffect(() => {
+    if (activeCentreId) {
+      fetchActiveCenterDetails(activeCentreId);
+    }
+  }, [activeCentreId, fetchActiveCenterDetails]);
 
   // Fetch children when room changes (non-parent users)
   useEffect(() => {
