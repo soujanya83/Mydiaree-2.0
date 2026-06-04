@@ -2,7 +2,7 @@ import api from "@/api/api";
 
 export const announcementService = {
   async getAnnouncements(centerId) {
-    const res = await api.get("/announcements/list", {
+    const res = await api.get("/announcements/mernlist", {
       params: { centerid: centerId },
     });
     return res.data;
