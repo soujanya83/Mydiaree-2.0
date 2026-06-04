@@ -266,7 +266,7 @@ export default function AccidentFormPage() {
       missing_unaccounted: data.missingCircumstances,
       taken_removed: data.removedCircumstances,
       other_remarks: data.natureOtherRemarks,
-      body_injury_image: data.bodyInjuryImageFile || null,
+      body_injury_image: data.bodyInjuryImageBase64 || null,
       action_taken: data.actionDetails,
       emrg_serv_attend: data.emergencyAttended === "yes" ? "yes" : "no",
       med_attention: data.medicalSought === "yes" ? "yes" : "no",
@@ -325,6 +325,7 @@ export default function AccidentFormPage() {
   const handleCreate = async (data) => {
     try {
       const payload = mapToApiPayload(data);
+      console.log("Submit data for the accident are ", data);
       const res = await accidentService.saveAccident(toFormData(payload));
       if (res.data.status) {
         toast.success("Accident record created.");

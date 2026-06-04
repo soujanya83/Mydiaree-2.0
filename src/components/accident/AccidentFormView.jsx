@@ -34,7 +34,7 @@ import { childrenService } from "@/services/centre/childrenService";
 import { SignatureField } from "./SignaturePad";
 import { NATURE_OPTIONS } from "./accidentFormConstants";
 import { BodyInjuryDiagram } from "./BodyInjuryDiagram";
-import { generateMarkedBodyImage, blobToFile } from "@/utils/bodyInjuryImageGenerator";
+import { generateMarkedBodyImage } from "@/utils/bodyInjuryImageGenerator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { IMG_BASE_API } from "../../api/imageapi";
@@ -254,12 +254,11 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
     }
 
     // Generate marked body diagram image if there are markers
-    let bodyInjuryImageFile = null;
+    let bodyInjuryImageBase64 = null;
     if (data.bodyInjuryMarkers && data.bodyInjuryMarkers.length > 0) {
       setIsGeneratingImage(true);
       try {
-        const blob = await generateMarkedBodyImage(data.bodyInjuryMarkers);
-        bodyInjuryImageFile = blobToFile(blob);
+        bodyInjuryImageBase64 = await generateMarkedBodyImage(data.bodyInjuryMarkers);
       } catch (error) {
         console.error("Failed to generate body injury image:", error);
         toast.error("Failed to generate body injury diagram image");
@@ -269,7 +268,9 @@ export function AccidentFormView({ initial, mode, onCancel, onSubmit }) {
       }
     }
 
-    onSubmit({ ...data, bodyInjuryImageFile });
+    // Remove bodyInjuryMarkers from the data being sent
+    const { bodyInjuryMarkers, ...dataToSend } = data;
+    onSubmit({ ...dataToSend, bodyInjuryImageBase64 });
   };
 
   return (
