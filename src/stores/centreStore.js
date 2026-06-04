@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { centerService } from "@/services/admin/centerService";
+import { userService } from "@/services/user/userService";
 
 export const useCentreStore = create((set, get) => ({
   centres: [],
@@ -9,9 +10,15 @@ export const useCentreStore = create((set, get) => ({
   error: null,
 
   setCentres: (centres) => set({ centres }),
-  setActiveCentre: (id) => {
+  setActiveCentre: async (id) => {
     localStorage.setItem("activeCentreId", id);
     set({ activeCentreId: id });
+    // Save selected center to database
+    try {
+      await userService.saveSelectedCenter(id);
+    } catch (error) {
+      console.error("Failed to save selected center:", error);
+    }
   },
 
   fetchCentres: async () => {
@@ -69,6 +76,19 @@ export const useCentreStore = create((set, get) => ({
     } catch (error) {
       console.error("Failed to fetch center details:", error);
       set({ activeCenterDetails: null });
+    }
+  },
+
+  fetchSelectedCenter: async () => {
+    try {
+      const response = await userService.fetchSelectedCenter();
+      if (response.status && response.data?.selected_center_id) {
+        const selectedCenterId = response.data.selected_center_id;
+        localStorage.setItem("activeCentreId", selectedCenterId);
+        set({ activeCentreId: selectedCenterId });
+      }
+    } catch (error) {
+      console.error("Failed to fetch selected center:", error);
     }
   },
 }));

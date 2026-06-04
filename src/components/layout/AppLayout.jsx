@@ -16,6 +16,7 @@ export default function AppLayout() {
   const fetchCentres = useCentreStore((s) => s.fetchCentres);
   const activeCentreId = useCentreStore((s) => s.activeCentreId);
   const fetchActiveCenterDetails = useCentreStore((s) => s.fetchActiveCenterDetails);
+  const fetchSelectedCenter = useCentreStore((s) => s.fetchSelectedCenter);
 
   const fetchRooms = useRoomStore((s) => s.fetchRooms);
   const activeRoomId = useRoomStore((s) => s.activeRoomId);
@@ -29,6 +30,13 @@ export default function AppLayout() {
   useEffect(() => {
     fetchCentres();
   }, [fetchCentres]);
+
+  // Fetch selected center from database on mount
+  useEffect(() => {
+    if (user) {
+      fetchSelectedCenter();
+    }
+  }, [user, fetchSelectedCenter]);
 
   // Re-fetch permissions on page load (same as login) so access stays in sync
   useEffect(() => {
