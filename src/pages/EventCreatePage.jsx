@@ -147,6 +147,7 @@ export default function EventCreatePage() {
                 eventColor: "#0d6efd",
                 media: null,
                 children: [],
+                childrenData: [],
                 state: existing.state || "",
                 status: String(existing.status),
               });
@@ -174,6 +175,7 @@ export default function EventCreatePage() {
               eventColor: mapped.eventColor || "#0d6efd",
               media: mapped.media || null,
               children: childIds,
+              childrenData: [],
               state: "",
               status: "1",
             });
@@ -576,7 +578,7 @@ export default function EventCreatePage() {
                     </div>
                     
                     {/* Display selected children with avatars */}
-                    {form.childrenData.length > 0 && (
+                    {form.childrenData?.length > 0 && (
                       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {form.childrenData.map((child) => (
                           <div key={child.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3">
