@@ -19,6 +19,7 @@ import DailyReflectionCreatePage from "@/pages/DailyReflectionCreatePage";
 import DailyReflectionDetailsPage from "@/pages/DailyReflectionDetailsPage";
 import EventsPage from "@/pages/EventsPage";
 import EventCreatePage from "@/pages/EventCreatePage";
+import EventDetailsPage from "@/pages/EventDetailsPage";
 import PublicHolidaysPage from "@/pages/PublicHolidaysPage";
 import FormsPage from "@/pages/FormsPage";
 import ReEnrollmentFormPage from "@/pages/ReEnrollmentFormPage";
@@ -362,7 +363,7 @@ export default function App() {
             path="/events/:id"
             element={
               <ProtectedRoute path="/events">
-                <EventCreatePage />
+                <EventDetailsPage />
               </ProtectedRoute>
             }
           />

@@ -70,6 +70,7 @@ export function SelectChildrenModal({ open, onOpenChange, initial = [], onSubmit
         const res = await childrenService.filterChildren({
           center_id: activeCentreId,
           status: "Active",
+          per_page:100,
           room_id: roomId === "all" ? undefined : roomId,
           search,
         });

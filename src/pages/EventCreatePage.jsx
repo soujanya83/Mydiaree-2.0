@@ -15,6 +15,7 @@ import {
   Megaphone,
   MapPin,
   Loader2,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -33,9 +34,26 @@ import { eventTypes, accessOptions } from "@/components/events/eventsData";
 import { SelectChildrenModal } from "@/components/events/SelectChildrenModal";
 import { announcementService } from "@/services/centre/announcementService";
 import { holidayService } from "@/services/centre/holidayService";
+import { childrenService } from "@/services/centre/childrenService";
 import { useCentreStore } from "@/stores/centreStore";
 import { mapAnnouncementRecord, toApiAudience, toApiType } from "@/components/events/eventMappers";
 import { stripHtml } from "../components/dashboard/DashboardCalendar";
+import { IMG_BASE_API } from "../api/imageapi";
+
+const IMG_BASE = IMG_BASE_API;
+
+function mediaUrl(raw) {
+  if (!raw) return "";
+  return String(raw).startsWith("http")
+    ? String(raw)
+    : `${IMG_BASE}${String(raw).replace(/^\/+/, "")}`;
+}
+
+function getInitials(name, lastname) {
+  const nameInitial = name ? name.charAt(0).toUpperCase() : "";
+  const lastnameInitial = lastname ? lastname.charAt(0).toUpperCase() : "";
+  return (nameInitial + lastnameInitial).slice(0, 2);
+}
 
 export default function EventCreatePage() {
   const navigate = useNavigate();
@@ -59,6 +77,7 @@ export default function EventCreatePage() {
     eventColor: "#0d6efd",
     media: null,
     children: [],
+    childrenData: [],
     state: "",
     status: "1",
   });
@@ -66,6 +85,37 @@ export default function EventCreatePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+  const [isLoadingChildren, setIsLoadingChildren] = useState(false);
+
+  // Fetch children data when children IDs change
+  useEffect(() => {
+    const fetchChildrenData = async () => {
+      if (!form.children.length || !activeCentreId) {
+        setForm((f) => ({ ...f, childrenData: [] }));
+        return;
+      }
+      setIsLoadingChildren(true);
+      try {
+        const res = await childrenService.filterChildren({
+          center_id: activeCentreId,
+          status: "Active",
+          per_page:100,
+        });
+        if (res.status && res.data?.data) {
+          const selectedChildren = res.data.data.filter((child) =>
+            form.children.includes(String(child.id))
+          );
+          setForm((f) => ({ ...f, childrenData: selectedChildren }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch children data:", error);
+      } finally {
+        setIsLoadingChildren(false);
+      }
+    };
+
+    fetchChildrenData();
+  }, [form.children, activeCentreId]);
 
   useEffect(() => {
     if (!id) return;
@@ -380,7 +430,7 @@ export default function EventCreatePage() {
                     Title <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    value={stripHtml(form.title)}
+                    value={form.title}
                     onChange={(e) => update("title", e.target.value)}
                     disabled={isView}
                     placeholder="Enter a clear, descriptive title"
@@ -524,6 +574,49 @@ export default function EventCreatePage() {
                         <Plus className="h-4 w-4" /> Add Children
                       </Button>
                     </div>
+                    
+                    {/* Display selected children with avatars */}
+                    {form.childrenData.length > 0 && (
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {form.childrenData.map((child) => (
+                          <div key={child.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3">
+                            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-primary/10 flex items-center justify-center">
+                              {child.imageUrl ? (
+                                <img
+                                  src={mediaUrl(child.imageUrl)}
+                                  alt={`${child.name} ${child.lastname}`}
+                                  className="h-full w-full object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = "none";
+                                    e.target.nextSibling.style.display = "flex";
+                                  }}
+                                />
+                              ) : null}
+                              <span
+                                className="text-xs font-black text-primary"
+                                style={{ display: child.imageUrl ? "none" : "flex" }}
+                              >
+                                {getInitials(child.name, child.lastname)}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-foreground truncate">
+                                {child.name} {child.lastname}
+                              </p>
+                             
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {isLoadingChildren && (
+                      <div className="mt-4 flex items-center justify-center py-4">
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="ml-2 text-sm text-muted-foreground">Loading children...</span>
+                      </div>
+                    )}
+                    
                     {formErrors.childId && (
                       <p className="text-sm text-destructive">{formErrors.childId}</p>
                     )}
@@ -570,7 +663,7 @@ export default function EventCreatePage() {
                       Description <span className="text-destructive">*</span>
                     </Label>
                     <Textarea
-                      value={stripHtml(form.description)}
+                      value={form.description}
                       onChange={(e) => update("description", e.target.value)}
                       disabled={isView}
                       rows={18}
