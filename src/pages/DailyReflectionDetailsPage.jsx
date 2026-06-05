@@ -174,7 +174,7 @@ export default function DailyReflectionDetailsPage() {
                 <img
                   src={getMediaUrl(mediaItems[0].mediaUrl)}
                   alt="Hero"
-                  className="h-full w-full object-cover opacity-40"
+                  className="h-full w-full object-contain opacity-40"
                 />
               )}
             </div>

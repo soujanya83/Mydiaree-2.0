@@ -482,7 +482,7 @@ function MediaFrame({ media, title, className = "" }) {
     <img
       src={media.url}
       alt={media.caption || title || "Observation media"}
-      className={`w-full object-cover ${className}`}
+      className={`w-full object-contain ${className}`}
     />
   );
 }
@@ -528,7 +528,7 @@ function ChildCard({ child }) {
           <img
             src={mediaUrl(child.imageUrl)}
             alt={fullName(child)}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
@@ -753,7 +753,7 @@ function LinkedPreview({ type, item }) {
           <img
             src={mediaUrl(media.mediaUrl || media.url)}
             alt={title}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
@@ -807,7 +807,7 @@ function QuickFacts({ observation }) {
                     <img
                       src={mediaUrl(staff.imageUrl)}
                       alt={staff.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain"
                       onError={(e) => {
                         e.target.style.display = "none";
                         e.target.nextSibling.style.display = "flex";
@@ -821,9 +821,7 @@ function QuickFacts({ observation }) {
                     {staff.name ? staff.name.charAt(0).toUpperCase() : "U"}
                   </span>
                 </div>
-                <span className="text-sm font-bold text-foreground line-clamp-1">
-                  {staff.name}
-                </span>
+                <span className="text-sm font-bold text-foreground line-clamp-1">{staff.name}</span>
               </div>
             ))}
           </div>

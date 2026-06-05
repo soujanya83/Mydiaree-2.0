@@ -1912,7 +1912,7 @@ function LinkedPreviewCard({ type, item }) {
     <div className="flex gap-3 rounded-xl border border-border bg-card p-3">
       <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-muted">
         {media ? (
-          <img src={getMediaUrl(media)} alt={title} className="h-full w-full object-cover" />
+          <img src={getMediaUrl(media)} alt={title} className="h-full w-full object-contain" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
@@ -2192,7 +2192,7 @@ function LinkPickerCard({ type, item, selected, onToggle }) {
             <ClipboardList className="h-7 w-7" />
           </div>
         ) : media ? (
-          <img src={getMediaUrl(media)} alt={title} className="h-full w-full object-cover" />
+          <img src={getMediaUrl(media)} alt={title} className="h-full w-full object-contain" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <ImageIcon className="h-6 w-6 text-muted-foreground/45" />
@@ -3081,7 +3081,7 @@ function Avatar({ name, imageUrl }) {
   return (
     <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/10 text-xs font-bold text-primary">
       {url ? (
-        <img src={url} alt={name} className="h-full w-full object-cover" loading="lazy" />
+        <img src={url} alt={name} className="h-full w-full object-contain" loading="lazy" />
       ) : (
         name
           .split(/\s+/)
@@ -3102,11 +3102,11 @@ function ObservationMediaPreview({ item, isDeleting = false, onRemove }) {
   return (
     <div className="group relative aspect-video overflow-hidden rounded-xl border border-border bg-muted">
       {isVideo ? (
-        <video src={src} className="h-full w-full object-cover" controls playsInline />
+        <video src={src} className="h-full w-full object-contain" controls playsInline />
       ) : (
         <img
           src={src}
-          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+          className="h-full w-full object-contain transition-transform group-hover:scale-105"
           alt="Observation media preview"
         />
       )}
