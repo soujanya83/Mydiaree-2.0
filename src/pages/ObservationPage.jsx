@@ -71,6 +71,7 @@ const OBSERVATION_DATE_FILTERS = DATE_FILTERS.filter((option) =>
   ["all", "today", "this-week", "this-month"].includes(option.value),
 );
 const OBSERVATION_ROOM_FILTER_KEY = "observation-room-filter";
+const OBSERVATION_FILTERS_KEY = "observation-filters";
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -160,17 +161,95 @@ export default function ObservationPage() {
   const [titleModalOpen, setTitleModalOpen] = useState(false);
   const [commentModalId, setCommentModalId] = useState(null);
   const [commentRefreshTicks, setCommentRefreshTicks] = useState({});
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
-  const [dateRange, setDateRange] = useState("all");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
-  const [author, setAuthor] = useState("all");
-  const [childId, setChildId] = useState("all");
+  
+  // Initialize all filters from localStorage
+  const [search, setSearch] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(OBSERVATION_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).search || "";
+    } catch (e) {
+      console.error("Failed to load search from localStorage:", e);
+    }
+    return "";
+  });
+  const [status, setStatus] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(OBSERVATION_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).status || "all";
+    } catch (e) {
+      console.error("Failed to load status from localStorage:", e);
+    }
+    return "all";
+  });
+  const [dateRange, setDateRange] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(OBSERVATION_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).dateRange || "all";
+    } catch (e) {
+      console.error("Failed to load dateRange from localStorage:", e);
+    }
+    return "all";
+  });
+  const [customFrom, setCustomFrom] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(OBSERVATION_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).customFrom || "";
+    } catch (e) {
+      console.error("Failed to load customFrom from localStorage:", e);
+    }
+    return "";
+  });
+  const [customTo, setCustomTo] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(OBSERVATION_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).customTo || "";
+    } catch (e) {
+      console.error("Failed to load customTo from localStorage:", e);
+    }
+    return "";
+  });
+  const [author, setAuthor] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(OBSERVATION_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).author || "all";
+    } catch (e) {
+      console.error("Failed to load author from localStorage:", e);
+    }
+    return "all";
+  });
+  const [childId, setChildId] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(OBSERVATION_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).childId || "all";
+    } catch (e) {
+      console.error("Failed to load childId from localStorage:", e);
+    }
+    return "all";
+  });
   const [page, setPage] = useState(1);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Save all filters to localStorage on change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        OBSERVATION_FILTERS_KEY,
+        JSON.stringify({ search, status, dateRange, customFrom, customTo, author, childId })
+      );
+    } catch (e) {
+      console.error("Failed to save filters to localStorage:", e);
+    }
+  }, [search, status, dateRange, customFrom, customTo, author, childId]);
 
   const fetchObservations = useCallback(async () => {
     if (isParent) {

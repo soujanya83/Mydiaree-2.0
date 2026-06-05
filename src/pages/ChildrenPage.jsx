@@ -58,6 +58,8 @@ import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { toast } from "sonner";
 import { IMG_BASE_API } from "../api/imageapi";
 
+const CHILDREN_FILTERS_KEY = "children-filters";
+
 function ageFrom(dob) {
   if (!dob) return "";
   const d = new Date(dob);
@@ -97,14 +99,82 @@ export default function ChildrenPage() {
   const { can } = usePermissions();
   const perms = ACTION_PERMISSIONS.children;
 
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [localRoomId, setLocalRoomId] = useState("all");
-  const [genderFilter, setGenderFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("Active");
-  const [sort, setSort] = useState("asc");
+  // Initialize filters from localStorage
+  const [searchInput, setSearchInput] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(CHILDREN_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).searchInput || "";
+    } catch (e) {
+      console.error("Failed to load searchInput from localStorage:", e);
+    }
+    return "";
+  });
+  const [search, setSearch] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(CHILDREN_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).search || "";
+    } catch (e) {
+      console.error("Failed to load search from localStorage:", e);
+    }
+    return "";
+  });
+  const [localRoomId, setLocalRoomId] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(CHILDREN_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).localRoomId || "all";
+    } catch (e) {
+      console.error("Failed to load localRoomId from localStorage:", e);
+    }
+    return "all";
+  });
+  const [genderFilter, setGenderFilter] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(CHILDREN_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).genderFilter || "all";
+    } catch (e) {
+      console.error("Failed to load genderFilter from localStorage:", e);
+    }
+    return "all";
+  });
+  const [statusFilter, setStatusFilter] = useState(() => {
+    if (typeof window === "undefined") return "Active";
+    try {
+      const saved = window.localStorage.getItem(CHILDREN_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).statusFilter || "Active";
+    } catch (e) {
+      console.error("Failed to load statusFilter from localStorage:", e);
+    }
+    return "Active";
+  });
+  const [sort, setSort] = useState(() => {
+    if (typeof window === "undefined") return "asc";
+    try {
+      const saved = window.localStorage.getItem(CHILDREN_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).sort || "asc";
+    } catch (e) {
+      console.error("Failed to load sort from localStorage:", e);
+    }
+    return "asc";
+  });
   const [page, setPage] = useState(1);
   const searchTimerRef = useRef(null);
+
+  // Save filters to localStorage on change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        CHILDREN_FILTERS_KEY,
+        JSON.stringify({ searchInput, search, localRoomId, genderFilter, statusFilter, sort })
+      );
+    } catch (e) {
+      console.error("Failed to save filters to localStorage:", e);
+    }
+  }, [searchInput, search, localRoomId, genderFilter, statusFilter, sort]);
 
   const [selectRoomOpen, setSelectRoomOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);

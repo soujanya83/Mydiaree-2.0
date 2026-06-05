@@ -63,6 +63,7 @@ const CARD_PRIMARY_ACTION_CLASSES =
 const CARD_PRIMARY_ACTION_STYLE = {
   color: "var(--primary)",
 };
+const PROGRAM_PLAN_FILTERS_KEY = "program-plan-filters";
 
 /* ---------- helpers (unchanged logic) ---------- */
 const toBlankString = (value) => (value === null || value === undefined ? "" : String(value));
@@ -390,13 +391,6 @@ export default function ProgramPlanPage() {
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [isDeletingPlan, setIsDeletingPlan] = useState(false);
   const [isPrintingId, setIsPrintingId] = useState(null);
-  const [filters, setFilters] = useState({
-    room: "",
-    createdBy: "",
-    status: "",
-    month: "",
-    year: "",
-  });
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     current_page: 1,
@@ -416,6 +410,41 @@ export default function ProgramPlanPage() {
   const [isLoadingViewRecord, setIsLoadingViewRecord] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [isLoadingEditRecord, setIsLoadingEditRecord] = useState(false);
+
+  // Initialize filters from localStorage
+  const [filters, setFilters] = useState(() => {
+    if (typeof window === "undefined") {
+      return { room: "", createdBy: "", status: "", month: "", year: "" };
+    }
+    try {
+      const saved = window.localStorage.getItem(PROGRAM_PLAN_FILTERS_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Failed to load filters from localStorage:", e);
+    }
+    return { room: "", createdBy: "", status: "", month: "", year: "" };
+  });
+
+  // Save filters to localStorage on change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(PROGRAM_PLAN_FILTERS_KEY, JSON.stringify(filters));
+    } catch (e) {
+      console.error("Failed to save filters to localStorage:", e);
+    }
+  }, [filters]);
+
+  // Validate that the room still exists
+  useEffect(() => {
+    if (filters.room === "" || rooms.length === 0) return;
+    const roomExists = rooms.some((r) => r.name === filters.room);
+    if (!roomExists) {
+      setFilters((prev) => ({ ...prev, room: "" }));
+    }
+  }, [filters.room, rooms]);
 
   const loadProgramPlans = useCallback(async () => {
     if (!activeCentreId) return;

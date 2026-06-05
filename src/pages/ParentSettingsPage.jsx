@@ -18,6 +18,7 @@ import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CentreSelect } from "@/components/common/CentreSelect";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +43,8 @@ import { useCentreStore } from "@/stores/centreStore";
 import { Pagination } from "@/components/common/Pagination";
 import { IMG_BASE_API } from "../api/imageapi";
 
+const PARENT_SETTINGS_FILTERS_KEY = "parent-settings-filters";
+
 function getInitials(name = "") {
   return name
     .split(" ")
@@ -53,12 +56,32 @@ function getInitials(name = "") {
 }
 
 export default function ParentSettingsPage() {
-  const { centres: storeCenters } = useCentreStore();
+  const { centres: storeCenters, activeCentreId, setActiveCentre } = useCentreStore();
   const [parents, setParents] = useState([]);
   const [availableChildren, setAvailableChildren] = useState([]);
-  const [centerId, setCenterId] = useState("");
+  
+  // Initialize filters from localStorage
+  const [centerId, setCenterId] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(PARENT_SETTINGS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).centerId || "";
+    } catch (e) {
+      console.error("Failed to load centerId from localStorage:", e);
+    }
+    return "";
+  });
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(PARENT_SETTINGS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).query || "";
+    } catch (e) {
+      console.error("Failed to load query from localStorage:", e);
+    }
+    return "";
+  });
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({
     current_page: 1,
@@ -73,6 +96,16 @@ export default function ParentSettingsPage() {
   const [modal, setModal] = useState({ open: false, initial: null });
   const [confirm, setConfirm] = useState({ open: false, id: null });
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Save filters to localStorage on change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(PARENT_SETTINGS_FILTERS_KEY, JSON.stringify({ centerId, query }));
+    } catch (e) {
+      console.error("Failed to save filters to localStorage:", e);
+    }
+  }, [centerId, query]);
 
   const mapParents = (parentsArray) =>
     (parentsArray || []).map((p) => ({
@@ -140,6 +173,13 @@ export default function ParentSettingsPage() {
     }
   }, [storeCenters, centerId]);
 
+  // Sync centerId with activeCentreId
+  useEffect(() => {
+    if (activeCentreId && activeCentreId !== centerId) {
+      setCenterId(activeCentreId);
+    }
+  }, [activeCentreId, centerId]);
+
   // Fetch when center or page changes
   useEffect(() => {
     if (centerId) {
@@ -164,11 +204,10 @@ export default function ParentSettingsPage() {
 
   const handleCenterChange = (newCenterId) => {
     setCenterId(newCenterId);
+    setActiveCentre(newCenterId);
     setQuery("");
     setPage(1);
   };
-
-  const activeCenter = storeCenters.find((c) => c.id === centerId);
 
   const childName = useCallback(
     (id) => {
@@ -255,29 +294,10 @@ export default function ParentSettingsPage() {
         breadcrumbs={[{ label: "Settings", to: "/settings" }, { label: "Parent Settings" }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="h-10 gap-2 rounded-xl bg-card/60 backdrop-blur border-border/60 shadow-sm font-medium"
-                >
-                  {activeCenter?.name ?? "Select Center"}
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 rounded-xl">
-                {storeCenters.map((c) => (
-                  <DropdownMenuItem
-                    key={c.id}
-                    onClick={() => handleCenterChange(c.id)}
-                    className="flex items-center justify-between gap-2 py-2.5 cursor-pointer font-medium"
-                  >
-                    {c.name}
-                    {c.id === centerId && <Check className="h-4 w-4 text-primary" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <CentreSelect
+              icon={null}
+              triggerClassName="h-10 gap-2 rounded-xl bg-card/60 backdrop-blur border-border/60 shadow-sm font-medium w-[200px]"
+            />
             <Button
               onClick={() => setModal({ open: true, initial: null })}
               className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20"

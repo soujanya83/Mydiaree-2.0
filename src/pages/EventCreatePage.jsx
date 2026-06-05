@@ -37,10 +37,20 @@ import { holidayService } from "@/services/centre/holidayService";
 import { childrenService } from "@/services/centre/childrenService";
 import { useCentreStore } from "@/stores/centreStore";
 import { mapAnnouncementRecord, toApiAudience, toApiType } from "@/components/events/eventMappers";
-import { stripHtml } from "../components/dashboard/DashboardCalendar";
 import { IMG_BASE_API } from "../api/imageapi";
 
 const IMG_BASE = IMG_BASE_API;
+
+function stripHtml(value = "") {
+  return String(value)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n\s*\n/g, "\n\n")
+    .trim();
+}
 
 function mediaUrl(raw) {
   if (!raw) return "";
@@ -168,10 +178,10 @@ export default function EventCreatePage() {
               : rawDate.slice(0, 10);
             setForm({
               type: mapped.type,
-              title: mapped.title,
+              title: stripHtml(mapped.title),
               date: dateForInput || new Date().toISOString().slice(0, 10),
               access: mapped.access,
-              description: mapped.description || "",
+              description: stripHtml(mapped.description || ""),
               eventColor: mapped.eventColor || "#0d6efd",
               media: mapped.media || null,
               children: childIds,

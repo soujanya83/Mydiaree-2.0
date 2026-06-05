@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Calendar, User, Users, FileText, Image as ImageIcon, BadgeCheck } from "lucide-react";
+import { ArrowLeft, Calendar, User, Users, FileText, Image as ImageIcon, BadgeCheck, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,11 @@ const IMG_BASE = IMG_BASE_API;
 function stripHtml(value = "") {
   return String(value)
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]*>/g, "")
     .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n\s*\n/g, "\n\n")
     .trim();
 }
 
@@ -95,9 +96,14 @@ export default function EventDetailsPage() {
         title="Event Details"
         breadcrumbs={[{ label: "Events", to: "/events" }, { label: stripHtml(info.title) }]}
         actions={
-          <Button variant="outline" onClick={() => navigate("/events")}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => navigate(`/events/${id}/edit`)}>
+              <Pencil className="h-4 w-4 mr-2" /> Edit
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/events")}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+          </div>
         }
       />
 

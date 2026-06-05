@@ -61,6 +61,7 @@ const SNAPSHOT_DATE_FILTERS = DATE_FILTERS.filter(
   (option) => option.value !== "yesterday" && option.value !== "last-month",
 );
 const SNAPSHOT_ROOM_FILTER_KEY = "snapshots-room-filter";
+const SNAPSHOT_FILTERS_KEY = "snapshots-filters";
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -172,13 +173,78 @@ export default function SnapshotsPage() {
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [titleModalOpen, setTitleModalOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
-  const [dateRange, setDateRange] = useState("all");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
-  const [author, setAuthor] = useState("all");
-  const [childId, setChildId] = useState("all");
+  
+  // Initialize all filters from localStorage
+  const [search, setSearch] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(SNAPSHOT_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).search || "";
+    } catch (e) {
+      console.error("Failed to load search from localStorage:", e);
+    }
+    return "";
+  });
+  const [status, setStatus] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(SNAPSHOT_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).status || "all";
+    } catch (e) {
+      console.error("Failed to load status from localStorage:", e);
+    }
+    return "all";
+  });
+  const [dateRange, setDateRange] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(SNAPSHOT_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).dateRange || "all";
+    } catch (e) {
+      console.error("Failed to load dateRange from localStorage:", e);
+    }
+    return "all";
+  });
+  const [customFrom, setCustomFrom] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(SNAPSHOT_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).customFrom || "";
+    } catch (e) {
+      console.error("Failed to load customFrom from localStorage:", e);
+    }
+    return "";
+  });
+  const [customTo, setCustomTo] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(SNAPSHOT_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).customTo || "";
+    } catch (e) {
+      console.error("Failed to load customTo from localStorage:", e);
+    }
+    return "";
+  });
+  const [author, setAuthor] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(SNAPSHOT_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).author || "all";
+    } catch (e) {
+      console.error("Failed to load author from localStorage:", e);
+    }
+    return "all";
+  });
+  const [childId, setChildId] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(SNAPSHOT_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).childId || "all";
+    } catch (e) {
+      console.error("Failed to load childId from localStorage:", e);
+    }
+    return "all";
+  });
   const [page, setPage] = useState(1);
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
   const [isDeleting, setIsDeleting] = useState(false);
@@ -187,6 +253,19 @@ export default function SnapshotsPage() {
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
   const { can, isParent, hasFullAccess } = usePermissions();
   const perms = ACTION_PERMISSIONS.snapshots;
+
+  // Save all filters to localStorage on change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        SNAPSHOT_FILTERS_KEY,
+        JSON.stringify({ search, status, dateRange, customFrom, customTo, author, childId })
+      );
+    } catch (e) {
+      console.error("Failed to save filters to localStorage:", e);
+    }
+  }, [search, status, dateRange, customFrom, customTo, author, childId]);
 
   const fetchSnapshots = useCallback(async () => {
     if (isParent) {
@@ -365,18 +444,38 @@ export default function SnapshotsPage() {
   };
 
   const handlePrint = async (id) => {
-    setIsPrinting(id);
-    try {
-      const blob = await snapshotService.printSnapshot(id);
-      const url = URL.createObjectURL(new Blob([blob], { type: "application/pdf" }));
-      window.open(url, "_blank");
-    } catch (error) {
-      console.error("Print error:", error);
-      toast.error("Failed to generate PDF for printing");
-    } finally {
-      setIsPrinting(null);
+  setIsPrinting(id);
+
+  try {
+    const blob = await snapshotService.printSnapshot(id);
+
+    const url = URL.createObjectURL(
+      new Blob([blob], { type: "application/pdf" })
+    );
+
+    window.open(url, "_blank");
+  } catch (error) {
+    console.error("Print error:", error);
+
+    let message = "Failed to generate PDF for printing";
+
+    if (error.response?.data instanceof Blob) {
+      try {
+        const text = await error.response.data.text();
+        const data = JSON.parse(text);
+        message = data.message || message;
+      } catch (e) {
+        console.error("Failed to parse error blob", e);
+      }
+    } else {
+      message = error.response?.data?.message || error.message || message;
     }
-  };
+
+    toast.error(message);
+  } finally {
+    setIsPrinting(null);
+  }
+};
 
   const resetFilters = () => {
     setStatus("all");

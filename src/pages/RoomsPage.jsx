@@ -38,6 +38,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { IMG_BASE_API } from "../api/imageapi";
 
+const ROOMS_FILTERS_KEY = "rooms-filters";
+
 export default function RoomsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
@@ -46,11 +48,40 @@ export default function RoomsPage() {
   const { can } = usePermissions();
   const perms = ACTION_PERMISSIONS.rooms;
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  // Initialize filters from localStorage
+  const [search, setSearch] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(ROOMS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).search || "";
+    } catch (e) {
+      console.error("Failed to load search from localStorage:", e);
+    }
+    return "";
+  });
+  const [statusFilter, setStatusFilter] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(ROOMS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).statusFilter || "all";
+    } catch (e) {
+      console.error("Failed to load statusFilter from localStorage:", e);
+    }
+    return "all";
+  });
   const [selected, setSelected] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState(null);
+
+  // Save filters to localStorage on change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(ROOMS_FILTERS_KEY, JSON.stringify({ search, statusFilter }));
+    } catch (e) {
+      console.error("Failed to save filters to localStorage:", e);
+    }
+  }, [search, statusFilter]);
 
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState({ open: false, ids: [] });

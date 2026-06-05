@@ -33,6 +33,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { mapAnnouncementRecord } from "@/components/events/eventMappers";
 
+const EVENTS_FILTERS_KEY = "events-filters";
+
 export default function EventsPage() {
   const navigate = useNavigate();
   const { centres, activeCentreId, setActiveCentre } = useCentreStore();
@@ -40,11 +42,59 @@ export default function EventsPage() {
   const perms = ACTION_PERMISSIONS.events;
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [type, setType] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState("");
+  
+  // Initialize filters from localStorage
+  const [type, setType] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(EVENTS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).type || "all";
+    } catch (e) {
+      console.error("Failed to load type from localStorage:", e);
+    }
+    return "all";
+  });
+  const [status, setStatus] = useState(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      const saved = window.localStorage.getItem(EVENTS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).status || "all";
+    } catch (e) {
+      console.error("Failed to load status from localStorage:", e);
+    }
+    return "all";
+  });
+  const [title, setTitle] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(EVENTS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).title || "";
+    } catch (e) {
+      console.error("Failed to load title from localStorage:", e);
+    }
+    return "";
+  });
+  const [date, setDate] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const saved = window.localStorage.getItem(EVENTS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).date || "";
+    } catch (e) {
+      console.error("Failed to load date from localStorage:", e);
+    }
+    return "";
+  });
   const [deleteId, setDeleteId] = useState(null);
+
+  // Save filters to localStorage on change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(EVENTS_FILTERS_KEY, JSON.stringify({ type, status, title, date }));
+    } catch (e) {
+      console.error("Failed to save filters to localStorage:", e);
+    }
+  }, [type, status, title, date]);
 
   const fetchEvents = useCallback(async () => {
     if (!activeCentreId) return;
