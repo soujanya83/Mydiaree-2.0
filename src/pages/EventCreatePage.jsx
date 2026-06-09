@@ -89,7 +89,7 @@ export default function EventCreatePage() {
     children: [],
     childrenData: [],
     state: "",
-    status: "1",
+    status: "Draft",
   });
   const [pickerOpen, setPickerOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -109,11 +109,11 @@ export default function EventCreatePage() {
         const res = await childrenService.filterChildren({
           center_id: activeCentreId,
           status: "Active",
-          per_page:100,
+          per_page: 100,
         });
         if (res.status && res.data?.data) {
           const selectedChildren = res.data.data.filter((child) =>
-            form.children.includes(String(child.id))
+            form.children.includes(String(child.id)),
           );
           setForm((f) => ({ ...f, childrenData: selectedChildren }));
         }
@@ -159,7 +159,7 @@ export default function EventCreatePage() {
                 children: [],
                 childrenData: [],
                 state: existing.state || "",
-                status: String(existing.status),
+                status: "Draft",
               });
             }
           }
@@ -187,7 +187,7 @@ export default function EventCreatePage() {
               children: childIds,
               childrenData: [],
               state: "",
-              status: "1",
+              status: mapped.status === "Sent" ? "Published" : "Draft",
             });
           } else {
             toast.error(res.message || "Failed to load announcement");
@@ -216,7 +216,7 @@ export default function EventCreatePage() {
         media: null,
         children: [],
         state: "",
-        status: "1",
+        status: "Draft",
       });
     }
   }, [presetType, id]);
@@ -266,6 +266,9 @@ export default function EventCreatePage() {
     formData.append("type", toApiType(form.type));
     formData.append("audience", toApiAudience(form.access));
     formData.append("eventColor", form.type === "Events" ? form.eventColor : "");
+    if (form.status === "Published") {
+      formData.append("status", "Sent");
+    }
     return formData;
   };
 
@@ -586,12 +589,15 @@ export default function EventCreatePage() {
                         <Plus className="h-4 w-4" /> Add Children
                       </Button>
                     </div>
-                    
+
                     {/* Display selected children with avatars */}
                     {form.childrenData?.length > 0 && (
                       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {form.childrenData.map((child) => (
-                          <div key={child.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3">
+                          <div
+                            key={child.id}
+                            className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3"
+                          >
                             <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-primary/10 flex items-center justify-center">
                               {child.imageUrl ? (
                                 <img
@@ -615,20 +621,21 @@ export default function EventCreatePage() {
                               <p className="text-sm font-bold text-foreground truncate">
                                 {child.name} {child.lastname}
                               </p>
-                             
                             </div>
                           </div>
                         ))}
                       </div>
                     )}
-                    
+
                     {isLoadingChildren && (
                       <div className="mt-4 flex items-center justify-center py-4">
                         <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                        <span className="ml-2 text-sm text-muted-foreground">Loading children...</span>
+                        <span className="ml-2 text-sm text-muted-foreground">
+                          Loading children...
+                        </span>
                       </div>
                     )}
-                    
+
                     {formErrors.childId && (
                       <p className="text-sm text-destructive">{formErrors.childId}</p>
                     )}
@@ -671,23 +678,50 @@ export default function EventCreatePage() {
                   </div>
                 ) : (
                   <>
-                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Description <span className="text-destructive">*</span>
-                    </Label>
-                    <Textarea
-                      value={form.description}
-                      onChange={(e) => update("description", e.target.value)}
-                      disabled={isView}
-                      rows={18}
-                      placeholder="Describe the event in detail…"
-                      className="resize-none"
-                    />
-                    {formErrors.text && (
-                      <p className="text-sm text-destructive">{formErrors.text}</p>
-                    )}
-                    <p className="text-right text-xs text-muted-foreground">
-                      {form.description.length} characters
-                    </p>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Status
+                        </Label>
+                        <Select
+                          value={form.status}
+                          onValueChange={(v) => update("status", v)}
+                          disabled={isView}
+                        >
+                          <SelectTrigger className="h-11">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Published">Published</SelectItem>
+                            <SelectItem value="Draft">Draft</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {form.status === "Draft" 
+                          ? "This event will be saved as a draft and won't be sent to parents/staff." 
+                          : "This event will be published and sent to parents/staff."}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Description <span className="text-destructive">*</span>
+                      </Label>
+                      <Textarea
+                        value={form.description}
+                        onChange={(e) => update("description", e.target.value)}
+                        disabled={isView}
+                        rows={18}
+                        placeholder="Describe the event in detail…"
+                        className="resize-none"
+                      />
+                      {formErrors.text && (
+                        <p className="text-sm text-destructive">{formErrors.text}</p>
+                      )}
+                      <p className="text-right text-xs text-muted-foreground">
+                        {form.description.length} characters
+                      </p>
+                    </div>
                   </>
                 )}
               </SectionCard>
