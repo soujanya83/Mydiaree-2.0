@@ -187,7 +187,7 @@ export default function EventCreatePage() {
               children: childIds,
               childrenData: [],
               state: "",
-              status: mapped.status === "Sent" ? "Published" : "Draft",
+              status: mapped.status === "published" ? "Published" : "Draft",
             });
           } else {
             toast.error(res.message || "Failed to load announcement");
