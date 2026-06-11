@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, Megaphone, ExternalLink, Loader2, InboxIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Bell, Megaphone, Check, Loader2, InboxIcon, CheckCheck } from "lucide-react";
 import { notificationService } from "@/services/notificationService";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 function formatRelativeTime(dateStr) {
   if (!dateStr) return "";
@@ -26,9 +28,11 @@ function resolveIcon(iconClass) {
 }
 
 export function NotificationDropdown() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
   const ref = useRef(null);
 
   // Fetch on mount for badge count
@@ -60,6 +64,46 @@ export function NotificationDropdown() {
   const unreadCount = notifications.filter((n) => !n.read_at).length;
   const badge = unreadCount > 99 ? "99+" : String(unreadCount);
 
+  const handleNotificationClick = async (notification) => {
+    if (!notification.url) return;
+
+    // Mark as read if unread
+    if (!notification.read_at) {
+      try {
+        await notificationService.markAsRead(notification.id);
+        // Update local state to mark as read
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === notification.id ? { ...n, read_at: new Date().toISOString() } : n
+          )
+        );
+      } catch (error) {
+        console.error("Failed to mark notification as read:", error);
+      }
+    }
+
+    // Navigate to the URL
+    setOpen(false);
+    navigate(notification.url);
+  };
+
+  const handleMarkAllAsRead = async () => {
+    setIsMarkingAll(true);
+    try {
+      await notificationService.markAllAsRead();
+      // Update local state to mark all as read
+      setNotifications((prev) =>
+        prev.map((n) => ({ ...n, read_at: new Date().toISOString() }))
+      );
+      toast.success("All notifications marked as read");
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+      toast.error("Failed to mark all as read");
+    } finally {
+      setIsMarkingAll(false);
+    }
+  };
+
   return (
     <div ref={ref} className="relative">
       {/* Bell trigger */}
@@ -83,11 +127,28 @@ export function NotificationDropdown() {
           {/* Panel header */}
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <span className="text-sm font-semibold text-foreground">Notifications</span>
-            {unreadCount > 0 && (
-              <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-bold text-destructive">
-                {unreadCount} unread
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {unreadCount > 0 && (
+                <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-bold text-destructive">
+                  {unreadCount} unread
+                </span>
+              )}
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllAsRead}
+                  disabled={isMarkingAll}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  {isMarkingAll ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <CheckCheck className="h-3 w-3" />
+                  )}
+                  Mark all read
+                </button>
+              )}
+            </div>
           </div>
 
           {/* List */}
@@ -112,12 +173,9 @@ export function NotificationDropdown() {
                 const hasLink = Boolean(n.url && n.url !== "#");
 
                 return (
-                  <a
+                  <div
                     key={n.id}
-                    href={hasLink ? n.url : undefined}
-                    target={hasLink ? "_blank" : undefined}
-                    rel="noreferrer"
-                    onClick={hasLink ? () => setOpen(false) : undefined}
+                    onClick={() => hasLink && handleNotificationClick(n)}
                     className={cn(
                       "flex items-start gap-3 border-b border-border/50 px-4 py-3 transition-colors last:border-0",
                       hasLink ? "cursor-pointer hover:bg-muted/60" : "cursor-default",
@@ -144,7 +202,7 @@ export function NotificationDropdown() {
                           {n.title}
                         </p>
                         {hasLink && (
-                          <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/50" />
+                          <Check className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground/50" />
                         )}
                       </div>
                       {n.objective && (
@@ -158,7 +216,7 @@ export function NotificationDropdown() {
                     </div>
 
                     {isUnread && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />}
-                  </a>
+                  </div>
                 );
               })}
           </div>

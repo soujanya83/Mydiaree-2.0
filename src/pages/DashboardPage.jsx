@@ -1,4 +1,4 @@
-import { Users2, ChefHat, Baby, DoorOpen, Users, UserPlus } from "lucide-react";
+import { Users2, ChefHat, Baby, DoorOpen, Users, Cake, Building2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { StatCard } from "@/components/common/StatCard";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -74,10 +74,16 @@ function DashboardPage() {
       accent: "warning",
     },
     {
-      label: "New Enrolments (Last Year)",
-      value: dashboardData.newEnrolmentsLastYear ?? 0,
-      icon: UserPlus,
+      label: "Current Month Birthdays",
+      value: dashboardData.currentMonthBirthdays ?? 0,
+      icon: Cake,
       accent: "success",
+    },
+    {
+      label: "Affiliated Centers",
+      value: dashboardData.affiliatedCenters ?? 0,
+      icon: Building2,
+      accent: "primary",
     },
     {
       label: "Total Rooms",
