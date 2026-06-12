@@ -633,7 +633,7 @@ function ReflectionGalleryModal({ reflection, onClose }) {
     if (mediaItems.length <= 1) return;
     timerRef.current = setInterval(() => {
       setIdx((prev) => (prev + 1) % mediaItems.length);
-    }, 4000);
+    }, 10000);
     return () => clearInterval(timerRef.current);
   }, [mediaItems.length]);
 

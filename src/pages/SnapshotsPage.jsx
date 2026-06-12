@@ -720,7 +720,7 @@ function SnapshotGalleryModal({ snap, onClose }) {
     if (images.length <= 1) return;
     timerRef.current = setInterval(() => {
       setIdx((prev) => (prev + 1) % images.length);
-    }, 4000);
+    }, 10000);
     return () => clearInterval(timerRef.current);
   }, [images.length]);
 
