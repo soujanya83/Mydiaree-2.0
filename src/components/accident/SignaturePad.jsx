@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-export function SignatureField({ value, onChange, label = "Signature" }) {
+export function SignatureField({ value, onChange, label = "Signature", actionLabel }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -25,7 +25,7 @@ export function SignatureField({ value, onChange, label = "Signature" }) {
           <span className="text-muted-foreground">Click to add signature</span>
         )}
         <span className="text-xs font-medium text-primary">
-          {value ? "Change" : "Sign"}
+          {value ? actionLabel || "Change" : "Sign"}
         </span>
       </button>
 

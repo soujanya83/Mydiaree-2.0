@@ -49,8 +49,11 @@ export function Header() {
       </button>
 
       {/* Logo in center */}
-      <div className="hidden lg:flex flex-1 justify-center">
-        <img src={logoLong} alt="MyDiaree" className="h-16 w-auto" />
+      <div
+        className=" flex flex-1 justify-center cursor-pointer"
+        onClick={() => navigate("/dashboard")}
+      >
+        <img src={logoLong} alt="MyDiaree" className=" h-14 sm:h-16 w-auto" />
       </div>
 
       {/* Search */}
@@ -90,14 +93,14 @@ export function Header() {
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <div className="hidden text-left lg:block">
-                <p className="text-xs font-semibold leading-none text-foreground">
+              <div className="hidden text-left lg:block px-2 py-1">
+                <p className="text-sm font-semibold leading-none text-foreground">
                   {user?.name ?? "Nextgen Admin"}
                 </p>
-                <p className="mt-1 text-[10px] capitalize text-muted-foreground">
+                <p className="mt-1 text-xs capitalize text-muted-foreground">
                   {user?.userType?.toLowerCase() === "centeradmin"
                     ? "Admin"
-                    : user?.userType ?? "superadmin"}
+                    : (user?.userType ?? "superadmin")}
                 </p>
               </div>
             </button>

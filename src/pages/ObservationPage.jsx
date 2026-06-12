@@ -1001,7 +1001,8 @@ function ObservationCard({
   const handleStatusToggle = async (e) => {
     e.preventDefault();
     if (isTogglingStatus || !canEdit || isParent) return;
-    const newStatus = obs.status?.toLowerCase() === "published" ? "Draft" : "Published";
+    if (obs.status?.toLowerCase() === "published") return;
+    const newStatus = "Published";
     setIsTogglingStatus(true);
     try {
       await onStatusChange(newStatus);
@@ -1119,7 +1120,7 @@ function ObservationCard({
             </h3>
           </Link>
 
-          {canEdit && !isParent ? (
+          {canEdit && !isParent && obs.status?.toLowerCase() !== "published" ? (
             <button
               onClick={handleStatusToggle}
               disabled={isTogglingStatus}

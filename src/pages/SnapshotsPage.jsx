@@ -423,7 +423,8 @@ export default function SnapshotsPage() {
   };
 
   const handleStatusUpdate = async (id, currentStatus) => {
-    const newStatus = currentStatus?.toLowerCase() === "published" ? "Draft" : "Published";
+    if (currentStatus?.toLowerCase() === "published") return;
+    const newStatus = "Published";
     setStatusUpdatingId(id);
     try {
       const res = await snapshotService.updateSnapshotStatus(id, newStatus);
@@ -1048,7 +1049,7 @@ function SnapshotCard({
           <h3 className="line-clamp-2 flex-1 text-base font-semibold leading-tight text-foreground">
             {cleanTitle}
           </h3>
-          {isParent ? (
+          {isParent || snap.status?.toLowerCase() === "published" ? (
             <span
               className={`shrink-0 rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
                 snap.status?.toLowerCase() === "published"

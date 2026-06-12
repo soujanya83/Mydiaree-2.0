@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -7,6 +7,7 @@ import {
   Trash2,
   ClipboardList,
   CalendarDays,
+  Clock3,
   UserCircle2,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -38,6 +39,7 @@ import { AccidentFormView } from "@/components/accident/AccidentFormView";
 import { AccidentReadOnlyView } from "@/components/accident/AccidentReadOnlyView";
 import { useAuthStore } from "@/stores/authStore";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import { accidentService } from "@/services/daily-operations/accidentService";
@@ -77,11 +79,34 @@ const CARD_PRIMARY_ACTION_STYLE = {
   color: "var(--primary)",
 };
 
-function fmtDDMMYYYY(iso) {
-  if (!iso) return "—";
-  const [y, m, d] = iso.split("-");
-  if (!y) return iso;
-  return `${d}.${m}.${y}`;
+function parseIncidentDateTime(value, fallbackTime = "") {
+  if (!value) {
+    return { date: "—", time: fallbackTime || "—" };
+  }
+
+  const [datePart, rawTime = fallbackTime] = String(value).split("T");
+  const [year, month, day] = datePart.split("-");
+  const timePart = rawTime ? rawTime.split(/[Z.+-]/)[0].slice(0, 5) : "";
+
+  let formattedTime = "—";
+  if (/^\d{2}:\d{2}$/.test(timePart)) {
+    const [hours, minutes] = timePart.split(":").map(Number);
+    const period = hours >= 12 ? "PM" : "AM";
+    formattedTime = `${String(hours % 12 || 12).padStart(2, "0")}:${String(minutes).padStart(
+      2,
+      "0",
+    )} ${period}`;
+  }
+
+  return {
+    date: year && month && day ? `${day}.${month}.${year}` : datePart,
+    time: formattedTime,
+  };
+}
+
+function toDateInputValue(value) {
+  if (!value) return "";
+  return String(value).slice(0, 10);
 }
 
 export default function AccidentFormPage() {
@@ -94,6 +119,7 @@ export default function AccidentFormPage() {
 
   const user = useAuthStore((s) => s.user);
   const { isParent } = usePermissions();
+  const selectedChildId = useParentDashboardStore((s) => s.selectedChildId);
 
   const [records, setRecords] = useState([]);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -103,6 +129,7 @@ export default function AccidentFormPage() {
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState({ view: "list" }); // list | create | edit | view
   const [confirmId, setConfirmId] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const toFormData = (data) => {
     const fd = new FormData();
@@ -113,112 +140,130 @@ export default function AccidentFormPage() {
     return fd;
   };
 
-  const fetchAccidents = async () => {
-    if (!activeCentreId || !activeRoomId) return;
+  const fetchAccidents = useCallback(async () => {
+    if (isParent) {
+      if (!selectedChildId) return;
+    } else {
+      if (!activeCentreId || !activeRoomId) return;
+    }
+    
     setIsLoadingList(true);
     try {
-      const res = await accidentService.getAccidentList(
-        toFormData({
-          centerid: activeCentreId,
-          roomid: activeRoomId,
-          date: date,
-        }),
-      );
+      const payload = {};
+      if (isParent) {
+        payload.child_id = selectedChildId;
+      } else {
+        payload.date = date;
+        payload.centerid = activeCentreId;
+        payload.roomid = activeRoomId;
+      }
+      
+      const res = await accidentService.getAccidentList(toFormData(payload));
 
-      if (res.data.success && res.data.data.accidents) {
+      if ((res.data.success || res.data.status) && res.data.data?.accidents) {
         setRecords(
           res.data.data.accidents.map((a) => ({
-            id: a.id,
+            ...parseIncidentDateTime(a.incident_date, a.incident_time),
+            id: a.accident_id ?? a.id,
             childName: a.child_name,
             childGender: a.child_gender,
             ackParentName: a.ack_parent_name,
             recorderName: a.username,
-            incidentDate: a.incident_date,
             roomId: a.roomid,
           })),
         );
+      } else {
+        setRecords([]);
       }
     } catch (error) {
       console.error("Failed to fetch accidents", error);
       toast.error("Failed to load accident list");
+      setRecords([]);
     } finally {
       setIsLoadingList(false);
     }
-  };
+  }, [activeCentreId, activeRoomId, date, isParent, selectedChildId]);
 
   useEffect(() => {
     fetchAccidents();
-  }, [activeCentreId, activeRoomId, date]);
+  }, [fetchAccidents]);
 
   const fetchDetails = async (id, targetView) => {
+    const previousMode = mode;
+    setMode({ view: "loading", id });
     setIsLoadingDetails(true);
     try {
-      const res = await accidentService.getAccidentDetails(toFormData({ id }));
-      if (res.data.status && res.data.data) {
-        const d = res.data.data;
+      const res = await accidentService.getAccidentDetails(id);
+      const responseData = res.data;
+      const details = responseData.data?.accident || responseData.data;
+      if ((responseData.success || responseData.status) && details) {
+        const d = details;
+        const illness = d.illness || {};
+        const preventionDetails = String(d.provideDetails_minimise || "");
 
-        const natures = natureLabelsFromApiRecord(d);
+        const natures = natureLabelsFromApiRecord(illness);
 
         const mapped = {
-          id: d.id,
+          id: d.accident_id ?? d.id,
           recorderName: d.person_name,
           recorderPosition: d.person_role,
-          recordDate: d.made_record_date,
+          serviceName: d.service_name,
+          recordDate: toDateInputValue(d.made_record_date),
           recordTime: d.made_record_time,
-          recorderSignature: d.made_person_sign,
+          recorderSignature: d.made_person_sign || d.person_sign,
           childId: d.childid,
           childName: d.child_name,
-          childDob: d.child_dob,
+          childDob: toDateInputValue(d.child_dob),
           childAge: d.child_age,
           childGender: d.child_gender,
-          incidentDate: d.incident_date,
+          incidentDate: toDateInputValue(d.incident_date),
           incidentTime: d.incident_time,
-          location: d.incident_location || d.location_of_incident,
+          location: d.incident_location,
+          locationDetails: d.location_of_incident,
           witnessName: d.witness_name,
-          witnessDate: d.witness_date,
+          witnessDate: toDateInputValue(d.witness_date),
           witnessSignature: d.witness_sign,
-          generalActivity: d.gen_actyvt,
-          causeOfInjury: d.cause,
-          circumstancesIllness: d.circumstances_leading,
-          missingCircumstances: d.missing_unaccounted,
-          removedCircumstances: d.taken_removed,
+          detailsInjury: d.details_injury || "",
+          causeOfInjury: d.circumstances_leading || d.cause,
+          missingCircumstances: d.circumstances_child_missingd || d.missing_unaccounted,
+          removedCircumstances: d.circumstances_child_removed || d.taken_removed,
           natures,
-          natureOtherRemarks: d.other_remarks || d.remarks_other || "",
-          bodyInjuryImage: d.body_injury_image || null,
+          natureOtherRemarks: Number(illness.other) === 1 ? illness.remarks || "" : "",
+          bodyInjuryImage: d.injury_image || d.body_injury_image || null,
           bodyInjuryMarkers: [], // Always empty for new implementation
           actionDetails: d.action_taken,
           emergencyAttended:
-            d.emrg_serv_attend === "yes" || d.emrg_serv_attend === 1 ? "yes" : "no",
-          medicalSought: d.med_attention === "yes" || d.med_attention === 1 ? "yes" : "no",
+            String(d.emrg_serv_attend).toLowerCase() === "yes" || Number(d.emrg_serv_attend) === 1
+              ? "yes"
+              : "no",
+          emergencyContactedTime: d.emrg_serv_time || "",
+          emergencyArrivedTime: d.emrg_serv_arrived || "",
+          medicalSought:
+            String(d.med_attention).toLowerCase() === "yes" || Number(d.med_attention) === 1
+              ? "yes"
+              : "no",
           medicalAttentionDetails: d.med_attention_details,
-          preventionStep1: d.prevention_step_1 || d.provideDetails_minimise,
-          preventionStep2: d.prevention_step_2 || "",
+          preventionStep1: preventionDetails,
+          otherAgency: d.other_agency || d.otheragency || "",
+          regulatoryAuthority: d.regulatory_authority || d.regulatoryauthority || "",
+          injuryImageResponsib: d.injury_imageresponsib || "",
           parent1Name: d.parent1_name,
-          parent1Method: d.parent1_method || "",
-          parent1Date: d.contact1_date || d.carers_date,
-          parent1Time: d.contact1_time || d.carers_time,
-          parent1ContactMade: d.parent1_contact_made || "",
-          parent1MessageLeft: d.parent1_message_left || "",
-          parent2Name: d.parent2_name || "",
-          parent2Method: d.parent2_method || "",
-          parent2Date: d.contact2_date || "",
-          parent2Time: d.contact2_time || "",
-          parent2ContactMade: d.parent2_contact_made || "",
-          parent2MessageLeft: d.parent2_message_left || "",
-          responsiblePersonName: d.responsible_person_name,
-          responsiblePersonSignature: d.responsible_person_sign || "",
-          responsiblePersonDate: d.responsible_person_date || "",
-          responsiblePersonTime: d.responsible_person_time || "",
+          parent1Date: toDateInputValue(d.carers_date || d.contact1_date),
+          parent1Time: d.carers_time || d.contact1_time,
           nominatedSupervisorName: d.director_educator_coordinator || d.nominated_supervisor_name,
-          nominatedSupervisorSignature: d.nominated_supervisor_sign || "",
-          nominatedSupervisorDate: d.educator_date || d.nsv_date,
+          nominatedSupervisorDate: toDateInputValue(d.educator_date || d.nsv_date),
           nominatedSupervisorTime: d.educator_time || d.nsv_time,
-          otherAgencyDate: d.other_agency_date || d.enor_date,
+          otherAgencyDate: toDateInputValue(d.other_agency_date || d.enor_date),
           otherAgencyTime: d.other_agency_time || d.enor_time,
-          regulatoryAuthorityDate: d.regulatory_authority_date || d.enra_date,
+          regulatoryAuthorityDate: toDateInputValue(d.regulatory_authority_date || d.enra_date),
           regulatoryAuthorityTime: d.regulatory_authority_time || d.enra_time,
           ackName: d.ack_parent_name,
-          ackDate: d.ack_date,
+          ackDate: toDateInputValue(d.ack_date),
+          ackIncident: Number(d.ack_incident) === 1,
+          ackInjury: Number(d.ack_injury) === 1,
+          ackTrauma: Number(d.ack_trauma) === 1,
+          ackIllness: Number(d.ack_illness) === 1,
+          ackSignature: d.final_sign || "",
           additionalNotes: d.add_notes,
           additionalNotesTime: d.ack_time,
           createdAt: d.added_at,
@@ -226,10 +271,14 @@ export default function AccidentFormPage() {
 
         setSelectedRecord(mapped);
         setMode({ view: targetView, id });
+      } else {
+        toast.error(responseData.message || "Failed to load accident details");
+        setMode(previousMode);
       }
     } catch (error) {
       console.error("Failed to fetch details", error);
       toast.error("Failed to load accident details");
+      setMode(previousMode);
     } finally {
       setIsLoadingDetails(false);
     }
@@ -238,122 +287,144 @@ export default function AccidentFormPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return records;
-    return records.filter((r) => r.childName.toLowerCase().includes(q));
+    return records.filter((r) => (r.childName || "").toLowerCase().includes(q));
   }, [records, search]);
 
-  const mapToApiPayload = (data) => {
+  const mapToApiPayload = (data, accidentId) => {
+    const centre = centres.find((c) => String(c.id) === String(activeCentreId));
     const payload = {
-      centerid: activeCentreId,
-      roomid: activeRoomId,
-      childid: data.childId,
-      child_name:
-        children.find((c) => String(c.id) === String(data.childId))?.name || data.childName || "",
-      child_dob: data.childDob,
-      child_age: data.childAge,
-      gender: data.childGender?.toLowerCase(),
       person_name: data.recorderName,
       person_role: data.recorderPosition,
-      date: data.recordDate,
-      time: data.recordTime,
+      service_name: data.serviceName || centre?.name || "",
+      made_record_date: data.recordDate,
+      made_record_time: data.recordTime,
+      childid: data.childId,
+      child_name:
+        data.childName || children.find((c) => String(c.id) === String(data.childId))?.name || "",
+      child_dob: data.childDob,
+      child_age: data.childAge,
+      child_gender: data.childGender,
       incident_date: data.incidentDate,
       incident_time: data.incidentTime,
       incident_location: data.location,
+      location_of_incident: data.locationDetails || data.location,
       witness_name: data.witnessName,
       witness_date: data.witnessDate,
-      gen_actyvt: data.generalActivity,
-      cause: data.causeOfInjury,
-      circumstances_leading: data.circumstancesIllness,
-      missing_unaccounted: data.missingCircumstances,
-      taken_removed: data.removedCircumstances,
-      other_remarks: data.natureOtherRemarks,
-      body_injury_image: data.bodyInjuryImageBase64 || null,
+      details_injury: data.detailsInjury,
+      circumstances_leading: data.causeOfInjury,
+      circumstances_child_missingd: data.missingCircumstances,
+      circumstances_child_removed: data.removedCircumstances,
       action_taken: data.actionDetails,
-      emrg_serv_attend: data.emergencyAttended === "yes" ? "yes" : "no",
-      med_attention: data.medicalSought === "yes" ? "yes" : "no",
+      emrg_serv_attend: data.emergencyAttended === "yes" ? "Yes" : "No",
+      emrg_serv_time: data.emergencyContactedTime,
+      emrg_serv_arrived: data.emergencyArrivedTime,
+      med_attention: data.medicalSought === "yes" ? "Yes" : "No",
       med_attention_details: data.medicalAttentionDetails,
-      prevention_step_1: data.preventionStep1,
-      prevention_step_2: data.preventionStep2,
+      provideDetails_minimise: data.preventionStep1,
       parent1_name: data.parent1Name,
-      parent1_method: data.parent1Method,
-      contact1_date: data.parent1Date,
-      contact1_time: data.parent1Time,
-      parent1_contact_made: data.parent1ContactMade,
-      parent1_message_left: data.parent1MessageLeft,
-      parent2_name: data.parent2Name,
-      parent2_method: data.parent2Method,
-      contact2_date: data.parent2Date,
-      contact2_time: data.parent2Time,
-      parent2_contact_made: data.parent2ContactMade,
-      parent2_message_left: data.parent2MessageLeft,
-      responsible_person_name: data.responsiblePersonName,
-      responsible_person_sign: data.responsiblePersonSignature,
-      responsible_person_date: data.responsiblePersonDate,
-      responsible_person_time: data.responsiblePersonTime,
+      carers_date: data.parent1Date,
+      carers_time: data.parent1Time,
       director_educator_coordinator: data.nominatedSupervisorName,
-      nominated_supervisor_sign: data.nominatedSupervisorSignature,
       educator_date: data.nominatedSupervisorDate,
       educator_time: data.nominatedSupervisorTime,
-      nsv_date: data.nominatedSupervisorDate,
-      nsv_time: data.nominatedSupervisorTime,
-      enor_date: data.otherAgencyDate,
-      enor_time: data.otherAgencyTime,
-      enra_date: data.regulatoryAuthorityDate,
-      enra_time: data.regulatoryAuthorityTime,
+      other_agency: data.otherAgency,
+      other_agency_date: data.otherAgencyDate,
+      other_agency_time: data.otherAgencyTime,
+      regulatory_authority: data.regulatoryAuthority,
+      regulatory_authority_date: data.regulatoryAuthorityDate,
+      regulatory_authority_time: data.regulatoryAuthorityTime,
       ack_parent_name: data.ackName,
       ack_date: data.ackDate,
       ack_time: data.additionalNotesTime,
       add_notes: data.additionalNotes,
-      person_sign: data.recorderSignature,
-      witness_sign: data.witnessSignature,
+      ack_incident: data.ackIncident ? 1 : 0,
+      ack_injury: data.ackInjury ? 1 : 0,
+      ack_trauma: data.ackTrauma ? 1 : 0,
+      ack_illness: data.ackIllness ? 1 : 0,
+      illness_remarks: data.natures?.includes("Other (please specify)")
+        ? data.natureOtherRemarks
+        : "",
+      centerid: Number(activeCentreId),
+      roomid: Number(activeRoomId),
     };
 
     NATURE_API_KEYS.forEach((key) => {
-      payload[key] = "0";
+      payload[key] = 0;
     });
     (data.natures || []).forEach((label) => {
       const key = NATURE_API_MAP[label];
-      if (key) payload[key] = "1";
+      if (key) payload[key] = 1;
     });
 
-    if (mode.id) {
-      payload.id = mode.id;
+    if (accidentId) {
+      payload.accident_id = String(accidentId);
+      if (data.recorderSignature?.startsWith("data:")) {
+        payload.made_person_sign = data.recorderSignature;
+      }
+      if (data.witnessSignature?.startsWith("data:")) {
+        payload.witness_sign = data.witnessSignature;
+      }
+      if (data.ackSignature?.startsWith("data:")) {
+        payload.final_sign = data.ackSignature;
+      }
+    } else {
+      payload.made_person_sign = data.recorderSignature;
+      payload.witness_sign = data.witnessSignature;
+      payload.injury_image = data.bodyInjuryImageBase64 || "";
+      payload.final_sign = data.ackSignature;
     }
 
     return payload;
   };
 
+  const getSaveErrorMessage = (responseData, fallbackMessage) => {
+    const validationMessage = responseData?.errors
+      ? Object.values(responseData.errors).flat().find(Boolean)
+      : null;
+    return validationMessage || responseData?.message || fallbackMessage;
+  };
+
+  const showSaveError = (error, fallbackMessage) => {
+    toast.error(getSaveErrorMessage(error?.response?.data, fallbackMessage));
+  };
+
   const handleCreate = async (data) => {
+    setIsSaving(true);
     try {
       const payload = mapToApiPayload(data);
-      console.log("Submit data for the accident are ", data);
-      const res = await accidentService.saveAccident(toFormData(payload));
-      if (res.data.status) {
-        toast.success("Accident record created.");
+      const res = await accidentService.saveAccident(payload);
+      if (res.data.success) {
+        toast.success(res.data.message || "Accident record created.");
         fetchAccidents();
         setMode({ view: "list" });
       } else {
-        toast.error(res.data.message || "Failed to create record");
+        toast.error(getSaveErrorMessage(res.data, "Failed to create record"));
       }
     } catch (error) {
       console.error("Failed to create accident", error);
-      toast.error("Failed to create accident record");
+      showSaveError(error, "Failed to create accident record");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleUpdate = async (data) => {
+    setIsSaving(true);
     try {
-      const payload = mapToApiPayload(data);
-      const res = await accidentService.saveAccident(toFormData(payload));
-      if (res.data.status) {
-        toast.success("Accident record updated.");
+      const payload = mapToApiPayload(data, mode.id);
+      const res = await accidentService.saveAccident(payload);
+      if (res.data.success) {
+        toast.success(res.data.message || "Accident record updated.");
         fetchAccidents();
         setMode({ view: "list" });
       } else {
-        toast.error(res.data.message || "Failed to update record");
+        toast.error(getSaveErrorMessage(res.data, "Failed to update record"));
       }
     } catch (error) {
       console.error("Failed to update accident", error);
-      toast.error("Failed to update accident record");
+      showSaveError(error, "Failed to update accident record");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -380,8 +451,12 @@ export default function AccidentFormPage() {
         mode="create"
         onCancel={() => setMode({ view: "list" })}
         onSubmit={handleCreate}
+        isSaving={isSaving}
       />
     );
+  }
+  if (mode.view === "loading") {
+    return <PageLoader label="Loading accident details…" />;
   }
   if (mode.view === "edit") {
     return (
@@ -390,6 +465,7 @@ export default function AccidentFormPage() {
         initial={selectedRecord}
         onCancel={() => setMode({ view: "list" })}
         onSubmit={handleUpdate}
+        isSaving={isSaving}
       />
     );
   }
@@ -398,7 +474,7 @@ export default function AccidentFormPage() {
       <AccidentReadOnlyView
         record={selectedRecord}
         onBack={() => setMode({ view: "list" })}
-        onEdit={isParent ? undefined : () => setMode({ view: "edit", id: selectedRecord.id })}
+        onEdit={isParent ? undefined : () => fetchDetails(selectedRecord.id, "edit")}
       />
     );
   }
@@ -512,11 +588,8 @@ export default function AccidentFormPage() {
                   label="Created By"
                   value={r.recorderName || user?.name || "Unknown"}
                 />
-                <Row
-                  icon={CalendarDays}
-                  label="Incident Date"
-                  value={fmtDDMMYYYY(r.incidentDate)}
-                />
+                <Row icon={CalendarDays} label="Incident Date" value={r.date} />
+                <Row icon={Clock3} label="Incident Time" value={r.time} />
                 <Row icon={ClipboardList} label="Parent Ack" value={r.ackParentName || "Pending"} />
               </div>
 

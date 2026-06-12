@@ -367,7 +367,8 @@ export default function DailyReflectionsPage() {
   };
 
   const handleStatusChange = async (id, currentStatus) => {
-    const newStatus = currentStatus?.toLowerCase() === "published" ? "Draft" : "Published";
+    if (currentStatus?.toLowerCase() === "published") return;
+    const newStatus = "Published";
     try {
       const res = await reflectionService.updateStatus(id, newStatus);
       if (res.status) {
@@ -913,8 +914,9 @@ function ReflectionCard({
           <h3 className="line-clamp-2 text-base font-semibold leading-tight text-foreground">
             {cleanTitle}
           </h3>
-          {canEdit ? (
+          {canEdit && refl.status?.toLowerCase() !== "published" ? (
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onStatusChange?.(refl.status);
