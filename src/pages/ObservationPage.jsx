@@ -802,7 +802,7 @@ function ObservationGalleryModal({ obs, onClose }) {
     if (images.length <= 1) return;
     timerRef.current = setInterval(() => {
       setIdx((prev) => (prev + 1) % images.length);
-    }, 20000);
+    }, 10000);
     return () => clearInterval(timerRef.current);
   }, [images.length]);
 
@@ -812,7 +812,7 @@ function ObservationGalleryModal({ obs, onClose }) {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = setInterval(() => {
         setIdx((prev) => (prev + 1) % images.length);
-      }, 20000);
+      }, 10000);
     },
     [images.length],
   );
@@ -1014,7 +1014,7 @@ function ObservationCard({
     if (images.length <= 1) return;
     const interval = setInterval(() => {
       setCurrentIdx((prev) => (prev + 1) % images.length);
-    }, 20000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [images.length]);
 

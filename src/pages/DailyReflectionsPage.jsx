@@ -633,7 +633,7 @@ function ReflectionGalleryModal({ reflection, onClose }) {
     if (mediaItems.length <= 1) return;
     timerRef.current = setInterval(() => {
       setIdx((prev) => (prev + 1) % mediaItems.length);
-    }, 20000);
+    }, 10000);
     return () => clearInterval(timerRef.current);
   }, [mediaItems.length]);
 
@@ -645,7 +645,7 @@ function ReflectionGalleryModal({ reflection, onClose }) {
       if (mediaItems.length > 1) {
         timerRef.current = setInterval(() => {
           setIdx((prev) => (prev + 1) % mediaItems.length);
-        }, 20000);
+        }, 10000);
       }
     },
     [mediaItems.length],
@@ -824,7 +824,7 @@ function ReflectionCard({
     if (mediaItems.length <= 1) return;
     const interval = setInterval(() => {
       setImgIdx((prev) => (prev + 1) % mediaItems.length);
-    }, 20000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [mediaItems.length]);
 
