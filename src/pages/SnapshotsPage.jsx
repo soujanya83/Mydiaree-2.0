@@ -720,7 +720,7 @@ function SnapshotGalleryModal({ snap, onClose }) {
     if (images.length <= 1) return;
     timerRef.current = setInterval(() => {
       setIdx((prev) => (prev + 1) % images.length);
-    }, 10000);
+    }, 20000);
     return () => clearInterval(timerRef.current);
   }, [images.length]);
 
@@ -731,7 +731,7 @@ function SnapshotGalleryModal({ snap, onClose }) {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = setInterval(() => {
         setIdx((prev) => (prev + 1) % images.length);
-      }, 4000);
+      }, 20000);
     },
     [images.length],
   );
@@ -964,7 +964,7 @@ function SnapshotCard({
     if (images.length <= 1) return;
     const interval = setInterval(() => {
       setCurrentIdx((prev) => (prev + 1) % images.length);
-    }, 3000); // Change image every 3 seconds
+    }, 20000); // Change image every 3 seconds
     return () => clearInterval(interval);
   }, [images.length]);
 
