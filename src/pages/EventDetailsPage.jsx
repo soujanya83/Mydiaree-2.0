@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Calendar, User, Users, FileText, Image as ImageIcon, BadgeCheck, Pencil } from "lucide-react";
+import { ArrowLeft, Calendar, User, Users, FileText, Image as ImageIcon, BadgeCheck, Pencil, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { announcementService } from "@/services/centre/announcementService";
 import { toast } from "sonner";
+import { usePermissions } from "@/hooks/usePermissions";
 import { IMG_BASE_API } from "../api/imageapi";
 
 const IMG_BASE = IMG_BASE_API;
@@ -44,8 +45,10 @@ function getInitials(name, lastname) {
 export default function EventDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isParent } = usePermissions();
   const [eventData, setEventData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   const fetchEventDetails = useCallback(async () => {
     if (!id) return;
@@ -97,9 +100,11 @@ export default function EventDetailsPage() {
         breadcrumbs={[{ label: "Events", to: "/events" }, { label: stripHtml(info.title) }]}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate(`/events/${id}/edit`)}>
-              <Pencil className="h-4 w-4 mr-2" /> Edit
-            </Button>
+            {!isParent && (
+              <Button variant="outline" onClick={() => navigate(`/events/${id}/edit`)}>
+                <Pencil className="h-4 w-4 mr-2" /> Edit
+              </Button>
+            )}
             <Button variant="outline" onClick={() => navigate("/events")}>
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
@@ -152,7 +157,8 @@ export default function EventDetailsPage() {
               <img
                 src={mediaUrl(mediaUrls[0])}
                 alt={stripHtml(info.title)}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => setIsImageModalOpen(true)}
               />
             ) : (
               <div className="flex h-full min-h-[300px] items-center justify-center">
@@ -227,6 +233,159 @@ export default function EventDetailsPage() {
         ) : (
           <div className="text-center text-muted-foreground py-8">
             No children linked to this event.
+          </div>
+        )}
+      </div>
+
+      {isImageModalOpen && mediaUrls.length > 0 && (
+        <EventGalleryModal 
+          mediaUrls={mediaUrls} 
+          title={info.title} 
+          onClose={() => setIsImageModalOpen(false)} 
+        />
+      )}
+    </div>
+  );
+}
+
+function EventGalleryModal({ mediaUrls, title, onClose }) {
+  const images = mediaUrls || [];
+  const [idx, setIdx] = useState(0);
+  const timerRef = useRef(null);
+
+  // Auto-scroll every 10 seconds
+  useEffect(() => {
+    if (images.length <= 1) return;
+    timerRef.current = setInterval(() => {
+      setIdx((prev) => (prev + 1) % images.length);
+    }, 10000);
+    return () => clearInterval(timerRef.current);
+  }, [images.length]);
+
+  // Reset timer on manual navigation
+  const goTo = useCallback(
+    (newIdx) => {
+      setIdx(newIdx);
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setIdx((prev) => (prev + 1) % images.length);
+      }, 10000);
+    },
+    [images.length]
+  );
+
+  const goPrev = useCallback(
+    () => goTo((idx - 1 + images.length) % images.length),
+    [goTo, idx, images.length]
+  );
+  const goNext = useCallback(() => goTo((idx + 1) % images.length), [goTo, idx, images.length]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "ArrowRight") goNext();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [goNext, goPrev, onClose]);
+
+  const cleanTitle = stripHtml(title) || "Event Gallery";
+
+  if (images.length === 0) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center shadow-2xl">
+          <ImageIcon className="mx-auto mb-3 h-12 w-12 text-muted-foreground/40" />
+          <h3 className="text-lg font-bold text-foreground">No Images</h3>
+          <p className="mt-1 text-sm text-muted-foreground">This event has no media attached.</p>
+          <Button onClick={onClose} className="mt-5 rounded-full" variant="outline">
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950 shadow-2xl animate-in zoom-in-95 duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+          <div>
+            <h2 className="text-lg font-bold text-white">{cleanTitle}</h2>
+            <p className="text-xs font-medium text-white/50">
+              {idx + 1} of {images.length} images
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Image area */}
+        <div
+          className="relative flex items-center justify-center bg-black p-6"
+          style={{ minHeight: "420px" }}
+        >
+          <img
+            key={idx}
+            src={mediaUrl(images[idx])}
+            alt={`${cleanTitle} - ${idx + 1}`}
+            className="max-h-[70vh] w-full object-contain transition-opacity duration-500 animate-in fade-in rounded-lg"
+          />
+
+          {/* Prev/Next buttons */}
+          {images.length > 1 && (
+            <>
+              <button
+                onClick={goPrev}
+                className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg transition-all hover:scale-110 hover:bg-black/70"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+              <button
+                onClick={goNext}
+                className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white shadow-lg transition-all hover:scale-110 hover:bg-black/70"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Dot indicators + thumbnail strip */}
+        {images.length > 1 && (
+          <div className="flex items-center justify-center gap-2 border-t border-white/10 px-6 py-4">
+            {images.map((m, i) => (
+              <button
+                key={i}
+                onClick={() => goTo(i)}
+                className={`overflow-hidden rounded-lg border-2 transition-all ${
+                  i === idx
+                    ? "border-emerald-400 shadow-lg shadow-emerald-500/30 scale-110"
+                    : "border-transparent opacity-50 hover:opacity-80"
+                }`}
+              >
+                <img
+                  src={mediaUrl(m)}
+                  alt={`Thumb ${i + 1}`}
+                  className="h-12 w-12 object-cover"
+                />
+              </button>
+            ))}
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Cake,
   CalendarDays,
@@ -89,8 +90,9 @@ function mediaUrl(raw) {
 
 function parseMediaList(raw) {
   if (!raw || raw === "[]") return [];
+  if (Array.isArray(raw)) return raw.map(mediaUrl).filter(Boolean);
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     return Array.isArray(parsed) ? parsed.map(mediaUrl).filter(Boolean) : [];
   } catch {
     return [];
@@ -129,20 +131,39 @@ function entrySubtitle(entry, typeKey) {
   return null;
 }
 
-function DayDetailCard({ entry, typeKey, meta }) {
+function DayDetailCard({ entry, typeKey, meta, onNavigate }) {
   const title = entryTitle(entry, typeKey);
   const subtitle = entrySubtitle(entry, typeKey);
   const mediaImages = parseMediaList(entry.announcementMedia);
-  const childPhoto = typeKey === "birthdays" ? mediaUrl(entry.imageUrl) : null;
-  const images = childPhoto ? [childPhoto, ...mediaImages] : mediaImages;
+  const explicitImage = mediaUrl(entry.imageUrl);
+  const childPhoto = typeKey === "birthdays" ? explicitImage : null;
+  
+  const images = [];
+  if (childPhoto) images.push(childPhoto);
+  else if (explicitImage) images.push(explicitImage);
+  for (const img of mediaImages) {
+    if (!images.includes(img)) images.push(img);
+  }
+
   const accentColor =
     entry.eventColor && entry.eventColor.startsWith("#") ? entry.eventColor : null;
+    
+  const isEventLike = typeKey === "announcements" || typeKey === "normalEvents";
+  const canClick = isEventLike && !!entry.id;
+
+  const handleCardClick = () => {
+    if (canClick && onNavigate) {
+      onNavigate(`/events/${entry.id}`);
+    }
+  };
 
   return (
     <article
+      onClick={handleCardClick}
       className={cn(
         "group overflow-hidden rounded-2xl border bg-card/80 shadow-sm transition hover:shadow-md",
         meta.sectionBorder,
+        canClick && "cursor-pointer hover:border-primary/50"
       )}
     >
       {images[0] && (
@@ -221,6 +242,8 @@ function DayDetailCard({ entry, typeKey, meta }) {
 }
 
 function CalendarDayModal({ selectedDay, onClose }) {
+  const navigate = useNavigate();
+
   if (!selectedDay) return null;
 
   const sections = DAY_TYPES.map((meta) => ({
@@ -229,6 +252,11 @@ function CalendarDayModal({ selectedDay, onClose }) {
   })).filter((s) => s.items.length > 0);
 
   const totalCount = sections.reduce((sum, s) => sum + s.items.length, 0);
+
+  const handleNavigate = (path) => {
+    onClose();
+    navigate(path);
+  };
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -304,7 +332,7 @@ function CalendarDayModal({ selectedDay, onClose }) {
                 <ul className="space-y-3">
                   {items.map((entry, i) => (
                     <li key={`${meta.key}-${entry.id ?? i}`}>
-                      <DayDetailCard entry={entry} typeKey={meta.key} meta={meta} />
+                      <DayDetailCard entry={entry} typeKey={meta.key} meta={meta} onNavigate={handleNavigate} />
                     </li>
                   ))}
                 </ul>
