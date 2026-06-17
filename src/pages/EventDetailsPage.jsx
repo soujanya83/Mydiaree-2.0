@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Calendar, User, Users, FileText, Image as ImageIcon, BadgeCheck, Pencil, ChevronLeft, ChevronRight, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  User,
+  Users,
+  FileText,
+  Image as ImageIcon,
+  BadgeCheck,
+  Pencil,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Download,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Button } from "@/components/ui/button";
@@ -33,7 +46,12 @@ function mediaUrl(raw) {
 function formatDate(dateString) {
   if (!dateString) return "-";
   const date = new Date(dateString);
-  return date.toLocaleDateString("en-US", { weekday: "long", day: "2-digit", month: "short", year: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function getInitials(name, lastname) {
@@ -78,9 +96,9 @@ export default function EventDetailsPage() {
   if (!eventData?.info) {
     return (
       <div>
-        <PageHeader 
-          title="Event Not Found" 
-          breadcrumbs={[{ label: "Events", to: "/events" }, { label: "Not Found" }]} 
+        <PageHeader
+          title="Event Not Found"
+          breadcrumbs={[{ label: "Events", to: "/events" }, { label: "Not Found" }]}
         />
         <Button onClick={() => navigate("/events")}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Events
@@ -117,14 +135,12 @@ export default function EventDetailsPage() {
         <div className="grid lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="space-y-5 p-6 lg:p-8">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-primary/80 hover:bg-primary">
-                {info.type || "Event"}
-              </Badge>
+              <Badge className="bg-primary/80 hover:bg-primary">{info.type || "Event"}</Badge>
               <Badge variant="outline" className="border-primary/30">
                 {info.status || "Sent"}
               </Badge>
             </div>
-            
+
             <div>
               <h1 className="text-3xl font-black tracking-tight text-foreground lg:text-4xl">
                 {stripHtml(info.title)}
@@ -140,14 +156,18 @@ export default function EventDetailsPage() {
                 <p className="mt-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   Event Date
                 </p>
-                <p className="mt-1 text-lg font-black text-foreground">{formatDate(info.eventDate)}</p>
+                <p className="mt-1 text-lg font-black text-foreground">
+                  {formatDate(info.eventDate)}
+                </p>
               </div>
               <div className="rounded-xl border border-border bg-muted/20 p-4">
                 <User className="h-4 w-4 text-primary" />
                 <p className="mt-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                   Created By
                 </p>
-                <p className="mt-1 text-lg font-black text-foreground">{info.username || "Unknown"}</p>
+                <p className="mt-1 text-lg font-black text-foreground">
+                  {info.username || "Unknown"}
+                </p>
               </div>
             </div>
           </div>
@@ -194,15 +214,16 @@ export default function EventDetailsPage() {
               <p className="text-xs text-muted-foreground">{children.length} children linked</p>
             </div>
           </div>
-          <Badge className="bg-primary/80 hover:bg-primary">
-            {children.length}
-          </Badge>
+          <Badge className="bg-primary/80 hover:bg-primary">{children.length}</Badge>
         </div>
 
         {children.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {children.map((child) => (
-              <div key={child.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3">
+              <div
+                key={child.id}
+                className="flex items-center gap-3 rounded-xl border border-border bg-muted/10 p-3"
+              >
                 <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-primary/10 flex items-center justify-center">
                   {child.imageUrl ? (
                     <img
@@ -238,10 +259,10 @@ export default function EventDetailsPage() {
       </div>
 
       {isImageModalOpen && mediaUrls.length > 0 && (
-        <EventGalleryModal 
-          mediaUrls={mediaUrls} 
-          title={info.title} 
-          onClose={() => setIsImageModalOpen(false)} 
+        <EventGalleryModal
+          mediaUrls={mediaUrls}
+          title={info.title}
+          onClose={() => setIsImageModalOpen(false)}
         />
       )}
     </div>
@@ -271,12 +292,12 @@ function EventGalleryModal({ mediaUrls, title, onClose }) {
         setIdx((prev) => (prev + 1) % images.length);
       }, 10000);
     },
-    [images.length]
+    [images.length],
   );
 
   const goPrev = useCallback(
     () => goTo((idx - 1 + images.length) % images.length),
-    [goTo, idx, images.length]
+    [goTo, idx, images.length],
   );
   const goNext = useCallback(() => goTo((idx + 1) % images.length), [goTo, idx, images.length]);
 
@@ -292,6 +313,30 @@ function EventGalleryModal({ mediaUrls, title, onClose }) {
   }, [goNext, goPrev, onClose]);
 
   const cleanTitle = stripHtml(title) || "Event Gallery";
+
+  const handleDownload = useCallback(async () => {
+    const url = mediaUrl(images[idx]);
+    const ext = url.split(".").pop().split(/[?#]/)[0] || "jpg";
+    const filename = `${cleanTitle.replace(/[^a-zA-Z0-9]/g, "_")}_${idx + 1}.${ext}`;
+
+    try {
+      const blob = await announcementService.downloadImage(url);
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 150);
+    } catch (error) {
+      console.error("API download failed:", error);
+      toast.error("Failed to download image");
+    }
+  }, [images, idx, cleanTitle]);
 
   if (images.length === 0) {
     return (
@@ -325,12 +370,21 @@ function EventGalleryModal({ mediaUrls, title, onClose }) {
               {idx + 1} of {images.length} images
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              title="Download image"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-emerald-500/20 hover:text-emerald-400"
+            >
+              <Download className="h-5 w-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Image area */}
@@ -379,11 +433,7 @@ function EventGalleryModal({ mediaUrls, title, onClose }) {
                     : "border-transparent opacity-50 hover:opacity-80"
                 }`}
               >
-                <img
-                  src={mediaUrl(m)}
-                  alt={`Thumb ${i + 1}`}
-                  className="h-12 w-12 object-cover"
-                />
+                <img src={mediaUrl(m)} alt={`Thumb ${i + 1}`} className="h-12 w-12 object-cover" />
               </button>
             ))}
           </div>

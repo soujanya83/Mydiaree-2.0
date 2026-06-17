@@ -36,4 +36,12 @@ export const announcementService = {
     });
     return res.data;
   },
+
+  async downloadImage(imageUrl) {
+    const res = await api.get("/announcements/download-image", {
+      params: { image_url: imageUrl },
+      responseType: "blob",
+    });
+    return res.data;
+  },
 };
