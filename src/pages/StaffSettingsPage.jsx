@@ -41,6 +41,7 @@ import { AddStaffModal } from "@/components/staff/AddStaffModal";
 import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { Pagination } from "@/components/common/Pagination";
+import { StatusConfirmationModal } from "@/components/common/StatusConfirmationModal";
 import { IMG_BASE_API } from "../api/imageapi";
 
 const STAFF_SETTINGS_FILTERS_KEY = "staff-settings-filters";
@@ -99,6 +100,16 @@ export default function StaffSettingsPage() {
     }
     return "all";
   });
+  const [statusFilter, setStatusFilter] = useState(() => {
+    if (typeof window === "undefined") return "Active";
+    try {
+      const saved = window.localStorage.getItem(STAFF_SETTINGS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved).statusFilter || "Active";
+    } catch (e) {
+      console.error("Failed to load statusFilter from localStorage:", e);
+    }
+    return "Active";
+  });
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -123,16 +134,17 @@ export default function StaffSettingsPage() {
   const [modal, setModal] = useState({ open: false, initial: null });
   const [accessUpdatingId, setAccessUpdatingId] = useState(null);
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
+  const [statusConfirm, setStatusConfirm] = useState(null);
 
   // Save filters to localStorage on change
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(STAFF_SETTINGS_FILTERS_KEY, JSON.stringify({ centerId, roomId, query }));
+      window.localStorage.setItem(STAFF_SETTINGS_FILTERS_KEY, JSON.stringify({ centerId, roomId, statusFilter, query }));
     } catch (e) {
       console.error("Failed to save filters to localStorage:", e);
     }
-  }, [centerId, roomId, query]);
+  }, [centerId, roomId, statusFilter, query]);
 
   const ACCESS_OPTIONS = [
     { label: "1 Hour", value: 1 },
@@ -159,7 +171,7 @@ export default function StaffSettingsPage() {
       ...mapStaffMember(s),
     }));
 
-  const fetchStaff = useCallback(async (cId, search = "", pg = 1, selectedRoomId = "all") => {
+  const fetchStaff = useCallback(async (cId, search = "", pg = 1, selectedRoomId = "all", selectedStatus = "Active") => {
     if (!cId) return;
     setLoading(true);
     try {
@@ -169,6 +181,7 @@ export default function StaffSettingsPage() {
         page: pg,
         per_page: 12,
         roomid: selectedRoomId !== "all" ? selectedRoomId : undefined,
+        status: selectedStatus !== "all" ? selectedStatus : undefined,
       });
       if (res.status && res.data) {
         const staffData = res.data.staff;
@@ -218,18 +231,18 @@ export default function StaffSettingsPage() {
   // Fetch when center, room, or page changes
   useEffect(() => {
     if (centerId) {
-      fetchStaff(centerId, query, page, roomId);
+      fetchStaff(centerId, query, page, roomId, statusFilter);
     } else {
       setLoading(false);
     }
-  }, [centerId, roomId, page, fetchStaff]);
+  }, [centerId, roomId, statusFilter, page, fetchStaff]);
 
   const handleSearchChange = (value) => {
     setQuery(value);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
       setPage(1);
-      fetchStaff(centerId, value, 1, roomId);
+      fetchStaff(centerId, value, 1, roomId, statusFilter);
     }, 500);
   };
 
@@ -241,12 +254,18 @@ export default function StaffSettingsPage() {
     setCenterId(newCenterId);
     setActiveCentre(newCenterId);
     setRoomId("all");
+    setStatusFilter("Active");
     setQuery("");
     setPage(1);
   };
 
   const handleRoomChange = (newRoomId) => {
     setRoomId(newRoomId);
+    setPage(1);
+  };
+
+  const handleStatusFilterChange = (newStatus) => {
+    setStatusFilter(newStatus);
     setPage(1);
   };
 
@@ -318,7 +337,9 @@ export default function StaffSettingsPage() {
     }
   };
 
-  const toggleActive = async (id) => {
+  const toggleActive = async () => {
+    if (!statusConfirm) return;
+    const id = statusConfirm.id;
     setStatusUpdatingId(id);
     try {
       const res = await staffService.updateStaffStatus(id);
@@ -332,6 +353,7 @@ export default function StaffSettingsPage() {
           })
         );
         toast.success(res.message || "User status updated successfully.");
+        setStatusConfirm(null);
       } else {
         toast.error(res.message || "Failed to update status");
       }
@@ -397,6 +419,16 @@ export default function StaffSettingsPage() {
                   {room.name}
                 </SelectItem>
               ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+          <SelectTrigger className="h-11 w-44 rounded-2xl border-border/60 bg-card/60 shadow-sm backdrop-blur">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="In-Active">Inactive</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -546,7 +578,7 @@ export default function StaffSettingsPage() {
                   <div className="mt-6 flex items-center justify-between gap-2 border-t border-border/50 pt-4 relative z-10">
                     <button
                       type="button"
-                      onClick={() => toggleActive(s.id)}
+                      onClick={() => setStatusConfirm(s)}
                       disabled={statusUpdatingId === s.id}
                       title={s.active ? "Deactivate Staff" : "Activate Staff"}
                       className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
@@ -593,6 +625,15 @@ export default function StaffSettingsPage() {
         onOpenChange={(o) => setModal((m) => ({ ...m, open: o }))}
         initial={modal.initial}
         onSave={handleSave}
+      />
+
+      <StatusConfirmationModal
+        open={!!statusConfirm}
+        onClose={() => !statusUpdatingId && setStatusConfirm(null)}
+        onConfirm={toggleActive}
+        isLoading={!!statusUpdatingId}
+        name={statusConfirm?.name || ""}
+        isCurrentlyActive={statusConfirm?.active === true}
       />
     </div>
   );

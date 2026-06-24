@@ -63,6 +63,7 @@ const PATTERN_BG =
 const PAGE_SIZE = REFLECTION_DEFAULT_PER_PAGE;
 const DAILY_REFLECTION_ROOM_FILTER_KEY = "daily-reflections-room-filter";
 const DAILY_REFLECTION_FILTERS_KEY = "daily-reflections-filters";
+const DAILY_REFLECTION_PAGE_KEY = "daily-reflections-page";
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -227,7 +228,16 @@ export default function DailyReflectionsPage() {
     }
     return "all";
   });
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    if (typeof window === "undefined") return 1;
+    try {
+      const saved = window.localStorage.getItem(DAILY_REFLECTION_PAGE_KEY);
+      if (saved) return Number(saved) || 1;
+    } catch (e) {
+      console.error("Failed to load page from localStorage:", e);
+    }
+    return 1;
+  });
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPrintingId, setIsPrintingId] = useState(null);
@@ -245,6 +255,16 @@ export default function DailyReflectionsPage() {
       console.error("Failed to save filters to localStorage:", e);
     }
   }, [search, status, dateRange, customFrom, customTo, author, childId]);
+
+  // Persist page to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(DAILY_REFLECTION_PAGE_KEY, String(page));
+    } catch (e) {
+      console.error("Failed to save page to localStorage:", e);
+    }
+  }, [page]);
 
   const fetchReflections = useCallback(async () => {
     if (isParent) {
@@ -307,20 +327,7 @@ export default function DailyReflectionsPage() {
     fetchReflections();
   }, [fetchReflections]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [
-    activeCentreId,
-    localRoomId,
-    search,
-    status,
-    dateRange,
-    customFrom,
-    customTo,
-    childId,
-    author,
-    selectedChildId,
-  ]);
+
 
   useEffect(() => {
     setAuthor("all");

@@ -131,7 +131,7 @@ function detailFor(def, entry) {
 
   if (def.key === "sleep") {
     const sleepTime = entry.sleepTime || "No sleep";
-    const wakeTime = entry.wakeTime || "No wake";
+    const wakeTime = entry.wakeTime || "Still resting";
     return `${sleepTime} - ${wakeTime}`;
   }
 
@@ -171,7 +171,7 @@ function EntryDetails({ def, entry }) {
 
   if (def.key === "sleep") {
     const sleepTime = entry.sleepTime || "No sleep";
-    const wakeTime = entry.wakeTime || "No wake";
+    const wakeTime = entry.wakeTime || "Still resting";
     return (
       <div className="flex flex-col gap-1 min-w-0 w-full">
         {renderRow("Sleep", sleepTime)}
