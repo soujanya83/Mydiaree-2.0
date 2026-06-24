@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { authService } from "@/services/auth/authService";
 import { permissionService } from "@/services/admin/permissionService";
+import { broadcastSessionEvent } from "@/hooks/useSessionSync";
 
 function shouldFetchPermissions(user) {
   if (!user) return false;
@@ -19,10 +20,15 @@ function getInitialPermissionsLoading() {
   }
 }
 
+function generateSessionId() {
+  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+}
+
 export const useAuthStore = create((set, get) => ({
   user: localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user")) : null,
   token: localStorage.getItem("token"),
   isAuthenticated: localStorage.getItem("user") ? true : false,
+  sessionId: localStorage.getItem("sessionId") || null,
   userPermissions: localStorage.getItem("userPermissions")
     ? JSON.parse(localStorage.getItem("userPermissions"))
     : null,
@@ -32,9 +38,14 @@ export const useAuthStore = create((set, get) => ({
     try {
       const data = await authService.login(payload);
       if (data.status === "success") {
+        const sessionId = generateSessionId();
         localStorage.setItem("user", JSON.stringify(data.user));
         localStorage.setItem("token", data.token);
-        set({ user: data.user, token: data.token, isAuthenticated: true });
+        localStorage.setItem("sessionId", sessionId);
+        set({ user: data.user, token: data.token, isAuthenticated: true, sessionId });
+
+        // Notify all other tabs that a new login occurred
+        broadcastSessionEvent("LOGIN");
 
         // Parents use a fixed view-only module list — no permission API
         if (data.user.userType === "Parent") {
@@ -103,12 +114,17 @@ export const useAuthStore = create((set, get) => ({
     localStorage.removeItem("token");
     localStorage.removeItem("activeCentreId");
     localStorage.removeItem("userPermissions");
+    localStorage.removeItem("sessionId");
     set({
       user: null,
       token: null,
       isAuthenticated: false,
+      sessionId: null,
       userPermissions: null,
       permissionsLoading: false,
     });
+
+    // Notify all other tabs that a logout occurred
+    broadcastSessionEvent("LOGOUT");
   },
 }));
