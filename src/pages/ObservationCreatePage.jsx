@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Eye,
   ListChecks,
@@ -41,6 +41,8 @@ import { programPlanService } from "@/services/learning/programPlanService";
 import { reflectionService } from "@/services/learning/reflectionService";
 import { childrenService } from "@/services/centre/childrenService";
 import { staffService } from "@/services/admin/staffService";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { AutoSaveIndicator } from "@/components/common/AutoSaveIndicator";
 import { toast } from "sonner";
 import { StatusTriangle } from "@/components/lessonplan/StatusTriangle";
 import { nextStatus } from "@/components/lessonplan/progressData";
@@ -246,7 +248,6 @@ const buildAssessmentPrefill = (observation = {}) => {
 export default function ObservationCreatePage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const [search] = useSearchParams();
   const isEdit = Boolean(id);
   const fileInputRef = useRef(null);
 
@@ -256,8 +257,6 @@ export default function ObservationCreatePage() {
   const [obsData, setObsData] = useState(null);
   const [isLoading, setIsLoading] = useState(isEdit);
   const [savedObservationId, setSavedObservationId] = useState(id || null);
-
-  const initialTitle = search.get("title") || "";
 
   const [tab, setTab] = useState("observations");
   const [assessTab, setAssessTab] = useState("montessori");
@@ -280,7 +279,7 @@ export default function ObservationCreatePage() {
   const [educatorsTotalPages, setEducatorsTotalPages] = useState(1);
   const [isEducatorsLoading, setIsEducatorsLoading] = useState(false);
 
-  const [title, setTitle] = useState(initialTitle);
+  const [title, setTitle] = useState("");
   const [observation, setObservation] = useState("");
   const [learningAnalysis, setLearningAnalysis] = useState("");
   const [childVoice, setChildVoice] = useState("");
@@ -288,12 +287,88 @@ export default function ObservationCreatePage() {
   const [implementation, setImplementation] = useState("");
   const [criticalReflection, setCriticalReflection] = useState("");
   const [status, setStatus] = useState("draft");
-  const [media, setMedia] = useState([]); // { file, preview, isExisting, url, id }
+  const [media, setMedia] = useState([]); // { url, id, mediaType } — all server-persisted
   const [deletingMediaIds, setDeletingMediaIds] = useState([]);
-  const observationSavedInFlow = !isEdit && Boolean(savedObservationId);
+  const [uploadingMediaCount, setUploadingMediaCount] = useState(0);
 
-  const existingMedia = media.filter((item) => item.isExisting);
-  const newMedia = media.filter((item) => !item.isExisting);
+  // ── Auto-save refs (always point to latest form values) ──
+  const formRef = useRef({
+    title: "",
+    observation: "",
+    learningAnalysis: "",
+    childVoice: "",
+    futurePlan: "",
+    implementation: "",
+    criticalReflection: "",
+    rooms: [],
+    children: [],
+    educators: [],
+    status: "draft",
+  });
+  useEffect(() => {
+    formRef.current = {
+      title,
+      observation,
+      learningAnalysis,
+      childVoice,
+      futurePlan,
+      implementation,
+      criticalReflection,
+      rooms,
+      children,
+      educators,
+      status,
+    };
+  }, [
+    title,
+    observation,
+    learningAnalysis,
+    childVoice,
+    futurePlan,
+    implementation,
+    criticalReflection,
+    rooms,
+    children,
+    educators,
+    status,
+  ]);
+
+  // Build full payload for saving/updating
+  const buildFullPayload = useCallback(() => {
+    const f = formRef.current;
+    return {
+      id: id,
+      center_id: activeCentreId,
+      obestitle: f.title,
+      title: f.observation,
+      notes: f.learningAnalysis,
+      reflection: f.criticalReflection,
+      child_voice: f.childVoice,
+      future_plan: f.futurePlan,
+      implementation: f.implementation,
+      selected_rooms: f.rooms,
+      selected_children: f.children.join(","),
+      selected_staff: f.educators,
+    };
+  }, [id, activeCentreId]);
+
+  // Instantiate the auto-save hook
+  const { fieldStatus, triggerAutoSave, triggerImmediateSave, cancelPendingSaves } = useAutoSave({
+    reflectionId: id,
+    saveFn: async (_id, payload) => {
+      const res = await observationService.updateObservation(payload);
+      if (!res.status && res.status !== "success") {
+        throw new Error(res.message || "Save failed");
+      }
+      return res;
+    },
+    debounceMs: 1500,
+  });
+
+  // Cleanup auto-save on unmount
+  useEffect(() => {
+    return () => cancelPendingSaves();
+  }, [cancelPendingSaves]);
 
   // Assessment state
   const [montessoriSubjects, setMontessoriSubjects] = useState([]);
@@ -782,108 +857,61 @@ export default function ObservationCreatePage() {
     }
   }, [id, isEdit]);
 
-  const handleMediaSelect = (e) => {
+  const handleMediaSelect = async (e) => {
     const files = Array.from(e.target.files);
-    if (media.length + files.length > 3) {
+    if (media.length + uploadingMediaCount + files.length > 3) {
       toast.error("Maximum 3 media files allowed");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    const newMedia = files.map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-      isExisting: false,
-    }));
-    setMedia((prev) => [...prev, ...newMedia]);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
 
-  const removeNewMedia = (item) => {
-    setMedia((prev) => {
-      if (item.preview) {
-        URL.revokeObjectURL(item.preview);
+    setUploadingMediaCount((prev) => prev + files.length);
+    for (const file of files) {
+      try {
+        const payload = buildFullPayload();
+        payload.media = [file];
+        const res = await observationService.updateObservation(payload);
+        if (res.status === "success" || res.status === true) {
+          const detailsRes = await observationService.getObservationDetails(id);
+          if (detailsRes.status && detailsRes.data?.media) {
+            setMedia(
+              detailsRes.data.media.map((m) => ({
+                url: avatarUrl(m.mediaUrl || m.url),
+                id: m.id,
+                mediaType: m.mediaType || "",
+              })),
+            );
+          }
+        } else {
+          toast.error(res.message || "Failed to upload media");
+        }
+      } catch (error) {
+        console.error("Media upload error:", error);
+        toast.error(`Failed to upload ${file.name}`);
+      } finally {
+        setUploadingMediaCount((prev) => Math.max(0, prev - 1));
       }
-      return prev.filter((m) => m !== item);
-    });
+    }
   };
 
-  const removeExistingMedia = async (item) => {
+  const removeMedia = async (item) => {
     if (!item.id || deletingMediaIds.includes(item.id)) return;
 
     setDeletingMediaIds((prev) => [...prev, item.id]);
     try {
       const res = await observationService.deleteObservationMedia(item.id);
       if (res.status) {
-        setMedia((prev) => prev.filter((m) => m !== item));
+        setMedia((prev) => prev.filter((m) => m.id !== item.id));
         toast.success(res.message || "Media deleted successfully");
       } else {
         toast.error(res.message || "Failed to delete media");
       }
     } catch (error) {
-      console.error("Failed to delete observation media:", error);
+      console.error("Failed to delete media:", error);
       toast.error("Failed to delete media");
     } finally {
-      setDeletingMediaIds((prev) => prev.filter((id) => id !== item.id));
-    }
-  };
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSave = async () => {
-    if (observationSavedInFlow) return;
-
-    if (!rooms.length || !children.length || !title || !observation) {
-      toast.error("Please fill in all required fields (Rooms, Children, Title, Observation)");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const payload = {
-        center_id: activeCentreId,
-        obestitle: title,
-        title: observation,
-        notes: learningAnalysis,
-        reflection: criticalReflection,
-        child_voice: childVoice,
-        future_plan: futurePlan,
-        implementation: implementation, // Note: backend uses 'implmentation' (missing 'e')
-        selected_rooms: rooms, // Will be appended as selected_rooms[] by service
-        selected_children: children.join(","), // Screenshot shows comma-separated string
-        selected_staff: educators, // Will be appended as selected_staff[] by service
-        media: media.filter((m) => !m.isExisting).map((m) => m.file),
-      };
-
-      if (isEdit) {
-        payload.id = id;
-      }
-
-      const res = await observationService.saveObservation(payload);
-      if (res.status) {
-        toast.success(res.message || "Observation saved successfully");
-        const nextObservationId = res.id || id;
-
-        try {
-          const apiStatus = status === "published" ? "Published" : "Draft";
-          await observationService.updateStatus(nextObservationId, apiStatus);
-          if (status === "published") {
-            navigate("/observation");
-          }
-        } catch (statusError) {
-          console.error("Failed to update status:", statusError);
-          toast.error("Observation saved, but failed to update status.");
-        }
-
-        setSavedObservationId(nextObservationId);
-        setTab("assessment");
-        setAssessTab("montessori");
-      } else {
-        toast.error(res.message || "Failed to save observation");
-      }
-    } catch (error) {
-      console.error("Error saving observation:", error);
-      toast.error("An error occurred while saving the observation");
-    } finally {
-      setIsSubmitting(false);
+      setDeletingMediaIds((prev) => prev.filter((x) => x !== item.id));
     }
   };
 
@@ -1195,7 +1223,7 @@ export default function ObservationCreatePage() {
               <Button
                 onClick={() => navigate("/observation")}
                 className="h-9 rounded-full bg-primary px-6 shadow-lg shadow-primary/20 hover:bg-primary/90"
-                disabled={isSubmitting}
+                disabled={isLoading}
               >
                 Observation
               </Button>
@@ -1236,11 +1264,14 @@ export default function ObservationCreatePage() {
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Tagging Section */}
             <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <div className="mb-6 flex items-center gap-2">
-                <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600">
-                  <User className="h-5 w-5" />
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600">
+                    <User className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-base font-bold text-foreground">Tagging & Classification</h3>
                 </div>
-                <h3 className="text-base font-bold text-foreground">Tagging & Classification</h3>
+                <AutoSaveIndicator status={fieldStatus.tagging} />
               </div>
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -1254,10 +1285,11 @@ export default function ObservationCreatePage() {
                     id,
                     label: allRooms.find((r) => String(r.id) === String(id))?.name || id,
                   }))}
-                  onRemove={(id) => {
-                    setRooms((prev) => prev.filter((x) => x !== id));
+                  onRemove={(roomId) => {
+                    setRooms((prev) => prev.filter((x) => x !== roomId));
                     setChildren([]);
                     setEducators([]);
+                    setTimeout(() => triggerImmediateSave("tagging", buildFullPayload), 0);
                   }}
                   onClick={() => setShowRoomsPicker(true)}
                   placeholder="Select rooms"
@@ -1276,7 +1308,10 @@ export default function ObservationCreatePage() {
                         "",
                       ) || id,
                   }))}
-                  onRemove={(id) => setChildren((prev) => prev.filter((x) => x !== id))}
+                  onRemove={(childId) => {
+                    setChildren((prev) => prev.filter((x) => x !== childId));
+                    setTimeout(() => triggerImmediateSave("tagging", buildFullPayload), 0);
+                  }}
                   onClick={() => {
                     if (rooms.length === 0) {
                       toast.error("Please select a room first.");
@@ -1295,7 +1330,10 @@ export default function ObservationCreatePage() {
                     const found = availableEducators.find((e) => String(e.id) === String(id));
                     return { id, label: found ? found.name : id };
                   })}
-                  onRemove={(id) => setEducators((prev) => prev.filter((x) => x !== id))}
+                  onRemove={(educatorId) => {
+                    setEducators((prev) => prev.filter((x) => x !== educatorId));
+                    setTimeout(() => triggerImmediateSave("tagging", buildFullPayload), 0);
+                  }}
                   onClick={() => {
                     if (rooms.length === 0) {
                       toast.error("Please select a room first.");
@@ -1313,18 +1351,27 @@ export default function ObservationCreatePage() {
               <div className="lg:col-span-2 space-y-8">
                 {/* Observation Content */}
                 <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                  <div className="mb-6 flex items-center gap-2">
-                    <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
-                      <FileText className="h-5 w-5" />
+                  <div className="mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <h3 className="text-base font-bold text-foreground">Observation Details</h3>
                     </div>
-                    <h3 className="text-base font-bold text-foreground">Observation Details</h3>
+                    <AutoSaveIndicator status={fieldStatus.content} />
                   </div>
 
                   <div className="space-y-6">
                     <FormGroup label="Title" info="A short descriptive title for the observation">
                       <Input
                         value={title}
-                        onChange={(e) => setTitle(e.target.value)}
+                        onChange={(e) => {
+                          setTitle(e.target.value);
+                          triggerAutoSave("content", buildFullPayload);
+                        }}
+                        onBlur={() => {
+                          triggerImmediateSave("content", buildFullPayload);
+                        }}
                         placeholder="e.g., Outdoor Play at the Sandpit"
                         className="h-12 border-none bg-muted/30 focus-visible:ring-sky-500/50"
                       />
@@ -1336,7 +1383,13 @@ export default function ObservationCreatePage() {
                     >
                       <Textarea
                         value={observation}
-                        onChange={(e) => setObservation(e.target.value)}
+                        onChange={(e) => {
+                          setObservation(e.target.value);
+                          triggerAutoSave("content", buildFullPayload);
+                        }}
+                        onBlur={() => {
+                          triggerImmediateSave("content", buildFullPayload);
+                        }}
                         rows={6}
                         placeholder="Describe the child's actions, words, and interactions in detail..."
                         className="border-none bg-muted/30 focus-visible:ring-sky-500/50 resize-none"
@@ -1347,11 +1400,14 @@ export default function ObservationCreatePage() {
 
                 {/* Analysis & Reflection */}
                 <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-                  <div className="mb-6 flex items-center gap-2">
-                    <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600">
-                      <Sparkles className="h-5 w-5" />
+                  <div className="mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600">
+                        <Sparkles className="h-5 w-5" />
+                      </div>
+                      <h3 className="text-base font-bold text-foreground">Learning and Outcomes</h3>
                     </div>
-                    <h3 className="text-base font-bold text-foreground">Learning and Outcomes</h3>
+                    <AutoSaveIndicator status={fieldStatus.analysis} />
                   </div>
 
                   <div className="space-y-6">
@@ -1361,7 +1417,13 @@ export default function ObservationCreatePage() {
                     >
                       <Textarea
                         value={learningAnalysis}
-                        onChange={(e) => setLearningAnalysis(e.target.value)}
+                        onChange={(e) => {
+                          setLearningAnalysis(e.target.value);
+                          triggerAutoSave("analysis", buildFullPayload);
+                        }}
+                        onBlur={() => {
+                          triggerImmediateSave("analysis", buildFullPayload);
+                        }}
                         rows={6}
                         placeholder="Interpret the learning through the lens of developmental milestones or EYLF outcomes..."
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
@@ -1374,7 +1436,13 @@ export default function ObservationCreatePage() {
                     >
                       <Textarea
                         value={childVoice}
-                        onChange={(e) => setChildVoice(e.target.value)}
+                        onChange={(e) => {
+                          setChildVoice(e.target.value);
+                          triggerAutoSave("analysis", buildFullPayload);
+                        }}
+                        onBlur={() => {
+                          triggerImmediateSave("analysis", buildFullPayload);
+                        }}
                         rows={6}
                         placeholder="Quotes from the child or descriptions of their non-verbal expressions..."
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
@@ -1384,7 +1452,13 @@ export default function ObservationCreatePage() {
                     <FormGroup label="Future Plan">
                       <Textarea
                         value={futurePlan}
-                        onChange={(e) => setFuturePlan(e.target.value)}
+                        onChange={(e) => {
+                          setFuturePlan(e.target.value);
+                          triggerAutoSave("analysis", buildFullPayload);
+                        }}
+                        onBlur={() => {
+                          triggerImmediateSave("analysis", buildFullPayload);
+                        }}
                         rows={6}
                         placeholder="What will you do next to support this learning?"
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
@@ -1394,7 +1468,13 @@ export default function ObservationCreatePage() {
                     <FormGroup label="Implementation">
                       <Textarea
                         value={implementation}
-                        onChange={(e) => setImplementation(e.target.value)}
+                        onChange={(e) => {
+                          setImplementation(e.target.value);
+                          triggerAutoSave("analysis", buildFullPayload);
+                        }}
+                        onBlur={() => {
+                          triggerImmediateSave("analysis", buildFullPayload);
+                        }}
                         rows={6}
                         placeholder="How was this plan implemented?"
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
@@ -1407,7 +1487,13 @@ export default function ObservationCreatePage() {
                     >
                       <Textarea
                         value={criticalReflection}
-                        onChange={(e) => setCriticalReflection(e.target.value)}
+                        onChange={(e) => {
+                          setCriticalReflection(e.target.value);
+                          triggerAutoSave("analysis", buildFullPayload);
+                        }}
+                        onBlur={() => {
+                          triggerImmediateSave("analysis", buildFullPayload);
+                        }}
                         rows={6}
                         placeholder="Add your critical reflection..."
                         className="border-none bg-muted/30 focus-visible:ring-amber-500/50"
@@ -1422,57 +1508,53 @@ export default function ObservationCreatePage() {
                 {/* Media Section */}
                 <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                      Media
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                        Media
+                      </h3>
+                      {uploadingMediaCount > 0 && (
+                        <span className="flex items-center gap-1.5 text-xs text-primary font-bold animate-pulse">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Uploading...
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                      {media.length}/3 Files
+                      {media.length + uploadingMediaCount}/3 Files
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
-                    {isEdit && (
-                      <div className="col-span-1">
-                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Already Added Media ({existingMedia.length})
-                        </p>
-                        {existingMedia.length > 0 ? (
-                          <div className="grid grid-cols-1 gap-3">
-                            {existingMedia.map((item) => (
-                              <ObservationMediaPreview
-                                key={item.id}
-                                item={item}
-                                isDeleting={deletingMediaIds.includes(item.id)}
-                                onRemove={() => removeExistingMedia(item)}
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-                            No previously added media.
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    <div className={isEdit ? "col-span-1 mt-3" : "col-span-1"}>
-                      {isEdit && (
-                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Newly Added Media ({newMedia.length})
-                        </p>
-                      )}
+                    {media.length > 0 ? (
                       <div className="grid grid-cols-1 gap-3">
-                        {newMedia.map((item) => (
+                        {media.map((item) => (
                           <ObservationMediaPreview
-                            key={item.preview}
+                            key={item.id}
                             item={item}
-                            onRemove={() => removeNewMedia(item)}
+                            isDeleting={deletingMediaIds.includes(item.id)}
+                            onRemove={() => removeMedia(item)}
                           />
                         ))}
                       </div>
-                    </div>
+                    ) : (
+                      uploadingMediaCount === 0 && (
+                        <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+                          No media added yet.
+                        </p>
+                      )
+                    )}
 
-                    {media.length < 3 && (
+                    {uploadingMediaCount > 0 && (
+                      <div className="grid grid-cols-1 gap-3">
+                        {Array.from({ length: uploadingMediaCount }).map((_, i) => (
+                          <div key={i} className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-border bg-muted/30">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {media.length + uploadingMediaCount < 3 && (
                       <button
                         onClick={() => fileInputRef.current?.click()}
                         className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-8 transition-colors hover:border-primary/40 hover:bg-primary/5 ${PATTERN_BG}`}
@@ -1509,7 +1591,18 @@ export default function ObservationCreatePage() {
                     label="Status"
                     info="Choose whether to keep as draft or publish to families"
                   >
-                    <Select value={status} onValueChange={setStatus}>
+                    <Select
+                      value={status}
+                      onValueChange={async (newStatus) => {
+                        setStatus(newStatus);
+                        try {
+                          await observationService.updateStatus(id, newStatus === "published" ? "Published" : "Draft");
+                          toast.success("Observation status updated successfully.");
+                        } catch (error) {
+                          toast.error("Failed to update status");
+                        }
+                      }}
+                    >
                       <SelectTrigger
                         className={`h-12 w-full rounded-xl border-none font-bold uppercase tracking-wider text-xs ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                       >
@@ -1525,20 +1618,13 @@ export default function ObservationCreatePage() {
 
                 <Button
                   size="lg"
-                  onClick={() => handleSave()}
+                  onClick={() => {
+                    setTab("assessment");
+                    setAssessTab("montessori");
+                  }}
                   className="h-12 min-w-[200px] rounded-xl bg-primary px-10 text-base font-bold text-white shadow-xl shadow-primary/20 hover:bg-primary/90"
-                  disabled={isSubmitting || observationSavedInFlow}
                 >
-                  {isSubmitting ? (
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-5 w-5" />
-                  )}
-                  {observationSavedInFlow
-                    ? "Observation Saved"
-                    : isEdit
-                      ? "Update Observation"
-                      : "Save Observation"}
+                  Next: Assessments
                 </Button>
               </div>
             </div>
@@ -1685,6 +1771,7 @@ export default function ObservationCreatePage() {
           setChildren([]);
           setEducators([]);
           setShowRoomsPicker(false);
+          setTimeout(() => triggerImmediateSave("tagging", buildFullPayload), 0);
         }}
       />
       <MultiPickerModal
@@ -1711,6 +1798,7 @@ export default function ObservationCreatePage() {
         onSave={(v) => {
           setChildren(v);
           setShowChildrenPicker(false);
+          setTimeout(() => triggerImmediateSave("tagging", buildFullPayload), 0);
         }}
       />
       <MultiPickerModal
@@ -1737,6 +1825,7 @@ export default function ObservationCreatePage() {
         onSave={(v) => {
           setEducators(v);
           setShowEducatorsPicker(false);
+          setTimeout(() => triggerImmediateSave("tagging", buildFullPayload), 0);
         }}
       />
     </div>
@@ -3096,8 +3185,10 @@ function Avatar({ name, imageUrl }) {
 }
 
 function ObservationMediaPreview({ item, isDeleting = false, onRemove }) {
-  const src = item.isExisting ? item.url : item.preview;
-  const isVideo = String(item.mediaType || item.file?.type || "").startsWith("video/");
+  const src = item.url || item.preview;
+  const isVideo =
+    String(item.mediaType || item.file?.type || "").startsWith("video/") ||
+    /\.(mp4|mov|webm|m4v|avi)(\?|#|$)/i.test(src);
 
   return (
     <div className="group relative aspect-video overflow-hidden rounded-xl border border-border bg-muted">

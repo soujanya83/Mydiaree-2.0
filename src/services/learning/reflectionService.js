@@ -92,6 +92,21 @@ export const reflectionService = {
     return res.data;
   },
 
+  /**
+   * Update an existing reflection (used by auto-save).
+   * Accepts a pre-built FormData that MUST include all required fields:
+   *   id, center_id, title, selected_rooms, selected_staff, selected_children
+   * Plus any optional fields that changed (about, eylf, status, media[]).
+   */
+  async updateReflection(formData) {
+    const res = await api.post("/reflection/store", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return res.data;
+  },
+
   async updateStatus(reflectionId, status) {
     const formData = new FormData();
     formData.append("reflectionId", reflectionId);

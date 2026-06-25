@@ -348,9 +348,9 @@ export default function DailyReflectionsPage() {
   const safePage = Math.min(page, totalPages);
   const pageItems = items;
 
-  const handleSubmitTitle = (title) => {
+  const handleSubmitTitle = (newReflectionId) => {
     setTitleModalOpen(false);
-    navigate(`/daily-reflections/create?title=${encodeURIComponent(title)}`);
+    navigate(`/daily-reflections/${newReflectionId}/edit`);
   };
 
   const handleDeleteConfirm = async () => {
@@ -610,6 +610,7 @@ export default function DailyReflectionsPage() {
         open={titleModalOpen}
         onClose={() => setTitleModalOpen(false)}
         onSubmit={handleSubmitTitle}
+        activeCentreId={activeCentreId}
       />
 
       <DeleteConfirmationModal

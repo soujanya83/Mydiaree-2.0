@@ -373,9 +373,9 @@ export default function ObservationPage() {
   const [galleryObservation, setGalleryObservation] = useState(null);
   const [shareObservation, setShareObservation] = useState(null);
 
-  const handleSubmitTitle = (title) => {
+  const handleSubmitTitle = (id) => {
     setTitleModalOpen(false);
-    navigate(`/observation/create?title=${encodeURIComponent(title)}`);
+    navigate(`/observation/${id}/edit`);
   };
 
   const handleDelete = (id) => {
@@ -634,6 +634,7 @@ export default function ObservationPage() {
         open={titleModalOpen}
         onClose={() => setTitleModalOpen(false)}
         onSubmit={handleSubmitTitle}
+        activeCentreId={activeCentreId}
       />
 
       <ObservationCommentModal
