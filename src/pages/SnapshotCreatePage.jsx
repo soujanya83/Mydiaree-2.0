@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Save,
@@ -31,6 +31,8 @@ import { snapshotService } from "@/services/learning/snapshotService";
 import { staffService } from "@/services/admin/staffService";
 import { childrenService } from "@/services/centre/childrenService";
 import { useCentreStore } from "@/stores/centreStore";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { AutoSaveIndicator } from "@/components/common/AutoSaveIndicator";
 import { toast } from "sonner";
 import { IMG_BASE_API } from "../api/imageapi";
 
@@ -65,7 +67,6 @@ const mergeById = (current, next) => {
 export default function SnapshotCreatePage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const [search] = useSearchParams();
   const isEdit = Boolean(id);
   const fileInputRef = useRef(null);
   const mediaPreviewUrlsRef = useRef(new Set());
@@ -73,6 +74,7 @@ export default function SnapshotCreatePage() {
   const { activeCentreId } = useCentreStore();
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isInitialDataLoading, setIsInitialDataLoading] = useState(false);
   const [isEditLoading, setIsEditLoading] = useState(isEdit);
 
@@ -94,14 +96,65 @@ export default function SnapshotCreatePage() {
   const [rooms, setRooms] = useState([]);
   const [children, setChildren] = useState([]);
   const [staff, setStaff] = useState([]);
-  const [title, setTitle] = useState(search.get("title") || "");
+  const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [status, setStatus] = useState("draft");
-  const [media, setMedia] = useState([]); // { file, preview, isExisting, url, id }
+  const [media, setMedia] = useState([]); // { url, id, mediaType } — all server-persisted
   const [deletingMediaIds, setDeletingMediaIds] = useState([]);
+  const [uploadingMediaCount, setUploadingMediaCount] = useState(0);
 
-  const existingMedia = media.filter((item) => item.isExisting);
-  const newMedia = media.filter((item) => !item.isExisting);
+  // ── Auto-save refs ──
+  const formRef = useRef({
+    title: "",
+    details: "",
+    rooms: [],
+    children: [],
+    staff: [],
+    status: "draft",
+  });
+  useEffect(() => {
+    formRef.current = {
+      title,
+      details,
+      rooms,
+      children,
+      staff,
+      status,
+    };
+  }, [title, details, rooms, children, staff, status]);
+
+  // Build full payload for saving/updating
+  const buildFullFormData = useCallback(() => {
+    const f = formRef.current;
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("center_id", activeCentreId);
+    fd.append("selected_rooms", f.rooms.join(","));
+    fd.append("title", f.title);
+    fd.append("selected_children", f.children.join(","));
+    fd.append("selected_staff", f.staff.join(","));
+    fd.append("about", f.details);
+    fd.append("status", f.status === "published" ? "Published" : "Draft");
+    return fd;
+  }, [id, activeCentreId]);
+
+  // Instantiate auto-save
+  const { fieldStatus, triggerAutoSave, triggerImmediateSave, cancelPendingSaves } = useAutoSave({
+    reflectionId: id,
+    saveFn: async (_id, formData) => {
+      const res = await snapshotService.storeSnapshot(formData);
+      if (res.status !== "success" && res.status !== true) {
+        throw new Error(res.message || "Save failed");
+      }
+      return res;
+    },
+    debounceMs: 1500,
+  });
+
+  // Cleanup auto-save on unmount
+  useEffect(() => {
+    return () => cancelPendingSaves();
+  }, [cancelPendingSaves]);
 
   const [showRoomsPicker, setShowRoomsPicker] = useState(false);
   const [showChildrenPicker, setShowChildrenPicker] = useState(false);
@@ -271,7 +324,6 @@ export default function SnapshotCreatePage() {
           if (item.media) {
             setMedia(
               item.media.map((m) => ({
-                isExisting: true,
                 url: mediaUrl(m.mediaUrl || m.url),
                 id: m.id,
                 mediaType: m.mediaType,
@@ -291,99 +343,98 @@ export default function SnapshotCreatePage() {
     loadSnapshot();
   }, [isEdit, id, activeCentreId]);
 
-  const handleSave = async (nextStatus = status) => {
-    if (!title.trim() || !rooms.length || !children.length) {
-      toast.error("Please fill in all required fields (Rooms, Children, Title)");
+  const handleSave = async () => {
+    if (!title.trim() || !rooms.length || !children.length || !staff.length) {
+      toast.error(
+        "Please fill in all required fields (Title, Rooms, Children, and Staff)",
+      );
       return;
     }
-
-    if (media.length === 0) {
-      toast.error("At least one media is required");
+    if (status === "published" && media.length === 0) {
+      toast.error("At least one media is required to publish a snapshot.");
       return;
     }
-
-    setIsLoading(true);
-    const formData = new FormData();
-    if (isEdit) formData.append("id", id);
-    formData.append("center_id", activeCentreId);
-    formData.append("selected_rooms", rooms.join(","));
-    formData.append("title", title);
-    formData.append("selected_children", children.join(","));
-    formData.append("selected_staff", staff.join(","));
-    formData.append("about", details);
-    formData.append("status", nextStatus === "published" ? "Published" : "Draft");
-
-    const retainedMediaIds = media
-      .filter((m) => m.isExisting && m.id !== undefined && m.id !== null)
-      .map((m) => String(m.id));
-
-    if (isEdit && retainedMediaIds.length) {
-      formData.append("existing_media_ids", retainedMediaIds.join(","));
-      retainedMediaIds.forEach((mediaId) => {
-        formData.append("existing_media[]", mediaId);
-        formData.append("old_media[]", mediaId);
-      });
-    }
-
-    media
-      .filter((m) => !m.isExisting)
-      .forEach((m) => {
-        formData.append("media[]", m.file);
-      });
-
+    cancelPendingSaves();
+    setIsSaving(true);
     try {
+      const formData = buildFullFormData();
       const res = await snapshotService.storeSnapshot(formData);
-      if (res.status) {
-        toast.success(isEdit ? "Snapshot updated" : "Snapshot created");
+      if (res.status === "success" || res.status === true) {
+        toast.success("Snapshot updated successfully");
         navigate("/snapshots");
       } else {
-        toast.error(res.message || "Failed to save snapshot");
+        toast.error(res.message || "Failed to save");
       }
-    } catch (error) {
-      console.error("Save error:", error);
-      toast.error("An error occurred while saving");
+    } catch (err) {
+      console.error("Save error:", err);
+      toast.error("An error occurred while saving the snapshot");
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
-  const handleMediaSelect = (e) => {
-    const files = Array.from(e.target.files);
-    if (media.length + files.length > 10) {
-      toast.error("Maximum 10 files allowed");
+  const handleStatusChange = async (newStatus) => {
+    if (newStatus === "published" && media.length === 0) {
+      toast.error("At least one media is required to publish a snapshot.");
       return;
     }
-    const newMedia = files.map((file) => {
-      const preview = URL.createObjectURL(file);
-      mediaPreviewUrlsRef.current.add(preview);
-      return {
-        file,
-        preview,
-        isExisting: false,
-      };
-    });
-    setMedia((prev) => [...prev, ...newMedia]);
+    setStatus(newStatus);
+    try {
+      await snapshotService.updateSnapshotStatus(id, newStatus === "published" ? "Published" : "Draft");
+      toast.success("Snapshot status updated successfully.");
+    } catch (error) {
+      toast.error("Failed to update status");
+    }
+  };
+
+  const handleMediaSelect = async (e) => {
+    const files = Array.from(e.target.files);
+    if (media.length + uploadingMediaCount + files.length > 10) {
+      toast.error("Maximum 10 files allowed");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
 
-  const removeNewMedia = (item) => {
-    setMedia((prev) => {
-      if (item.preview) {
-        URL.revokeObjectURL(item.preview);
-        mediaPreviewUrlsRef.current.delete(item.preview);
+    setUploadingMediaCount((prev) => prev + files.length);
+    for (const file of files) {
+      try {
+        const formData = buildFullFormData();
+        formData.append("media[]", file);
+        const res = await snapshotService.storeSnapshot(formData);
+        if (res.status === "success" || res.status === true) {
+          const refreshRes = await snapshotService.getAllSnapshots(activeCentreId, { perPage: 1000 });
+          const snapshots = Array.isArray(refreshRes.snapshots) ? refreshRes.snapshots : refreshRes.snapshots?.data || [];
+          const item = snapshots.find((s) => String(s.id) === String(id));
+          if (item?.media) {
+            setMedia(
+              item.media.map((m) => ({
+                url: mediaUrl(m.mediaUrl || m.url),
+                id: m.id,
+                mediaType: m.mediaType,
+              })),
+            );
+          }
+        } else {
+          toast.error(res.message || "Failed to upload media");
+        }
+      } catch (error) {
+        console.error("Media upload error:", error);
+        toast.error(`Failed to upload ${file.name}`);
+      } finally {
+        setUploadingMediaCount((prev) => Math.max(0, prev - 1));
       }
-      return prev.filter((mediaItem) => mediaItem !== item);
-    });
+    }
   };
 
-  const removeExistingMedia = async (item) => {
+  const removeMedia = async (item) => {
     if (!item.id || deletingMediaIds.includes(item.id)) return;
 
     setDeletingMediaIds((prev) => [...prev, item.id]);
     try {
       const res = await snapshotService.deleteSnapshotMedia(item.id);
       if (res.status) {
-        setMedia((prev) => prev.filter((mediaItem) => mediaItem !== item));
+        setMedia((prev) => prev.filter((m) => m.id !== item.id));
         toast.success(res.message || "Media deleted successfully");
       } else {
         toast.error(res.message || "Failed to delete media");
@@ -449,7 +500,7 @@ export default function SnapshotCreatePage() {
               <Calendar className="h-3.5 w-3.5" /> {today}
             </div>
             <div className="flex items-center gap-2">
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={handleStatusChange}>
                 <SelectTrigger
                   className={`h-9 w-[120px] rounded-full border-none font-bold uppercase tracking-wider text-[10px] ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                 >
@@ -464,9 +515,9 @@ export default function SnapshotCreatePage() {
               <Button
                 onClick={() => handleSave()}
                 className="h-9 rounded-full bg-primary px-6 shadow-lg shadow-primary/20 hover:bg-primary/90"
-                disabled={isLoading}
+                disabled={isSaving}
               >
-                {isLoading ? (
+                {isSaving ? (
                   <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
                 ) : (
                   <Save className="mr-1.5 h-4 w-4" />
@@ -498,11 +549,14 @@ export default function SnapshotCreatePage() {
 
         {/* Tagging Section */}
         <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
-          <div className="mb-6 flex items-center gap-2">
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
-              <User className="h-5 w-5" />
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <User className="h-5 w-5" />
+              </div>
+              <h3 className="text-base font-bold text-foreground">Tagging & Groups</h3>
             </div>
-            <h3 className="text-base font-bold text-foreground">Tagging & Groups</h3>
+            <AutoSaveIndicator status={fieldStatus.tagging} />
           </div>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -516,10 +570,11 @@ export default function SnapshotCreatePage() {
                 id,
                 label: availableRooms.find((r) => String(r.id) === String(id))?.name || id,
               }))}
-              onRemove={(id) => {
-                setRooms((prev) => prev.filter((x) => x !== id));
+              onRemove={(roomId) => {
+                setRooms((prev) => prev.filter((x) => x !== roomId));
                 setChildren([]);
                 setStaff([]);
+                setTimeout(() => triggerImmediateSave("tagging", buildFullFormData), 0);
               }}
               onClick={() => setShowRoomsPicker(true)}
               placeholder="Select rooms"
@@ -538,7 +593,10 @@ export default function SnapshotCreatePage() {
                     "",
                   ) || id,
               }))}
-              onRemove={(id) => setChildren((prev) => prev.filter((x) => x !== id))}
+              onRemove={(childId) => {
+                setChildren((prev) => prev.filter((x) => x !== childId));
+                setTimeout(() => triggerImmediateSave("tagging", buildFullFormData), 0);
+              }}
               onClick={() => {
                 if (rooms.length === 0) {
                   toast.error("Please select a room first.");
@@ -557,7 +615,10 @@ export default function SnapshotCreatePage() {
                 id,
                 label: availableStaff.find((s) => String(s.id) === String(id))?.name || id,
               }))}
-              onRemove={(id) => setStaff((prev) => prev.filter((x) => x !== id))}
+              onRemove={(educatorId) => {
+                setStaff((prev) => prev.filter((x) => x !== educatorId));
+                setTimeout(() => triggerImmediateSave("tagging", buildFullFormData), 0);
+              }}
               onClick={() => {
                 if (rooms.length === 0) {
                   toast.error("Please select a room first.");
@@ -574,18 +635,25 @@ export default function SnapshotCreatePage() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-8">
             <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
-              <div className="mb-6 flex items-center gap-2">
-                <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
-                  <FileText className="h-5 w-5" />
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-base font-bold text-foreground">Snapshot Details</h3>
                 </div>
-                <h3 className="text-base font-bold text-foreground">Snapshot Details</h3>
+                <AutoSaveIndicator status={fieldStatus.content} />
               </div>
 
               <div className="space-y-6">
                 <FormGroup label="Snapshot Title" info="A short, catchy title (max 50 chars)">
                   <Input
                     value={title}
-                    onChange={(e) => setTitle(e.target.value.slice(0, 50))}
+                    onChange={(e) => {
+                      setTitle(e.target.value.slice(0, 50));
+                      triggerAutoSave("content", buildFullFormData);
+                    }}
+                    onBlur={() => triggerImmediateSave("content", buildFullFormData)}
                     placeholder="e.g., The Giant Tower"
                     className="h-12 border-none bg-muted/30 focus-visible:ring-sky-500/50"
                   />
@@ -596,16 +664,19 @@ export default function SnapshotCreatePage() {
 
                 <FormGroup
                   label="Description"
-                  info="Quick summary of the moment (max 50 chars for summary)"
+                  info="Quick summary of the moment (max 255 chars)"
                 >
                   <Textarea
                     value={details}
-                    onChange={(e) => setDetails(e.target.value.slice(0, 255))}
+                    onChange={(e) => {
+                      setDetails(e.target.value.slice(0, 255));
+                      triggerAutoSave("content", buildFullFormData);
+                    }}
+                    onBlur={() => triggerImmediateSave("content", buildFullFormData)}
                     rows={6}
                     placeholder="The children worked together to balance the final block..."
                     className="border-none bg-muted/30 focus-visible:ring-sky-500/50 resize-none"
                   />
-                  <RefineButton />
                 </FormGroup>
               </div>
             </section>
@@ -615,58 +686,46 @@ export default function SnapshotCreatePage() {
             {/* Media Upload */}
             <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
-                  Media
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
+                    Media
+                  </h3>
+                  {uploadingMediaCount > 0 && (
+                    <span className="flex items-center gap-1.5 text-xs text-primary font-bold animate-pulse">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Uploading...
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-medium text-muted-foreground uppercase">
-                  {media.length}/10 Files
+                  {media.length + uploadingMediaCount}/10 Files
                 </span>
               </div>
 
-              {isEdit && (
-                <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Already Added Media ({existingMedia.length})
-                  </p>
-                  {existingMedia.length ? (
-                    <div className="grid grid-cols-2 gap-3">
-                      {existingMedia.map((item) => (
-                        <SnapshotMediaPreview
-                          key={item.id}
-                          item={item}
-                          isDeleting={deletingMediaIds.includes(item.id)}
-                          onRemove={() => removeExistingMedia(item)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-                      No previously added media.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className={isEdit ? "mt-5" : ""}>
-                {isEdit && (
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Newly Added Media ({newMedia.length})
-                  </p>
-                )}
+              <div>
                 <div className="grid grid-cols-2 gap-3">
-                  {newMedia.map((item) => (
+                  {media.map((item) => (
                     <SnapshotMediaPreview
-                      key={item.preview}
+                      key={item.id}
                       item={item}
-                      onRemove={() => removeNewMedia(item)}
+                      isDeleting={deletingMediaIds.includes(item.id)}
+                      onRemove={() => removeMedia(item)}
                     />
                   ))}
 
-                  {media.length < 10 && (
+                  {uploadingMediaCount > 0 &&
+                    Array.from({ length: uploadingMediaCount }).map((_, i) => (
+                      <div key={i} className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-muted/30">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
+                      </div>
+                    ))}
+
+                  {media.length + uploadingMediaCount < 10 && (
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-6 transition-colors hover:border-primary/40 hover:bg-primary/5 ${PATTERN_BG}`}
+                      style={{ minHeight: "100px" }}
                     >
                       <Upload className="h-5 w-5 text-primary" />
                       <span className="mt-2 text-[10px] font-bold text-foreground uppercase tracking-tighter">
@@ -695,7 +754,10 @@ export default function SnapshotCreatePage() {
                 label="Status"
                 info="Choose whether to keep as draft or publish to families"
               >
-                <Select value={status} onValueChange={setStatus}>
+                <Select
+                  value={status}
+                  onValueChange={handleStatusChange}
+                >
                   <SelectTrigger
                     className={`h-12 w-full rounded-2xl border-none font-bold uppercase tracking-wider text-xs ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                   >
@@ -709,16 +771,10 @@ export default function SnapshotCreatePage() {
               </FormGroup>
 
               <Button
-                onClick={() => handleSave()}
+                onClick={() => navigate("/snapshots")}
                 className="w-full h-14 rounded-2xl bg-primary text-base font-bold shadow-xl shadow-primary/20 hover:bg-primary/90"
-                disabled={isLoading}
               >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-5 w-5" />
-                )}
-                {isEdit ? "Update Snapshot" : "Save Snapshot"}
+                Snapshots Gallery
               </Button>
             </div>
           </div>
@@ -737,6 +793,7 @@ export default function SnapshotCreatePage() {
           setChildren([]);
           setStaff([]);
           setShowRoomsPicker(false);
+          setTimeout(() => triggerImmediateSave("tagging", buildFullFormData), 0);
         }}
       />
       <MultiPickerModal
@@ -763,6 +820,7 @@ export default function SnapshotCreatePage() {
         onSave={(v) => {
           setChildren(v);
           setShowChildrenPicker(false);
+          setTimeout(() => triggerImmediateSave("tagging", buildFullFormData), 0);
         }}
       />
       <MultiPickerModal
@@ -789,6 +847,7 @@ export default function SnapshotCreatePage() {
         onSave={(v) => {
           setStaff(v);
           setShowStaffPicker(false);
+          setTimeout(() => triggerImmediateSave("tagging", buildFullFormData), 0);
         }}
       />
     </div>
@@ -1072,7 +1131,7 @@ function Avatar({ name, imageUrl }) {
 }
 
 function SnapshotMediaPreview({ item, isDeleting = false, onRemove }) {
-  const src = item.isExisting ? item.url : item.preview;
+  const src = item.url || item.preview;
 
   return (
     <div className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">

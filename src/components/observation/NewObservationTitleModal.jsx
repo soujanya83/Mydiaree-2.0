@@ -313,7 +313,8 @@ export function NewObservationTitleModal({ open, onClose, onSubmit, activeCentre
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
           {/* Title Field */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-foreground" htmlFor="observation-title">
+            <label className="flex items-center gap-2 text-sm font-semibold text-foreground" htmlFor="observation-title">
+              <Eye className="h-4 w-4 text-primary" />
               Title <span className="text-destructive">*</span>
             </label>
             <div className="relative">

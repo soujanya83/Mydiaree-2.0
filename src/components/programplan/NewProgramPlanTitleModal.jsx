@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
-  FileText,
+  CalendarDays,
   X,
   Search,
   DoorOpen,
@@ -13,13 +13,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { reflectionService } from "@/services/learning/reflectionService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { programPlanService } from "@/services/learning/programPlanService";
 import { childrenService } from "@/services/centre/childrenService";
 import { staffService } from "@/services/admin/staffService";
 import { toast } from "sonner";
 import { IMG_BASE_API } from "../../api/imageapi";
-
-const MAX_TITLE_LENGTH = 80;
+import { MONTHS, YEARS } from "./data";
 
 const avatarUrl = (url) => {
   if (!url) return null;
@@ -37,8 +37,12 @@ const mergeById = (current, next) => {
   return Array.from(map.values());
 };
 
-export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreId }) {
-  const [title, setTitle] = useState("");
+export function NewProgramPlanTitleModal({ open, onClose, onSubmit, activeCentreId }) {
+  const currentMonthIdx = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  const [month, setMonth] = useState(MONTHS[currentMonthIdx]);
+  const [year, setYear] = useState(currentYear);
   const [isCreating, setIsCreating] = useState(false);
 
   // Rooms
@@ -66,7 +70,8 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreI
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
-      setTitle("");
+      setMonth(MONTHS[currentMonthIdx]);
+      setYear(currentYear);
       setSelectedRooms([]);
       setSelectedStaff([]);
       setSelectedChildren([]);
@@ -77,7 +82,7 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreI
       setChildrenList([]);
       setIsCreating(false);
     }
-  }, [open]);
+  }, [open, currentMonthIdx, currentYear]);
 
   // Fetch rooms when modal opens
   useEffect(() => {
@@ -85,7 +90,7 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreI
     const loadRooms = async () => {
       setIsRoomsLoading(true);
       try {
-        const roomsData = await reflectionService.getRoomsAndStaff(activeCentreId);
+        const roomsData = await programPlanService.getRoomsAndStaff(activeCentreId);
         if (roomsData.status) {
           setAvailableRooms(roomsData.rooms || roomsData.data?.rooms || []);
         }
@@ -210,7 +215,6 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreI
   }, [availableRooms, roomSearch]);
 
   const canSubmit =
-    title.trim().length > 0 &&
     selectedRooms.length > 0 &&
     selectedStaff.length > 0 &&
     selectedChildren.length > 0;
@@ -221,40 +225,39 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreI
 
     setIsCreating(true);
     try {
-      const formData = new FormData();
-      formData.append("center_id", activeCentreId);
-      formData.append("title", title.trim());
-      formData.append("about", "");
-      formData.append("status", "DRAFT");
-      formData.append("selected_rooms", selectedRooms.join(","));
-      formData.append("selected_staff", selectedStaff.join(","));
-      formData.append("selected_children", selectedChildren.join(","));
-      formData.append("eylf", "");
+      // Build the program plan creation payload
+      const payload = {
+        centreId: activeCentreId,
+        roomId: selectedRooms[0], // primary room
+        month,
+        year,
+        educators: selectedStaff,
+        children: selectedChildren,
+        status: "draft",
+      };
 
-      const res = await reflectionService.storeReflection(formData);
+      const res = await programPlanService.saveProgramPlan(payload);
       if (res.status === "success" || res.status === true) {
-        const newId = res.id;
+        const newId = res.plan_id;
         if (!newId) {
-          toast.error("Failed to get reflection ID from server");
+          toast.error("Failed to get program plan ID from server");
           return;
         }
-        toast.success(res.message || "Reflection created");
+        toast.success(res.message || "Program plan created");
         onSubmit(newId);
       } else {
-        toast.error(res.message || "Failed to create reflection");
+        toast.error(res.message || "Failed to create program plan");
       }
     } catch (err) {
-      console.error("Create reflection error:", err);
-      toast.error("An error occurred while creating the reflection");
+      console.error("Create program plan error:", err);
+      toast.error("An error occurred while creating the program plan");
     } finally {
       setIsCreating(false);
     }
   };
 
   const toggleRoom = (id) => {
-    setSelectedRooms((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setSelectedRooms((prev) => (prev.includes(id) ? [] : [id]));
   };
 
   const toggleStaff = (id) => {
@@ -282,15 +285,15 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreI
         <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <FileText className="h-5 w-5" />
+              <CalendarDays className="h-5 w-5" />
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                Daily Reflection
+                Program Plan
               </p>
-              <h2 className="mt-1 text-xl font-bold text-foreground">Create New Reflection</h2>
+              <h2 className="mt-1 text-xl font-bold text-foreground">Create New Program Plan</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Set up your reflection with a title, rooms, educators, and children.
+                Set up your program plan with a month, year, room, educators, and children.
               </p>
             </div>
           </div>
@@ -307,25 +310,44 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreI
 
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-          {/* Title Field */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-semibold text-foreground" htmlFor="reflection-title">
-              <FileText className="h-4 w-4 text-primary" />
-              Title <span className="text-destructive">*</span>
-            </label>
-            <div className="relative">
-              <Input
-                id="reflection-title"
-                autoFocus
-                value={title}
-                maxLength={MAX_TITLE_LENGTH}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="e.g., Morning circle discoveries"
-                className="h-12 rounded-xl border-border bg-muted/20 pr-20 text-base focus-visible:ring-primary/50"
-              />
-              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
-                {title.length}/{MAX_TITLE_LENGTH}
-              </div>
+          {/* Month & Year Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <CalendarDays className="h-4 w-4 text-primary" />
+                Month <span className="text-destructive">*</span>
+              </label>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Select Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <CalendarDays className="h-4 w-4 text-primary" />
+                Year <span className="text-destructive">*</span>
+              </label>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Select Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEARS.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -357,7 +379,7 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreI
               })}
             </PickerSection>
 
-            {/* Staff Selection */}
+            {/* Educators Selection */}
             <PickerSection
               label="Educators"
               icon={Users}
@@ -434,7 +456,7 @@ export function NewReflectionTitleModal({ open, onClose, onSubmit, activeCentreI
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/20 px-6 py-4">
           <p className="text-xs text-muted-foreground">
-            You can add EYLF outcomes, media, and reflection notes on the next screen.
+            You can add experiences, subject details, and EYLF outcomes on the next screen.
           </p>
           <div className="flex items-center gap-3">
             <Button
@@ -600,7 +622,7 @@ function SelectableItem({ label, imageUrl, meta, selected, onClick }) {
         {meta && <div className="truncate text-[10px] text-muted-foreground">{meta}</div>}
       </div>
       <span
-        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all ${
+         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all ${
           selected
             ? "border-primary bg-primary text-primary-foreground"
             : "border-muted-foreground/30"

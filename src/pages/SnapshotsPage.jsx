@@ -404,9 +404,9 @@ export default function SnapshotsPage() {
   const safePage = Math.min(page, totalPages);
   const pageItems = items;
 
-  const handleSubmitTitle = (title) => {
+  const handleSubmitTitle = (id) => {
     setTitleModalOpen(false);
-    navigate(`/snapshots/create?title=${encodeURIComponent(title)}`);
+    navigate(`/snapshots/${id}/edit`);
   };
 
   const handleDelete = async () => {
@@ -700,6 +700,7 @@ export default function SnapshotsPage() {
         open={titleModalOpen}
         onClose={() => setTitleModalOpen(false)}
         onSubmit={handleSubmitTitle}
+        activeCentreId={activeCentreId}
       />
 
       <DeleteConfirmationModal
