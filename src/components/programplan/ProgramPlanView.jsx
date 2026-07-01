@@ -33,7 +33,7 @@ export function ProgramPlanView({ record, onBack, onEdit }) {
       <PageHeader
         title={`${record.month} ${record.year} Program Plan`}
         description={`${centreName} • ${record.roomName || record.roomId}`}
-        breadcrumbs={[{ label: "Program Plan", to: "/program-plan" }, { label: "View" }]}
+        breadcrumbs={[{ label: "Program Plan", onClick: onBack }, { label: "View" }]}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={onBack}>
