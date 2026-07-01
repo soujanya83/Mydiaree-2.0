@@ -50,6 +50,7 @@ import { useRoomStore } from "@/stores/roomStore";
 import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { ProgramPlanForm } from "@/components/programplan/ProgramPlanForm";
 import { ProgramPlanView } from "@/components/programplan/ProgramPlanView";
+import { NewProgramPlanTitleModal } from "@/components/programplan/NewProgramPlanTitleModal";
 import { MONTHS, YEARS } from "@/components/programplan/data";
 import { programPlanService } from "@/services/learning/programPlanService";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -410,6 +411,7 @@ export default function ProgramPlanPage() {
   const [isLoadingViewRecord, setIsLoadingViewRecord] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [isLoadingEditRecord, setIsLoadingEditRecord] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   // Initialize filters from localStorage
   const [filters, setFilters] = useState(() => {
@@ -570,14 +572,15 @@ export default function ProgramPlanPage() {
   const totalRecords = pagination.total || 0;
   const pageItems = records;
 
-  const goCreate = (centreId, opts = {}) => {
-    const params = new URLSearchParams();
-    params.set("action", "create");
-    params.set("centerid", centreId);
-    if (opts.month) params.set("month", opts.month);
-    if (opts.year) params.set("year", String(opts.year));
-    setSearchParams(params);
+  const goCreate = () => {
+    setCreateModalOpen(true);
   };
+
+  const handleCreateSubmit = (planId) => {
+    setCreateModalOpen(false);
+    setSearchParams(new URLSearchParams({ action: "edit", id: planId }));
+  };
+
   const goEdit = (id) => setSearchParams(new URLSearchParams({ action: "edit", id }));
 
   const handleCreate = async (data) => {
@@ -661,22 +664,7 @@ export default function ProgramPlanPage() {
   };
 
   /* Routing modes (unchanged) */
-  if (action === "create") {
-    const centerId = searchParams.get("centerid") || activeCentreId;
-    const month = searchParams.get("month");
-    const year = searchParams.get("year");
-    return (
-      <ProgramPlanForm
-        mode="create"
-        centerId={centerId}
-        defaultMonth={month}
-        defaultYear={year}
-        onCancel={goList}
-        onSubmit={handleCreate}
-        isSubmitting={isSavingPlan}
-      />
-    );
-  }
+  // action === "create" is handled via NewProgramPlanTitleModal now
   if (action === "edit") {
     if (isLoadingEditRecord || !editingRecord) {
       return (
@@ -1030,6 +1018,13 @@ export default function ProgramPlanPage() {
           />
         </>
       )}
+
+      <NewProgramPlanTitleModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSubmit={handleCreateSubmit}
+        activeCentreId={activeCentreId}
+      />
 
       <AlertDialog
         open={!!confirmId}

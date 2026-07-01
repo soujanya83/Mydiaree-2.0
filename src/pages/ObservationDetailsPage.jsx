@@ -536,15 +536,6 @@ function ChildCard({ child }) {
           </div>
         )}
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-base font-black text-foreground">{fullName(child)}</p>
-        <p className="mt-1 text-xs font-medium text-muted-foreground">
-          ID #{child.id} {child.room ? `・ Room ${child.room}` : ""}
-        </p>
-        <span className="mt-2 inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-700">
-          {child.status || "Active"}
-        </span>
-      </div>
     </div>
   );
 }

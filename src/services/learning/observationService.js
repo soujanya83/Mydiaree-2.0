@@ -366,6 +366,18 @@ export const observationService = {
     }
   },
 
+  downloadObservationMedia: async (id) => {
+    try {
+      const response = await api.get(`/observation/observation-media/download/${id}`, {
+        responseType: "blob",
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error downloading observation media:", error);
+      throw error;
+    }
+  },
+
   getRecycleBin: async (centerId) => {
     try {
       const response = await api.get("/recycle/observations", {

@@ -22,6 +22,7 @@ import {
   X,
   Mail,
   Send,
+  Download,
 } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { CentreSelect } from "@/components/common/CentreSelect";
@@ -161,7 +162,7 @@ export default function ObservationPage() {
   const [titleModalOpen, setTitleModalOpen] = useState(false);
   const [commentModalId, setCommentModalId] = useState(null);
   const [commentRefreshTicks, setCommentRefreshTicks] = useState({});
-  
+
   // Initialize all filters from localStorage
   const [search, setSearch] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -244,7 +245,7 @@ export default function ObservationPage() {
     try {
       window.localStorage.setItem(
         OBSERVATION_FILTERS_KEY,
-        JSON.stringify({ search, status, dateRange, customFrom, customTo, author, childId })
+        JSON.stringify({ search, status, dateRange, customFrom, customTo, author, childId }),
       );
     } catch (e) {
       console.error("Failed to save filters to localStorage:", e);
@@ -470,7 +471,9 @@ export default function ObservationPage() {
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Search By Title</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                Search By Title
+              </label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -797,6 +800,7 @@ function ObservationGalleryModal({ obs, onClose }) {
   const images = (obs.media || []).filter((m) => m?.mediaUrl);
   const [idx, setIdx] = useState(0);
   const timerRef = useRef(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -835,6 +839,42 @@ function ObservationGalleryModal({ obs, onClose }) {
 
   const cleanTitle = stripHtml(obs.obestitle) || "Observation Gallery";
 
+  const handleDownload = async () => {
+    const currentMedia = images[idx];
+    if (!currentMedia || !currentMedia.id) {
+      toast.error("Invalid media ID");
+      return;
+    }
+    setIsDownloading(true);
+    try {
+      const blob = await observationService.downloadObservationMedia(currentMedia.id);
+
+      let filename = `media-${currentMedia.id}`;
+      if (currentMedia.mediaUrl) {
+        const parts = currentMedia.mediaUrl.split("?")[0].split("/");
+        const lastPart = parts[parts.length - 1];
+        if (lastPart) {
+          filename = lastPart;
+        }
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("File downloaded successfully.");
+    } catch (error) {
+      console.error("Failed to download media:", error);
+      toast.error("Failed to download media");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (images.length === 0) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-200">
@@ -868,12 +908,26 @@ function ObservationGalleryModal({ obs, onClose }) {
               {idx + 1} of {images.length} images
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              disabled={isDownloading}
+              title="Download image"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-all duration-200 hover:bg-white/20 hover:text-white active:scale-95 disabled:opacity-50"
+            >
+              {isDownloading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Download className="h-5 w-5" />
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-all duration-200 hover:bg-white/20 hover:text-white active:scale-95"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div
