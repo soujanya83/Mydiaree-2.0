@@ -73,6 +73,7 @@ const OBSERVATION_DATE_FILTERS = DATE_FILTERS.filter((option) =>
 );
 const OBSERVATION_ROOM_FILTER_KEY = "observation-room-filter";
 const OBSERVATION_FILTERS_KEY = "observation-filters";
+const OBSERVATION_PAGE_KEY = "observation-page";
 const CARD_PRIMARY_ACTION_CLASSES =
   "flex h-8 w-8 items-center justify-center rounded-md transition-all duration-200 hover:bg-muted/50 active:scale-90";
 const CARD_PRIMARY_ACTION_STYLE = {
@@ -234,7 +235,16 @@ export default function ObservationPage() {
     }
     return "all";
   });
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    if (typeof window === "undefined") return 1;
+    try {
+      const saved = window.localStorage.getItem(OBSERVATION_PAGE_KEY);
+      if (saved) return Number(saved) || 1;
+    } catch (e) {
+      console.error("Failed to load page from localStorage:", e);
+    }
+    return 1;
+  });
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -251,6 +261,16 @@ export default function ObservationPage() {
       console.error("Failed to save filters to localStorage:", e);
     }
   }, [search, status, dateRange, customFrom, customTo, author, childId]);
+
+  // Persist page to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(OBSERVATION_PAGE_KEY, String(page));
+    } catch (e) {
+      console.error("Failed to save page to localStorage:", e);
+    }
+  }, [page]);
 
   const fetchObservations = useCallback(async () => {
     if (isParent) {
@@ -327,20 +347,7 @@ export default function ObservationPage() {
     fetchObservations();
   }, [fetchObservations]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [
-    localRoomId,
-    status,
-    search,
-    author,
-    childId,
-    dateRange,
-    customFrom,
-    customTo,
-    activeCentreId,
-    selectedChildId,
-  ]);
+
 
   useEffect(() => {
     setAuthor("all");
@@ -367,9 +374,9 @@ export default function ObservationPage() {
   const [galleryObservation, setGalleryObservation] = useState(null);
   const [shareObservation, setShareObservation] = useState(null);
 
-  const handleSubmitTitle = (title) => {
+  const handleSubmitTitle = (id) => {
     setTitleModalOpen(false);
-    navigate(`/observation/create?title=${encodeURIComponent(title)}`);
+    navigate(`/observation/${id}/edit`);
   };
 
   const handleDelete = (id) => {
@@ -630,6 +637,7 @@ export default function ObservationPage() {
         open={titleModalOpen}
         onClose={() => setTitleModalOpen(false)}
         onSubmit={handleSubmitTitle}
+        activeCentreId={activeCentreId}
       />
 
       <ObservationCommentModal

@@ -52,6 +52,7 @@ import { useRoomStore } from "@/stores/roomStore";
 import { useChildrenStore } from "@/stores/childrenStore";
 import { SelectRoomModal } from "@/components/children/SelectRoomModal";
 import { AddChildModal } from "@/components/children/AddChildModal";
+import { StatusConfirmationModal } from "@/components/common/StatusConfirmationModal";
 import { childrenService } from "@/services/centre/childrenService";
 import { usePermissions } from "@/hooks/usePermissions";
 import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
@@ -59,6 +60,7 @@ import { toast } from "sonner";
 import { IMG_BASE_API } from "../api/imageapi";
 
 const CHILDREN_FILTERS_KEY = "children-filters";
+const CHILDREN_PAGE_KEY = "children-page";
 
 function ageFrom(dob) {
   if (!dob) return "";
@@ -160,7 +162,16 @@ export default function ChildrenPage() {
     }
     return "asc";
   });
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    if (typeof window === "undefined") return 1;
+    try {
+      const saved = window.localStorage.getItem(CHILDREN_PAGE_KEY);
+      if (saved) return Number(saved) || 1;
+    } catch (e) {
+      console.error("Failed to load page from localStorage:", e);
+    }
+    return 1;
+  });
   const searchTimerRef = useRef(null);
 
   // Save filters to localStorage on change
@@ -169,12 +180,22 @@ export default function ChildrenPage() {
     try {
       window.localStorage.setItem(
         CHILDREN_FILTERS_KEY,
-        JSON.stringify({ searchInput, search, localRoomId, genderFilter, statusFilter, sort })
+        JSON.stringify({ searchInput, search, localRoomId, genderFilter, statusFilter, sort }),
       );
     } catch (e) {
       console.error("Failed to save filters to localStorage:", e);
     }
   }, [searchInput, search, localRoomId, genderFilter, statusFilter, sort]);
+
+  // Persist page to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(CHILDREN_PAGE_KEY, String(page));
+    } catch (e) {
+      console.error("Failed to save page to localStorage:", e);
+    }
+  }, [page]);
 
   const [selectRoomOpen, setSelectRoomOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -184,6 +205,7 @@ export default function ChildrenPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState(null);
+  const [statusConfirm, setStatusConfirm] = useState(null);
   const [selectedChildren, setSelectedChildren] = useState([]);
   const navigate = useNavigate();
 
@@ -212,11 +234,6 @@ export default function ChildrenPage() {
       fetchChildren(currentFilters);
     }
   }, [currentFilters, fetchChildren, activeCentreId]);
-
-  useEffect(() => {
-    setPage(1);
-    setSelectedChildren([]);
-  }, [activeRoomId, genderFilter, statusFilter, sort]);
 
   const handleSearchChange = (val) => {
     setSearchInput(val);
@@ -267,13 +284,16 @@ export default function ChildrenPage() {
     }
   };
 
-  const handleStatusUpdate = async (id) => {
+  const handleStatusUpdate = async () => {
+    if (!statusConfirm) return;
+    const id = statusConfirm.id;
     setStatusUpdatingId(id);
     try {
       const res = await childrenService.toggleChildStatus(id);
       if (res.success || res.status) {
         toast.success(res.message || "Child status updated successfully");
         fetchChildren(currentFilters);
+        setStatusConfirm(null);
       } else {
         toast.error(res.message || "Failed to update status");
       }
@@ -438,8 +458,8 @@ export default function ChildrenPage() {
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
-                <SelectItem value="asc">Oldest</SelectItem>
-                <SelectItem value="desc">Newest</SelectItem>
+                <SelectItem value="asc">A-Z</SelectItem>
+                <SelectItem value="desc">Z-A</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -472,7 +492,7 @@ export default function ChildrenPage() {
                 canEdit={can(perms.edit)}
                 canDelete={can(perms.delete)}
                 isStatusUpdating={statusUpdatingId === child.id}
-                onStatusChange={() => handleStatusUpdate(child.id)}
+                onStatusChange={() => setStatusConfirm(child)}
               />
             ))}
           </div>
@@ -539,6 +559,15 @@ export default function ChildrenPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <StatusConfirmationModal
+        open={!!statusConfirm}
+        onClose={() => !statusUpdatingId && setStatusConfirm(null)}
+        onConfirm={handleStatusUpdate}
+        isLoading={!!statusUpdatingId}
+        name={statusConfirm ? `${statusConfirm.name} ${statusConfirm.lastname || ""}`.trim() : ""}
+        isCurrentlyActive={statusConfirm?.status?.toLowerCase() === "active"}
+      />
     </div>
   );
 }
@@ -563,7 +592,8 @@ function ChildCard({
 
   return (
     <div
-      className={`group flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition focus-within:ring-2 focus-within:ring-primary/40 focus-within:ring-offset-2 ${
+      onClick={onView}
+      className={`group flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition cursor-pointer focus-within:ring-2 focus-within:ring-primary/40 focus-within:ring-offset-2 ${
         isSelected
           ? "border-primary ring-2 ring-primary/20"
           : "border-border hover:shadow-md hover:border-primary/40"

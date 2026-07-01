@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { useSessionSync } from "@/hooks/useSessionSync";
 import { Toaster } from "@/components/ui/sonner";
 import AppLayout from "@/components/layout/AppLayout";
 import ProtectedRoute from "@/components/common/ProtectedRoute";
@@ -65,6 +66,10 @@ import PrivacyPolicyPage from "@/pages/PrivacyPolicyPage";
 import TermsConditionsPage from "@/pages/TermsConditionsPage";
 
 export default function App() {
+  // Sync auth state across browser tabs — forces stale tabs to logout
+  // when a different user logs in or any tab triggers a logout.
+  useSessionSync();
+
   return (
     <>
       <Routes>

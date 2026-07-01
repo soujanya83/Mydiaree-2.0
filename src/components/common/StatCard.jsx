@@ -1,4 +1,5 @@
 import { TrendingDown, TrendingUp } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const topAccent = {
@@ -23,12 +24,18 @@ export function StatCard({
   icon: Icon,
   trend,
   accentTop = "primary",
+  href,
   className,
 }) {
+  const navigate = useNavigate();
+
   return (
     <div
+      onClick={href ? () => navigate(href) : undefined}
+      role={href ? "link" : undefined}
       className={cn(
         "relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm transition hover:shadow-md",
+        href && "cursor-pointer hover:border-primary/40 hover:-translate-y-0.5 active:scale-[0.98]",
         className
       )}
     >
@@ -72,3 +79,4 @@ export function StatCard({
     </div>
   );
 }
+

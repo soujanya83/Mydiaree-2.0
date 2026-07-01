@@ -44,6 +44,7 @@ import { Pagination } from "@/components/common/Pagination";
 import { IMG_BASE_API } from "../api/imageapi";
 
 const PARENT_SETTINGS_FILTERS_KEY = "parent-settings-filters";
+const PARENT_SETTINGS_PAGE_KEY = "parent-settings-page";
 
 function getInitials(name = "") {
   return name
@@ -82,7 +83,16 @@ export default function ParentSettingsPage() {
     }
     return "";
   });
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    if (typeof window === "undefined") return 1;
+    try {
+      const saved = window.localStorage.getItem(PARENT_SETTINGS_PAGE_KEY);
+      if (saved) return Number(saved) || 1;
+    } catch (e) {
+      console.error("Failed to load page from localStorage:", e);
+    }
+    return 1;
+  });
   const [pagination, setPagination] = useState({
     current_page: 1,
     last_page: 1,
@@ -106,6 +116,16 @@ export default function ParentSettingsPage() {
       console.error("Failed to save filters to localStorage:", e);
     }
   }, [centerId, query]);
+
+  // Persist page to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(PARENT_SETTINGS_PAGE_KEY, String(page));
+    } catch (e) {
+      console.error("Failed to save page to localStorage:", e);
+    }
+  }, [page]);
 
   const mapParents = (parentsArray) =>
     (parentsArray || []).map((p) => ({

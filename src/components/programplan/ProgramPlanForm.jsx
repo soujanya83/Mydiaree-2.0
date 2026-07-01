@@ -38,6 +38,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { IMG_BASE_API } from "../../api/imageapi";
 import { useAuthStore } from "@/stores/authStore";
+import { useAutoSave } from "@/hooks/useAutoSave";
+import { AutoSaveIndicator } from "@/components/common/AutoSaveIndicator";
 
 const IMG_BASE = IMG_BASE_API;
 const avatarUrl = (url) => {
@@ -184,6 +186,59 @@ export function ProgramPlanForm({
   const [isLoadingEducators, setIsLoadingEducators] = useState(false);
 
   const update = (k, v) => setData((p) => ({ ...p, [k]: v }));
+
+  const formRef = useRef({});
+  useEffect(() => {
+    formRef.current = {
+      planId: record?.id,
+      centreId: data.centreId,
+      roomId: data.roomId,
+      month: data.month,
+      year: data.year,
+      educators: data.educators,
+      children: data.children,
+      status: data.status,
+      focusArea: data.focusArea,
+      practicalLife: data.practicalLife,
+      sensorial: data.sensorial,
+      math: data.math,
+      language: data.language,
+      culture: data.culture,
+      artCraft: data.artCraft,
+      eylf: data.eylf,
+      outdoor: data.outdoor,
+      inquiry: data.inquiry,
+      sustainability: data.sustainability,
+      specialEvents: data.specialEvents,
+      childrenVoices: data.childrenVoices,
+      familiesInput: data.familiesInput,
+      groupExperience: data.groupExperience,
+      spontaneous: data.spontaneous,
+      mindfulness: data.mindfulness,
+      whatIsWorking: data.whatIsWorking,
+      whatIsNotWorking: data.whatIsNotWorking,
+    };
+  }, [data, record?.id]);
+
+  const buildPayload = useCallback(() => {
+    return formRef.current;
+  }, []);
+
+  const { fieldStatus, triggerAutoSave, triggerImmediateSave, cancelPendingSaves } = useAutoSave({
+    reflectionId: record?.id,
+    saveFn: async (_id, payload) => {
+      const res = await programPlanService.saveProgramPlan(payload);
+      if (res.status !== "success" && res.status !== true) {
+        throw new Error(res.message || "Save failed");
+      }
+      return res;
+    },
+    debounceMs: 1500,
+  });
+
+  useEffect(() => {
+    return () => cancelPendingSaves();
+  }, [cancelPendingSaves]);
 
   const toggleArr = (k, v) => {
     setData((p) => {
@@ -353,7 +408,7 @@ export function ProgramPlanForm({
         />
 
         {/* TOP: Room / Month / Year */}
-        <Section icon={Calendar} title="Plan Details">
+        <Section icon={Calendar} title="Plan Details" status={fieldStatus.details}>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <Field label="Room" icon={DoorOpen}>
               <Select
@@ -366,6 +421,7 @@ export function ProgramPlanForm({
                     educators: [],
                     children: [],
                   }));
+                  setTimeout(() => triggerImmediateSave("details", buildPayload), 0);
                 }}
               >
                 <SelectTrigger className="h-10 rounded-xl">
@@ -388,7 +444,10 @@ export function ProgramPlanForm({
             </Field>
 
             <Field label="Month" icon={Calendar}>
-              <Select value={data.month} onValueChange={(v) => update("month", v)}>
+              <Select value={data.month} onValueChange={(v) => {
+                update("month", v);
+                setTimeout(() => triggerImmediateSave("details", buildPayload), 0);
+              }}>
                 <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
@@ -403,7 +462,10 @@ export function ProgramPlanForm({
             </Field>
 
             <Field label="Year" icon={Calendar}>
-              <Select value={String(data.year)} onValueChange={(v) => update("year", Number(v))}>
+              <Select value={String(data.year)} onValueChange={(v) => {
+                update("year", Number(v));
+                setTimeout(() => triggerImmediateSave("details", buildPayload), 0);
+              }}>
                 <SelectTrigger className="h-10 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
@@ -420,7 +482,7 @@ export function ProgramPlanForm({
         </Section>
 
         {/* Educators & Children */}
-        <Section icon={Users} title="Team & Children">
+        <Section icon={Users} title="Team & Children" status={fieldStatus.details}>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* Educators */}
             <div className="rounded-xl border border-border bg-background/60 p-4">
@@ -468,7 +530,10 @@ export function ProgramPlanForm({
                         <span>{name}</span>
                         <button
                           type="button"
-                          onClick={() => toggleArr("educators", id)}
+                          onClick={() => {
+                            toggleArr("educators", id);
+                            setTimeout(() => triggerImmediateSave("details", buildPayload), 0);
+                          }}
                           className="hover:text-destructive text-muted-foreground ml-1"
                         >
                           <X className="h-3 w-3" />
@@ -530,7 +595,10 @@ export function ProgramPlanForm({
                         <span>{name}</span>
                         <button
                           type="button"
-                          onClick={() => toggleArr("children", id)}
+                          onClick={() => {
+                            toggleArr("children", id);
+                            setTimeout(() => triggerImmediateSave("details", buildPayload), 0);
+                          }}
                           className="hover:text-destructive text-muted-foreground ml-1"
                         >
                           <X className="h-3 w-3" />
@@ -545,11 +613,15 @@ export function ProgramPlanForm({
         </Section>
 
         {/* Focus Area */}
-        <Section icon={Target} title="Focus">
+        <Section icon={Target} title="Focus" status={fieldStatus.experiences}>
           <Field label="Focus Areas">
             <Textarea
               value={textValue(data.focusArea)}
-              onChange={(e) => update("focusArea", e.target.value)}
+              onChange={(e) => {
+                update("focusArea", e.target.value);
+                triggerAutoSave("experiences", buildPayload);
+              }}
+              onBlur={() => triggerImmediateSave("experiences", buildPayload)}
               placeholder="Focus Area"
               rows={3}
             />
@@ -557,7 +629,7 @@ export function ProgramPlanForm({
         </Section>
 
         {/* Activity-based subjects */}
-        <Section icon={ActivityIcon} title="Subject Activities">
+        <Section icon={ActivityIcon} title="Subject Activities" status={fieldStatus.experiences}>
           <div className="space-y-4">
             {ACTIVITY_SUBJECTS.map((key) => {
               const field = SUBJECT_FIELDS[key];
@@ -605,6 +677,7 @@ export function ProgramPlanForm({
                                         )
                                         .filter((g) => g.items.length > 0);
                                       update(field, next);
+                                      setTimeout(() => triggerImmediateSave("experiences", buildPayload), 0);
                                     }}
                                     className="hover:text-destructive ml-0.5"
                                   >
@@ -627,7 +700,11 @@ export function ProgramPlanForm({
               <Field key={s.key} label={s.label}>
                 <Textarea
                   value={textValue(data[s.key])}
-                  onChange={(e) => update(s.key, e.target.value)}
+                  onChange={(e) => {
+                    update(s.key, e.target.value);
+                    triggerAutoSave("experiences", buildPayload);
+                  }}
+                  onBlur={() => triggerImmediateSave("experiences", buildPayload)}
                   placeholder={s.placeholder}
                   rows={3}
                 />
@@ -637,7 +714,7 @@ export function ProgramPlanForm({
         </Section>
 
         {/* Additional Experiences */}
-        <Section icon={Sparkles} title="Additional Experiences">
+        <Section icon={Sparkles} title="Additional Experiences" status={fieldStatus.experiences}>
           {/* EYLF picker */}
           <div className="mb-5 rounded-xl border border-border bg-background/60 p-4">
             <div className="mb-2 flex items-center justify-between">
@@ -661,12 +738,13 @@ export function ProgramPlanForm({
                       <span className="truncate">{label}</span>
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
                           update(
                             "eylf",
                             data.eylf.filter((_, j) => j !== i),
-                          )
-                        }
+                          );
+                          setTimeout(() => triggerImmediateSave("experiences", buildPayload), 0);
+                        }}
                         className="ml-0.5 shrink-0 hover:text-emerald-900 dark:hover:text-emerald-200"
                       >
                         <X className="h-3 w-3" />
@@ -683,7 +761,11 @@ export function ProgramPlanForm({
               <Field key={f.key} label={f.label}>
                 <Textarea
                   value={textValue(data[f.key])}
-                  onChange={(e) => update(f.key, e.target.value)}
+                  onChange={(e) => {
+                    update(f.key, e.target.value);
+                    triggerAutoSave("experiences", buildPayload);
+                  }}
+                  onBlur={() => triggerImmediateSave("experiences", buildPayload)}
                   placeholder={f.placeholder || ""}
                   rows={3}
                 />
@@ -693,11 +775,14 @@ export function ProgramPlanForm({
         </Section>
 
         {/* Status */}
-        <Section icon={BookOpen} title="Status">
+        <Section icon={BookOpen} title="Status" status={fieldStatus.experiences}>
           <div className="w-full max-w-xs">
             <Select
               value={data.status}
-              onValueChange={(v) => update("status", v)}
+              onValueChange={(v) => {
+                update("status", v);
+                setTimeout(() => triggerImmediateSave("experiences", buildPayload), 0);
+              }}
               disabled={isSaving}
             >
               <SelectTrigger
@@ -721,17 +806,11 @@ export function ProgramPlanForm({
         {/* Actions */}
         <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-border pt-6">
           <Button
-            onClick={() => handleSubmit(data.status)}
-            disabled={finalIsSaving}
+            onClick={onCancel}
             size="lg"
             className="h-12 rounded-xl bg-primary px-10 font-bold text-white shadow-xl shadow-primary/20 hover:bg-primary/90"
           >
-            {finalIsSaving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-1.5 h-4 w-4" />
-            )}
-            {finalIsSaving ? "Saving..." : mode === "edit" ? "Update Plan" : "Save Plan"}
+            Go to Program Plans
           </Button>
 
           {mode === "edit" && (
@@ -763,17 +842,6 @@ export function ProgramPlanForm({
               {finalIsSaving ? "Saving..." : "Save as New"}
             </Button>
           )}
-
-          <Button
-            variant="destructive"
-            size="lg"
-            className="h-12 rounded-xl px-8"
-            onClick={onCancel}
-            disabled={finalIsSaving}
-          >
-            <X className="mr-1.5 h-4 w-4" />
-            Cancel
-          </Button>
         </div>
       </div>
 
@@ -787,6 +855,7 @@ export function ProgramPlanForm({
           onSave={(items) => {
             update(SUBJECT_FIELDS[picker], items);
             setPicker(null);
+            setTimeout(() => triggerImmediateSave("experiences", buildPayload), 0);
           }}
         />
       )}
@@ -797,6 +866,7 @@ export function ProgramPlanForm({
         onSave={(items) => {
           update("eylf", items);
           setEylfOpen(false);
+          setTimeout(() => triggerImmediateSave("experiences", buildPayload), 0);
         }}
       />
 
@@ -891,7 +961,10 @@ export function ProgramPlanForm({
               {data.children.length} selected
             </span>
             <Button
-              onClick={() => setChildrenModalOpen(false)}
+              onClick={() => {
+                setChildrenModalOpen(false);
+                setTimeout(() => triggerImmediateSave("details", buildPayload), 0);
+              }}
               className="rounded-xl bg-primary text-primary-foreground px-6"
             >
               Done
@@ -994,7 +1067,10 @@ export function ProgramPlanForm({
               {data.educators.length} selected
             </span>
             <Button
-              onClick={() => setEducatorsModalOpen(false)}
+              onClick={() => {
+                setEducatorsModalOpen(false);
+                setTimeout(() => triggerImmediateSave("details", buildPayload), 0);
+              }}
               className="rounded-xl bg-primary text-primary-foreground px-6"
             >
               Done
@@ -1006,14 +1082,17 @@ export function ProgramPlanForm({
   );
 }
 
-function Section({ icon: Icon, title, children }) {
+function Section({ icon: Icon, title, children, status }) {
   return (
     <section className="relative mb-7">
-      <div className="mb-4 flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
-          <Icon className="h-4 w-4" />
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <Icon className="h-4 w-4" />
+          </div>
+          <h3 className="text-base font-bold text-foreground">{title}</h3>
         </div>
-        <h3 className="text-base font-bold text-foreground">{title}</h3>
+        {status !== undefined && <AutoSaveIndicator status={status} />}
       </div>
       {children}
     </section>

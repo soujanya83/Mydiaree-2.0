@@ -1,9 +1,10 @@
 import api from "../../api/api";
 
 export const staffService = {
-  async getStaffSettings({ center_id, search = "", page = 1, per_page = 10, roomid }) {
+  async getStaffSettings({ center_id, search = "", page = 1, per_page = 10, roomid, status }) {
     const params = { center_id, search, page, per_page };
     if (roomid) params.roomid = roomid;
+    if (status) params.status = status;
 
     const res = await api.get(`/settings/staff_settings`, {
       params,

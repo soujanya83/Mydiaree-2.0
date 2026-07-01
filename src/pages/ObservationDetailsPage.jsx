@@ -536,6 +536,13 @@ function ChildCard({ child }) {
           </div>
         )}
       </div>
+      <div className="min-w-0">
+        <p className="truncate text-base font-black text-foreground">{fullName(child)}</p>
+
+        <span className="mt-2 inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-700">
+          {child.status || "Active"}
+        </span>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Save,
@@ -27,7 +27,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PageLoader } from "@/components/common/PageLoader";
+import { AutoSaveIndicator } from "@/components/common/AutoSaveIndicator";
 import { useCentreStore } from "@/stores/centreStore";
+import { useAutoSave } from "@/hooks/useAutoSave";
 import { childrenService } from "@/services/centre/childrenService";
 import { reflectionService } from "@/services/learning/reflectionService";
 import { staffService } from "@/services/admin/staffService";
@@ -66,10 +68,8 @@ const mergeById = (current, next) => {
 export default function DailyReflectionCreatePage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const [search] = useSearchParams();
   const isEdit = Boolean(id);
   const fileInputRef = useRef(null);
-  const mediaPreviewUrlsRef = useRef(new Set());
 
   const { activeCentreId } = useCentreStore();
 
@@ -96,19 +96,57 @@ export default function DailyReflectionCreatePage() {
   const [children, setChildren] = useState([]);
   const [staff, setStaff] = useState([]);
   const [eylf, setEylf] = useState([]);
-  const [title, setTitle] = useState(search.get("title") || "");
+  const [title, setTitle] = useState("");
   const [reflection, setReflection] = useState("");
   const [status, setStatus] = useState("draft");
-  const [media, setMedia] = useState([]); // { file, preview, isExisting, url, id }
+  const [media, setMedia] = useState([]); // { url, id, mediaType } — all server-persisted
   const [deletingMediaIds, setDeletingMediaIds] = useState([]);
-
-  const existingMedia = media.filter((item) => item.isExisting);
-  const newMedia = media.filter((item) => !item.isExisting);
+  const [uploadingMediaCount, setUploadingMediaCount] = useState(0);
 
   const [showRoomsPicker, setShowRoomsPicker] = useState(false);
   const [showChildrenPicker, setShowChildrenPicker] = useState(false);
   const [showStaffPicker, setShowStaffPicker] = useState(false);
   const [showEylfPicker, setShowEylfPicker] = useState(false);
+
+  // ── Auto-save refs (always point to latest form values) ──
+  const formRef = useRef({ title: "", reflection: "", rooms: [], children: [], staff: [], eylf: [], status: "draft" });
+  useEffect(() => {
+    formRef.current = { title, reflection, rooms, children, staff, eylf, status };
+  }, [title, reflection, rooms, children, staff, eylf, status]);
+
+  // Build a full FormData from current form state (required: all required fields)
+  const buildFullFormData = useCallback(() => {
+    const f = formRef.current;
+    const fd = new FormData();
+    fd.append("id", id);
+    fd.append("center_id", activeCentreId);
+    fd.append("title", f.title);
+    fd.append("about", f.reflection);
+    fd.append("status", f.status.toUpperCase());
+    fd.append("selected_rooms", f.rooms.join(","));
+    fd.append("selected_children", f.children.join(","));
+    fd.append("selected_staff", f.staff.join(","));
+    fd.append("eylf", f.eylf.join("\r\n"));
+    return fd;
+  }, [id, activeCentreId]);
+
+  // Auto-save hook
+  const { fieldStatus, triggerAutoSave, triggerImmediateSave, cancelPendingSaves } = useAutoSave({
+    reflectionId: id,
+    saveFn: async (_id, formData) => {
+      const res = await reflectionService.updateReflection(formData);
+      if (res.status !== "success" && res.status !== true) {
+        throw new Error(res.message || "Save failed");
+      }
+      return res;
+    },
+    debounceMs: 1500,
+  });
+
+  // Cleanup auto-save on unmount
+  useEffect(() => {
+    return () => cancelPendingSaves();
+  }, [cancelPendingSaves]);
 
   // 1. Fetch Rooms and Staff on Centre Change
   useEffect(() => {
@@ -146,11 +184,8 @@ export default function DailyReflectionCreatePage() {
       }
       setIsEditLoading(true);
       try {
-        const reflRes = await reflectionService.getAllReflections(activeCentreId, {
-          perPage: 100,
-          page: 1,
-        });
-        const existing = reflRes.data?.reflection?.data?.find((r) => String(r.id) === String(id));
+        const response = await reflectionService.getReflectionById(id);
+        const existing = response?.data?.reflection;
         if (existing) {
           setTitle(existing.title?.replace(/<[^>]*>/g, "") || "");
           setReflection(existing.about?.replace(/<[^>]*>/g, "") || "");
@@ -168,7 +203,6 @@ export default function DailyReflectionCreatePage() {
           if (existing.media) {
             setMedia(
               existing.media.map((m) => ({
-                isExisting: true,
                 url: mediaUrl(m.mediaUrl || m.url),
                 id: m.id,
                 mediaType: m.mediaType,
@@ -301,16 +335,18 @@ export default function DailyReflectionCreatePage() {
   };
 
   const handleSave = async () => {
-    if (!title.trim() || !rooms.length || !children.length || !staff.length || !media.length) {
+    if (!title.trim() || !rooms.length || !children.length || !staff.length) {
       toast.error(
-        "Please fill in all required fields (Rooms, Children, Title, Staff, and at least one Media)",
+        "Please fill in all required fields (Title, Rooms, Children, and Staff)",
       );
       return;
     }
+    // Cancel any pending auto-saves before final save
+    cancelPendingSaves();
     setIsSaving(true);
     try {
       const formData = new FormData();
-      if (isEdit) formData.append("id", id);
+      formData.append("id", id);
       formData.append("center_id", activeCentreId);
       formData.append("title", title);
       formData.append("about", reflection);
@@ -319,16 +355,11 @@ export default function DailyReflectionCreatePage() {
       formData.append("selected_children", children.join(","));
       formData.append("selected_staff", staff.join(","));
       formData.append("eylf", eylf.join("\r\n"));
-
-      media
-        .filter((item) => !item.isExisting)
-        .forEach((item) => {
-          formData.append("media[]", item.file);
-        });
+      // No media[] here — media is already uploaded individually to the server
 
       const res = await reflectionService.storeReflection(formData);
-      if (res.status) {
-        toast.success(isEdit ? "Reflection updated" : "Reflection saved");
+      if (res.status === "success" || res.status === true) {
+        toast.success("Reflection updated");
         navigate("/daily-reflections");
       } else {
         toast.error(res.message || "Failed to save");
@@ -341,43 +372,57 @@ export default function DailyReflectionCreatePage() {
     }
   };
 
-  const handleMediaSelect = (e) => {
+  // Upload media files immediately to the server on selection
+  const handleMediaSelect = async (e) => {
     const files = Array.from(e.target.files);
-    if (media.length + files.length > 10) {
+    if (media.length + uploadingMediaCount + files.length > 10) {
       toast.error("Maximum 10 files allowed");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    const newMedia = files.map((file) => {
-      const preview = URL.createObjectURL(file);
-      mediaPreviewUrlsRef.current.add(preview);
-      return {
-        file,
-        preview,
-        isExisting: false,
-      };
-    });
-    setMedia((prev) => [...prev, ...newMedia]);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
 
-  const removeNewMedia = (item) => {
-    setMedia((prev) => {
-      if (item.preview) {
-        URL.revokeObjectURL(item.preview);
-        mediaPreviewUrlsRef.current.delete(item.preview);
+    // Upload each file individually to the server
+    setUploadingMediaCount((prev) => prev + files.length);
+    for (const file of files) {
+      try {
+        const fd = buildFullFormData();
+        fd.append("media[]", file);
+        const res = await reflectionService.storeReflection(fd);
+        if (res.status === "success" || res.status === true) {
+          // Re-fetch reflection to get the new media with server IDs
+          const refreshRes = await reflectionService.getReflectionById(id);
+          const refreshed = refreshRes?.data?.reflection;
+          if (refreshed?.media) {
+            setMedia(
+              refreshed.media.map((m) => ({
+                url: mediaUrl(m.mediaUrl || m.url),
+                id: m.id,
+                mediaType: m.mediaType,
+              })),
+            );
+          }
+        } else {
+          toast.error(res.message || "Failed to upload media");
+        }
+      } catch (error) {
+        console.error("Media upload error:", error);
+        toast.error(`Failed to upload ${file.name}`);
+      } finally {
+        setUploadingMediaCount((prev) => Math.max(0, prev - 1));
       }
-      return prev.filter((mediaItem) => mediaItem !== item);
-    });
+    }
   };
 
-  const removeExistingMedia = async (item) => {
+  // Delete media from server via API — all media is server-persisted
+  const removeMedia = async (item) => {
     if (!item.id || deletingMediaIds.includes(item.id)) return;
 
     setDeletingMediaIds((prev) => [...prev, item.id]);
     try {
       const res = await reflectionService.deleteReflectionMedia(item.id);
       if (res.status) {
-        setMedia((prev) => prev.filter((mediaItem) => mediaItem !== item));
+        setMedia((prev) => prev.filter((mediaItem) => mediaItem.id !== item.id));
         toast.success(res.message || "Media deleted successfully");
       } else {
         toast.error(res.message || "Failed to delete media");
@@ -389,14 +434,6 @@ export default function DailyReflectionCreatePage() {
       setDeletingMediaIds((prev) => prev.filter((mediaId) => mediaId !== item.id));
     }
   };
-
-  useEffect(() => {
-    const previewUrls = mediaPreviewUrlsRef.current;
-    return () => {
-      previewUrls.forEach((preview) => URL.revokeObjectURL(preview));
-      previewUrls.clear();
-    };
-  }, []);
 
   const today = new Date()
     .toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
@@ -426,14 +463,14 @@ export default function DailyReflectionCreatePage() {
             </Button>
             <div>
               <h1 className="text-xl font-bold text-foreground">
-                {isEdit ? "Edit Reflection" : "New Daily Reflection"}
+                Edit Reflection
               </h1>
               <nav className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Link to="/daily-reflections" className="hover:text-foreground">
                   Reflections
                 </Link>
                 <span>/</span>
-                <span>{isEdit ? "Edit" : "New"}</span>
+                <span>Edit</span>
               </nav>
             </div>
           </div>
@@ -443,7 +480,11 @@ export default function DailyReflectionCreatePage() {
               <Calendar className="h-3.5 w-3.5" /> {today}
             </div>
             <div className="flex items-center gap-2">
-              <Select value={status} onValueChange={setStatus}>
+              <Select value={status} onValueChange={(val) => {
+                setStatus(val);
+                // Auto-save status change immediately
+                setTimeout(() => triggerImmediateSave("status", buildFullFormData), 0);
+              }}>
                 <SelectTrigger
                   className={`h-9 w-[120px] rounded-full border-none font-bold uppercase tracking-wider text-[10px] ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                 >
@@ -492,11 +533,14 @@ export default function DailyReflectionCreatePage() {
 
         {/* Tagging Section */}
         <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
-          <div className="mb-6 flex items-center gap-2">
-            <div className="rounded-lg bg-primary/10 p-2 text-primary">
-              <User className="h-5 w-5" />
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <User className="h-5 w-5" />
+              </div>
+              <h3 className="text-base font-bold text-foreground">Tagging & Groups</h3>
             </div>
-            <h3 className="text-base font-bold text-foreground">Tagging & Groups</h3>
+            <AutoSaveIndicator status={fieldStatus.tagging} />
           </div>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -569,18 +613,27 @@ export default function DailyReflectionCreatePage() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-8">
             <section className="rounded-3xl border border-border bg-card p-8 shadow-sm">
-              <div className="mb-6 flex items-center gap-2">
-                <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
-                  <FileText className="h-5 w-5" />
+              <div className="mb-6 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-base font-bold text-foreground">Reflection Content</h3>
                 </div>
-                <h3 className="text-base font-bold text-foreground">Reflection Content</h3>
+                <AutoSaveIndicator status={fieldStatus.content} />
               </div>
 
               <div className="space-y-6">
                 <FormGroup label="Title" info="Descriptive title for the day's reflection" required>
                   <Input
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => {
+                      setTitle(e.target.value);
+                      triggerAutoSave("content", buildFullFormData);
+                    }}
+                    onBlur={() => {
+                      if (title.trim()) triggerImmediateSave("content", buildFullFormData);
+                    }}
                     placeholder="e.g., A Creative Morning in the Studio"
                     className="h-12 border-none bg-muted/30 focus-visible:ring-sky-500/50"
                   />
@@ -592,7 +645,13 @@ export default function DailyReflectionCreatePage() {
                 >
                   <Textarea
                     value={reflection}
-                    onChange={(e) => setReflection(e.target.value)}
+                    onChange={(e) => {
+                      setReflection(e.target.value);
+                      triggerAutoSave("content", buildFullFormData);
+                    }}
+                    onBlur={() => {
+                      triggerImmediateSave("content", buildFullFormData);
+                    }}
                     rows={8}
                     placeholder="Today we explored textures and colors in our new art corner..."
                     className="border-none bg-muted/30 focus-visible:ring-sky-500/50 resize-none"
@@ -609,6 +668,7 @@ export default function DailyReflectionCreatePage() {
                     <ListChecks className="h-5 w-5" />
                   </div>
                   <h3 className="text-base font-bold text-foreground">EYLF Outcomes</h3>
+                  <AutoSaveIndicator status={fieldStatus.eylf} />
                 </div>
                 <Button
                   size="sm"
@@ -636,7 +696,14 @@ export default function DailyReflectionCreatePage() {
                     >
                       {label}
                       <button
-                        onClick={() => setEylf((p) => p.filter((_, j) => j !== i))}
+                        onClick={() => {
+                          setEylf((p) => {
+                            const next = p.filter((_, j) => j !== i);
+                            // Auto-save after removing EYLF
+                            setTimeout(() => triggerImmediateSave("eylf", buildFullFormData), 0);
+                            return next;
+                          });
+                        }}
                         className="hover:text-emerald-900"
                       >
                         <X className="h-3.5 w-3.5" />
@@ -661,59 +728,41 @@ export default function DailyReflectionCreatePage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {isEdit && (
-                  <div className="col-span-2">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Already Added Media ({existingMedia.length})
-                    </p>
-                    {existingMedia.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        {existingMedia.map((item) => (
-                          <ReflectionMediaPreview
-                            key={item.id}
-                            item={item}
-                            isDeleting={deletingMediaIds.includes(item.id)}
-                            onRemove={() => removeExistingMedia(item)}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-                        No previously added media.
-                      </p>
-                    )}
+                {media.map((item) => (
+                  <ReflectionMediaPreview
+                    key={item.id}
+                    item={item}
+                    isDeleting={deletingMediaIds.includes(item.id)}
+                    onRemove={() => removeMedia(item)}
+                  />
+                ))}
+
+                {/* Upload progress placeholders */}
+                {Array.from({ length: uploadingMediaCount }).map((_, i) => (
+                  <div
+                    key={`uploading-${i}`}
+                    className="flex flex-col items-center justify-center aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-primary/5"
+                  >
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                    <span className="mt-1.5 text-[10px] font-bold text-primary uppercase tracking-tighter">
+                      Uploading…
+                    </span>
                   </div>
+                ))}
+
+                {media.length + uploadingMediaCount < 10 && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingMediaCount > 0}
+                    className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-6 transition-colors hover:border-primary/40 hover:bg-primary/5 disabled:opacity-50 disabled:cursor-wait ${PATTERN_BG}`}
+                  >
+                    <Upload className="h-5 w-5 text-primary" />
+                    <span className="mt-2 text-[10px] font-bold text-foreground uppercase tracking-tighter">
+                      Add
+                    </span>
+                  </button>
                 )}
-
-                <div className={isEdit ? "col-span-2 mt-5" : "col-span-2"}>
-                  {isEdit && (
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Newly Added Media ({newMedia.length})
-                    </p>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    {newMedia.map((item) => (
-                      <ReflectionMediaPreview
-                        key={item.preview}
-                        item={item}
-                        onRemove={() => removeNewMedia(item)}
-                      />
-                    ))}
-
-                    {media.length < 10 && (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-border py-6 transition-colors hover:border-primary/40 hover:bg-primary/5 ${PATTERN_BG}`}
-                      >
-                        <Upload className="h-5 w-5 text-primary" />
-                        <span className="mt-2 text-[10px] font-bold text-foreground uppercase tracking-tighter">
-                          Add
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                </div>
               </div>
               <input
                 type="file"
@@ -734,7 +783,10 @@ export default function DailyReflectionCreatePage() {
                 label="Status"
                 info="Choose whether to keep as draft or publish to families"
               >
-                <Select value={status} onValueChange={setStatus}>
+                <Select value={status} onValueChange={(val) => {
+                  setStatus(val);
+                  setTimeout(() => triggerImmediateSave("status", buildFullFormData), 0);
+                }}>
                   <SelectTrigger
                     className={`h-12 w-full rounded-2xl border-none font-bold uppercase tracking-wider text-xs ${status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}
                   >
@@ -776,6 +828,8 @@ export default function DailyReflectionCreatePage() {
           setChildren([]);
           setStaff([]);
           setShowRoomsPicker(false);
+          // Auto-save tagging changes
+          setTimeout(() => triggerImmediateSave("tagging", buildFullFormData), 0);
         }}
       />
       <MultiPickerModal
@@ -802,6 +856,8 @@ export default function DailyReflectionCreatePage() {
         onSave={(v) => {
           setChildren(v);
           setShowChildrenPicker(false);
+          // Auto-save tagging changes
+          setTimeout(() => triggerImmediateSave("tagging", buildFullFormData), 0);
         }}
       />
       <MultiPickerModal
@@ -828,6 +884,8 @@ export default function DailyReflectionCreatePage() {
         onSave={(v) => {
           setStaff(v);
           setShowStaffPicker(false);
+          // Auto-save tagging changes
+          setTimeout(() => triggerImmediateSave("tagging", buildFullFormData), 0);
         }}
       />
       {showEylfPicker && (
@@ -838,6 +896,8 @@ export default function DailyReflectionCreatePage() {
           onSave={(vals) => {
             setEylf(vals);
             setShowEylfPicker(false);
+            // Auto-save EYLF changes
+            setTimeout(() => triggerImmediateSave("eylf", buildFullFormData), 0);
           }}
         />
       )}
@@ -1111,7 +1171,7 @@ function Avatar({ name, imageUrl }) {
 }
 
 function ReflectionMediaPreview({ item, isDeleting = false, onRemove }) {
-  const src = item.isExisting ? item.url : item.preview;
+  const src = item.url;
 
   return (
     <div className="group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted">

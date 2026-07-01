@@ -66,12 +66,14 @@ function DashboardPage() {
       value: dashboardData.totalStaff ?? 0,
       icon: Users,
       accent: "info",
+      href: "/staff-settings",
     },
     {
       label: "Total Parents",
       value: dashboardData.totalParent ?? 0,
       icon: Users,
       accent: "warning",
+      href: "/parent-settings",
     },
     {
       label: "Current Month Birthdays",
@@ -84,12 +86,14 @@ function DashboardPage() {
       value: dashboardData.affiliatedCenters ?? 0,
       icon: Building2,
       accent: "primary",
+      href: "/settings",
     },
     {
       label: "Total Rooms",
       value: dashboardData.totalRooms ?? 0,
       icon: DoorOpen,
       accent: "success",
+      href: "/rooms",
     },
     {
       label: "Total Recipes",
@@ -102,6 +106,7 @@ function DashboardPage() {
       value: dashboardData.activeChildren ?? 0,
       icon: Baby,
       accent: "info",
+      href: "/children",
     },
   ];
 
@@ -120,6 +125,7 @@ function DashboardPage() {
               value={s.value}
               icon={s.icon}
               accentTop={s.accent}
+              href={s.href}
             />
           ))}
         </div>
