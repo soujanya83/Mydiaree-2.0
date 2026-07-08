@@ -657,6 +657,7 @@ export default function ObservationPage() {
       {galleryObservation && (
         <ObservationGalleryModal
           obs={galleryObservation}
+          centerId={isParent ? getChildCenterId(parentChildren.find((c) => String(c.id) === String(selectedChildId))) : activeCentreId}
           onClose={() => setGalleryObservation(null)}
         />
       )}
@@ -804,11 +805,33 @@ function ObservationShareModal({ open, obs, onClose }) {
   );
 }
 
-function ObservationGalleryModal({ obs, onClose }) {
+function ObservationGalleryModal({ obs, centerId, onClose }) {
   const images = (obs.media || []).filter((m) => m?.mediaUrl);
   const [idx, setIdx] = useState(0);
   const timerRef = useRef(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadButton, setShowDownloadButton] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const cid = centerId || obs?.center_id || obs?.centerid || obs?.centre_id || obs?.centreid;
+    if (!cid) return;
+
+    const fetchDownloadStatus = async () => {
+      try {
+        const res = await observationService.getMediaDownloadStatus(cid);
+        if (active) {
+          setShowDownloadButton(!!res?.show_download_button);
+        }
+      } catch (error) {
+        console.error("Error fetching media download status:", error);
+      }
+    };
+    fetchDownloadStatus();
+    return () => {
+      active = false;
+    };
+  }, [centerId, obs]);
 
   useEffect(() => {
     if (images.length <= 1) return;
@@ -917,18 +940,20 @@ function ObservationGalleryModal({ obs, onClose }) {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleDownload}
-              disabled={isDownloading}
-              title="Download image"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-all duration-200 hover:bg-white/20 hover:text-white active:scale-95 disabled:opacity-50"
-            >
-              {isDownloading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Download className="h-5 w-5" />
-              )}
-            </button>
+            {showDownloadButton && (
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                title="Download image"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-all duration-200 hover:bg-white/20 hover:text-white active:scale-95 disabled:opacity-50"
+              >
+                {isDownloading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Download className="h-5 w-5" />
+                )}
+              </button>
+            )}
             <button
               onClick={onClose}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/80 transition-all duration-200 hover:bg-white/20 hover:text-white active:scale-95"

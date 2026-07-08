@@ -471,4 +471,19 @@ export const observationService = {
       throw error;
     }
   },
+
+  // Get media download status for a center
+  getMediaDownloadStatus: async (centerId) => {
+    try {
+      const response = await api.post("/settings/center/media-download-status", null, {
+        params: {
+          center_id: centerId,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching media download status:", error);
+      throw error;
+    }
+  },
 };
