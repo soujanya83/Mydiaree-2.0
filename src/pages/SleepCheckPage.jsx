@@ -107,6 +107,18 @@ export default function SleepCheckPage() {
     [cards, fetchedChildren],
   );
 
+  const unsavedEntriesCount = useMemo(() => {
+    let count = 0;
+    Object.values(cards).forEach((card) => {
+      card?.entries?.forEach((e) => {
+        if (e.isNew !== false) {
+          count++;
+        }
+      });
+    });
+    return count;
+  }, [cards]);
+
   const getCard = (id) => cards[id] ?? { selected: false, openEntryId: null, entries: [] };
 
   const fetchSleepChecks = useCallback(async () => {
@@ -713,29 +725,38 @@ export default function SleepCheckPage() {
       )}
 
       {/* Footer */}
-      {!isParent && fetchedChildren.length > 0 && (
+      {!isParent && fetchedChildren.length > 0 && selectedSleepCheckCount === 2 && (
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-border pt-6">
-          {selectedSleepCheckCount === 2 && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                const now = new Date();
-                const hh = String(now.getHours()).padStart(2, "0");
-                const mm = String(now.getMinutes()).padStart(2, "0");
-                setBulkForm((f) => ({
-                  ...f,
-                  time: `${hh}:${mm}`,
-                  signature: f.signature || userName,
-                }));
-                setBulkModal(true);
-              }}
-            >
-              <Users className="mr-1.5 h-4 w-4" />
-              Bulk Entry
-            </Button>
-          )}
-          <Button onClick={handleSaveAll} className="min-w-[200px]" disabled={isSaving}>
-            <Save className="mr-1.5 h-4 w-4" />
+          <Button
+            variant="outline"
+            onClick={() => {
+              const now = new Date();
+              const hh = String(now.getHours()).padStart(2, "0");
+              const mm = String(now.getMinutes()).padStart(2, "0");
+              setBulkForm((f) => ({
+                ...f,
+                time: `${hh}:${mm}`,
+                signature: f.signature || userName,
+              }));
+              setBulkModal(true);
+            }}
+          >
+            <Users className="mr-1.5 h-4 w-4" />
+            Bulk Entry
+          </Button>
+        </div>
+      )}
+
+      {/* Floating Save All Button */}
+      {!isParent && fetchedChildren.length > 0 && (
+        <div className="fixed bottom-8 right-8 z-50">
+          <Button
+            size="lg"
+            className="h-14 rounded-full px-8 shadow-2xl transition-transform hover:scale-105 active:scale-95"
+            onClick={handleSaveAll}
+            disabled={isSaving || unsavedEntriesCount < 2}
+          >
+            <Save className="mr-2 h-5 w-5" />
             {isSaving ? "Saving..." : "Save All Sleep Checks"}
           </Button>
         </div>
