@@ -724,11 +724,12 @@ export default function SleepCheckPage() {
         </div>
       )}
 
-      {/* Footer */}
-      {!isParent && fetchedChildren.length > 0 && selectedSleepCheckCount === 2 && (
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-border pt-6">
+      {/* Floating Bulk Entry Button */}
+      {!isParent && fetchedChildren.length > 0 && selectedSleepCheckCount >= 2 && (
+        <div className="fixed bottom-8 right-8 z-50">
           <Button
-            variant="outline"
+            size="lg"
+            className="h-14 rounded-full px-8 shadow-2xl transition-transform hover:scale-105 active:scale-95 gap-2"
             onClick={() => {
               const now = new Date();
               const hh = String(now.getHours()).padStart(2, "0");
@@ -741,23 +742,8 @@ export default function SleepCheckPage() {
               setBulkModal(true);
             }}
           >
-            <Users className="mr-1.5 h-4 w-4" />
-            Bulk Entry
-          </Button>
-        </div>
-      )}
-
-      {/* Floating Save All Button */}
-      {!isParent && fetchedChildren.length > 0 && (
-        <div className="fixed bottom-8 right-8 z-50">
-          <Button
-            size="lg"
-            className="h-14 rounded-full px-8 shadow-2xl transition-transform hover:scale-105 active:scale-95"
-            onClick={handleSaveAll}
-            disabled={isSaving || unsavedEntriesCount < 2}
-          >
-            <Save className="mr-2 h-5 w-5" />
-            {isSaving ? "Saving..." : "Save All Sleep Checks"}
+            <Users className="h-5 w-5" />
+            Save ({selectedSleepCheckCount}) Bulk Entries
           </Button>
         </div>
       )}
@@ -799,73 +785,60 @@ export default function SleepCheckPage() {
               </div>
 
               {/* Form */}
-              <div className="space-y-4 px-6 py-5">
-                {/* Time */}
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
-                    <Clock className="h-3.5 w-3.5 text-primary" />
-                    Time <span className="text-destructive">*</span>
-                  </label>
+              <div className="grid grid-cols-1 gap-4 px-6 py-5 md:grid-cols-2">
+                <Field icon={Clock} label="Time" required>
                   <Input
                     type="time"
                     value={bulkForm.time}
                     onChange={(e) => setBulkForm((f) => ({ ...f, time: e.target.value }))}
-                    className="h-9"
                   />
-                </div>
+                </Field>
 
-                {/* Breathing + Temperature */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
-                      <ActivityIcon className="h-3.5 w-3.5 text-primary" />
-                      Breathing
-                    </label>
-                    <Select
-                      value={bulkForm.breathing}
-                      onValueChange={(v) => setBulkForm((f) => ({ ...f, breathing: v }))}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="z-[200]">
-                        {BREATHING_OPTIONS.map((o) => (
-                          <SelectItem key={o} value={o}>
-                            {o}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
-                      <Thermometer className="h-3.5 w-3.5 text-primary" />
-                      Temperature
-                    </label>
-                    <Select
-                      value={bulkForm.temperature}
-                      onValueChange={(v) => setBulkForm((f) => ({ ...f, temperature: v }))}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="z-[200]">
-                        {TEMPERATURE_OPTIONS.map((o) => (
-                          <SelectItem key={o} value={o}>
-                            {o}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <Field icon={ActivityIcon} label="Breathing" required>
+                  <Select
+                    value={bulkForm.breathing}
+                    onValueChange={(v) => setBulkForm((f) => ({ ...f, breathing: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      {BREATHING_OPTIONS.map((o) => (
+                        <SelectItem key={o} value={o}>
+                          {o}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
 
-                {/* Notes */}
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
-                    <StickyNote className="h-3.5 w-3.5 text-primary" />
-                    Notes
-                  </label>
+                <Field icon={Thermometer} label="Body Temperature" required>
+                  <Select
+                    value={bulkForm.temperature}
+                    onValueChange={(v) => setBulkForm((f) => ({ ...f, temperature: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      {TEMPERATURE_OPTIONS.map((o) => (
+                        <SelectItem key={o} value={o}>
+                          {o}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field icon={PenLine} label="Signature" required>
+                  <Input
+                    value={bulkForm.signature}
+                    onChange={(e) => setBulkForm((f) => ({ ...f, signature: e.target.value }))}
+                    placeholder="Signature"
+                  />
+                </Field>
+
+                <Field icon={StickyNote} label="Notes" className="md:col-span-2">
                   <Textarea
                     value={bulkForm.notes}
                     onChange={(e) => setBulkForm((f) => ({ ...f, notes: e.target.value }))}
@@ -873,21 +846,7 @@ export default function SleepCheckPage() {
                     rows={2}
                     className="resize-none text-sm"
                   />
-                </div>
-
-                {/* Signature */}
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-foreground">
-                    <PenLine className="h-3.5 w-3.5 text-primary" />
-                    Signature
-                  </label>
-                  <Input
-                    value={bulkForm.signature}
-                    onChange={(e) => setBulkForm((f) => ({ ...f, signature: e.target.value }))}
-                    placeholder="Optional signature…"
-                    className="h-9"
-                  />
-                </div>
+                </Field>
               </div>
 
               {/* Footer */}
