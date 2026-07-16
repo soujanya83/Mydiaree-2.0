@@ -68,6 +68,7 @@ export default function SleepCheckPage() {
   const [search, setSearch] = useState("");
   const [fetchedChildren, setFetchedChildren] = useState([]);
   const [cards, setCards] = useState({}); // { [childId]: { selected, openEntryId, entries: [] } }
+  const [selectedChildIds, setSelectedChildIds] = useState(new Set());
   const [isFetching, setIsFetching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -102,10 +103,7 @@ export default function SleepCheckPage() {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const selectedSleepCheckCount = useMemo(
-    () => fetchedChildren.filter((c) => cards[c.id]?.selected).length,
-    [cards, fetchedChildren],
-  );
+  const selectedSleepCheckCount = selectedChildIds.size;
 
   const unsavedEntriesCount = useMemo(() => {
     let count = 0;
@@ -144,7 +142,7 @@ export default function SleepCheckPage() {
           centerid: activeCentreId,
           roomid: activeRoomId,
           date,
-          per_page: perPage,
+          per_page: 2,
           page: currentPage,
           search: debouncedSearch || undefined,
         };
@@ -193,9 +191,10 @@ export default function SleepCheckPage() {
     fetchSleepChecks();
   }, [fetchSleepChecks]);
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 and clear selections when filters change
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedChildIds(new Set());
   }, [activeCentreId, activeRoomId, date, selectedChildId, debouncedSearch]);
 
   const formatDateForSave = (dateStr) => {
@@ -285,9 +284,8 @@ export default function SleepCheckPage() {
   };
 
   const handleBulkSave = async () => {
-    const selectedIds = fetchedChildren.filter((c) => cards[c.id]?.selected).map((c) => c.id);
-
-    const targetIds = selectedIds.length > 0 ? selectedIds : fetchedChildren.map((c) => c.id);
+    const targetIds =
+      selectedChildIds.size > 0 ? Array.from(selectedChildIds) : fetchedChildren.map((c) => c.id);
 
     if (targetIds.length === 0) {
       toast.info("No children to save.");
@@ -321,6 +319,7 @@ export default function SleepCheckPage() {
           notes: "",
           signature: userName,
         });
+        setSelectedChildIds(new Set());
         fetchSleepChecks();
       } else {
         toast.error(res.data.message || "Failed to save bulk entries");
@@ -374,9 +373,14 @@ export default function SleepCheckPage() {
   };
 
   const toggleSelect = (childId, selected) => {
-    setCards((p) => {
-      const card = { ...getCard(childId), selected };
-      return { ...p, [childId]: card };
+    setSelectedChildIds((prev) => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(childId);
+      } else {
+        next.delete(childId);
+      }
+      return next;
     });
   };
 
@@ -517,7 +521,7 @@ export default function SleepCheckPage() {
                   </div>
                   {!isParent && (
                     <Checkbox
-                      checked={card.selected}
+                      checked={selectedChildIds.has(child.id)}
                       onCheckedChange={(v) => toggleSelect(child.id, v)}
                       aria-label={`Select ${child.name}`}
                     />
@@ -769,8 +773,8 @@ export default function SleepCheckPage() {
                   <h2 className="text-lg font-bold text-foreground">Bulk Sleep Check Entry</h2>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {(() => {
-                      const sel = fetchedChildren.filter((c) => cards[c.id]?.selected);
-                      const count = sel.length > 0 ? sel.length : fetchedChildren.length;
+                      const count =
+                        selectedChildIds.size > 0 ? selectedChildIds.size : fetchedChildren.length;
                       return `Applies to ${count} child${count === 1 ? "" : "ren"}`;
                     })()}
                   </p>
@@ -863,8 +867,10 @@ export default function SleepCheckPage() {
                   {isBulkSaving
                     ? "Saving..."
                     : (() => {
-                        const sel = fetchedChildren.filter((c) => cards[c.id]?.selected);
-                        const count = sel.length > 0 ? sel.length : fetchedChildren.length;
+                        const count =
+                          selectedChildIds.size > 0
+                            ? selectedChildIds.size
+                            : fetchedChildren.length;
                         return count > 1 ? "Save Bulk Entry" : "Save Entry";
                       })()}
                 </Button>
