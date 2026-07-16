@@ -225,6 +225,7 @@ function ActivityTile({
   const modalInitial = isMulti ? editingEntry : entry;
   const canEdit = !readOnly && !!onSave && canEditProp !== false;
   const canDelete = !readOnly && !!onDelete && canDeleteProp !== false;
+  const hidePlus = def.key === "sleep" && entries.some((e) => !e.wakeTime || String(e.wakeTime).trim() === "");
 
   const openAdd = () => {
     if (!canEdit) return;
@@ -295,7 +296,7 @@ function ActivityTile({
           {(canEdit || canDelete) && (
             <div className="flex shrink-0 items-center gap-1">
               {isMulti ? (
-                canEdit && (
+                canEdit && !hidePlus && (
                   <button
                     type="button"
                     onClick={openAdd}

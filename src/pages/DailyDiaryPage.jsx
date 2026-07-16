@@ -121,7 +121,7 @@ export default function DailyDiaryPage() {
 
   const [isFetching, setIsFetching] = useState(false);
 
-  const fetchDiary = useCallback(async () => {
+  const fetchDiary = useCallback(async (silent = false) => {
     const clearDiary = () => {
       setDiaryChildren([]);
       setEntriesByChild({});
@@ -137,7 +137,7 @@ export default function DailyDiaryPage() {
     } else {
       if (!activeCentreId || !activeRoomId) return;
     }
-    setIsFetching(true);
+    if (!silent) setIsFetching(true);
     try {
       const params = {
         selected_date: date,
@@ -255,7 +255,7 @@ export default function DailyDiaryPage() {
         toast.error("Failed to load diary entries");
       }
     } finally {
-      setIsFetching(false);
+      if (!silent) setIsFetching(false);
     }
   }, [
     activeCentreId,
@@ -356,6 +356,7 @@ export default function DailyDiaryPage() {
         };
       });
       toast.success(`${activityKey.replace("_", " ")} saved successfully`);
+      fetchDiary(true);
     } catch (error) {
       console.error("Failed to save entry", error);
       toast.error(`Failed to save ${activityKey.replace("_", " ")}`);
@@ -631,6 +632,7 @@ export default function DailyDiaryPage() {
             toast.success(
               `Bulk ${activity.replace("_", " ")} saved for ${selectedIds.length} children`,
             );
+            fetchDiary(true);
           } catch (error) {
             console.error("Bulk save failed", error);
             toast.error(`Failed to save bulk entry: ${error.message}`);
