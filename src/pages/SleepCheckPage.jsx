@@ -142,7 +142,7 @@ export default function SleepCheckPage() {
           centerid: activeCentreId,
           roomid: activeRoomId,
           date,
-          per_page: 2,
+          per_page: perPage,
           page: currentPage,
           search: debouncedSearch || undefined,
         };
