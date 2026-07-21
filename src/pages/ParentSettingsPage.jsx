@@ -41,6 +41,8 @@ import { AddParentModal } from "@/components/parents/AddParentModal";
 import { Loader2 } from "lucide-react";
 import { useCentreStore } from "@/stores/centreStore";
 import { Pagination } from "@/components/common/Pagination";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { IMG_BASE_API } from "../api/imageapi";
 
 const PARENT_SETTINGS_FILTERS_KEY = "parent-settings-filters";
@@ -58,6 +60,8 @@ function getInitials(name = "") {
 
 export default function ParentSettingsPage() {
   const { centres: storeCenters, activeCentreId, setActiveCentre } = useCentreStore();
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.parentSettings;
   const [parents, setParents] = useState([]);
   const [availableChildren, setAvailableChildren] = useState([]);
   
@@ -318,13 +322,15 @@ export default function ParentSettingsPage() {
               icon={null}
               triggerClassName="h-10 gap-2 rounded-xl bg-card/60 backdrop-blur border-border/60 shadow-sm font-medium w-[200px]"
             />
-            <Button
-              onClick={() => setModal({ open: true, initial: null })}
-              className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20"
-            >
-              <Plus className="h-4 w-4" />
-              Add Parent
-            </Button>
+            {can(perms.add) && (
+              <Button
+                onClick={() => setModal({ open: true, initial: null })}
+                className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20"
+              >
+                <Plus className="h-4 w-4" />
+                Add Parent
+              </Button>
+            )}
           </div>
         }
       />
@@ -449,30 +455,32 @@ export default function ParentSettingsPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 flex items-center justify-center gap-2 border-t border-border/50 pt-4 relative z-10">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setModal({ open: true, initial: p });
-                    }}
-                    className="flex flex-1 h-9 items-center justify-center gap-1.5 rounded-xl bg-primary/10 text-xs font-bold text-primary transition-colors hover:bg-primary/20 active:scale-95"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Edit Profile
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setConfirm({ open: true, id: p.id });
-                    }}
-                    title="Delete Parent"
-                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700 active:scale-95 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-900/40"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                {can(perms.edit) && (
+                  <div className="mt-6 flex items-center justify-center gap-2 border-t border-border/50 pt-4 relative z-10">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setModal({ open: true, initial: p });
+                      }}
+                      className="flex flex-1 h-9 items-center justify-center gap-1.5 rounded-xl bg-primary/10 text-xs font-bold text-primary transition-colors hover:bg-primary/20 active:scale-95"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit Profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirm({ open: true, id: p.id });
+                      }}
+                      title="Delete Parent"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 transition-colors hover:bg-rose-100 hover:text-rose-700 active:scale-95 dark:bg-rose-950/30 dark:text-rose-400 dark:hover:bg-rose-900/40"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

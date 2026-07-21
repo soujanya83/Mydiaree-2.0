@@ -112,7 +112,7 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={`Welcome ${centre ? `, ${centre.name || centre.code}` : ""}`} />
+      <PageHeader title={`Welcome ${centre ? `, ${user.name || ""} ` : ""}`} />
 
       {isLoading ? (
         <PageLoader label="Loading dashboard…" />

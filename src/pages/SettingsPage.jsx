@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,8 @@ export default function SettingsPage() {
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
   const [isDeleting, setIsDeleting] = useState(false);
   const [detailsModal, setDetailsModal] = useState({ open: false, centerId: null });
-  const { hasFullAccess } = usePermissions();
+  const { can, hasFullAccess } = usePermissions();
+  const perms = ACTION_PERMISSIONS.centerSettings;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -96,10 +98,12 @@ export default function SettingsPage() {
         description="Manage all centers across your organization"
         breadcrumbs={[{ label: "Centers Settings" }]}
         actions={
-          <Button onClick={() => setModal({ open: true, initial: null })} className="gap-2 rounded-xl">
-            <Plus className="h-4 w-4" />
-            Add Center
-          </Button>
+          can(perms.add) && (
+            <Button onClick={() => setModal({ open: true, initial: null })} className="gap-2 rounded-xl">
+              <Plus className="h-4 w-4" />
+              Add Center
+            </Button>
+          )
         }
       />
 
@@ -167,22 +171,26 @@ export default function SettingsPage() {
               </div>
 
               <div className="mt-auto flex items-center justify-end gap-2 border-t border-border/50 pt-4 relative">
-                <button
-                  type="button"
-                  onClick={() => setDetailsModal({ open: true, centerId: c.id })}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-muted/50 px-4 text-xs font-bold text-foreground transition-colors hover:bg-muted active:scale-95"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  View
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModal({ open: true, initial: c })}
-                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-primary/10 px-4 text-xs font-bold text-primary transition-colors hover:bg-primary/20 active:scale-95"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                  Edit
-                </button>
+                {can(perms.view) && (
+                  <button
+                    type="button"
+                    onClick={() => setDetailsModal({ open: true, centerId: c.id })}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-muted/50 px-4 text-xs font-bold text-foreground transition-colors hover:bg-muted active:scale-95"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View
+                  </button>
+                )}
+                {can(perms.edit) && (
+                  <button
+                    type="button"
+                    onClick={() => setModal({ open: true, initial: c })}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-primary/10 px-4 text-xs font-bold text-primary transition-colors hover:bg-primary/20 active:scale-95"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </button>
+                )}
                 {hasFullAccess && (
                   <button
                     type="button"

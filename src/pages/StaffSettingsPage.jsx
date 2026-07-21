@@ -42,6 +42,8 @@ import { useCentreStore } from "@/stores/centreStore";
 import { useRoomStore } from "@/stores/roomStore";
 import { Pagination } from "@/components/common/Pagination";
 import { StatusConfirmationModal } from "@/components/common/StatusConfirmationModal";
+import { usePermissions } from "@/hooks/usePermissions";
+import { ACTION_PERMISSIONS } from "@/constants/permissionMap";
 import { IMG_BASE_API } from "../api/imageapi";
 
 const STAFF_SETTINGS_FILTERS_KEY = "staff-settings-filters";
@@ -77,6 +79,8 @@ function getWifiAccessUntil(staffMember) {
 export default function StaffSettingsPage() {
   const { centres: storeCenters, activeCentreId, setActiveCentre } = useCentreStore();
   const { rooms, fetchRooms } = useRoomStore();
+  const { can } = usePermissions();
+  const perms = ACTION_PERMISSIONS.staffSettings;
   const [staff, setStaff] = useState([]);
   
   // Initialize filters from localStorage
@@ -381,13 +385,15 @@ export default function StaffSettingsPage() {
               icon={null}
               triggerClassName="h-10 gap-2 rounded-xl bg-card/60 backdrop-blur border-border/60 shadow-sm font-medium w-[200px]"
             />
-            <Button
-              onClick={() => setModal({ open: true, initial: null })}
-              className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20"
-            >
-              <Plus className="h-4 w-4" />
-              Add Staff
-            </Button>
+            {can(perms.add) && (
+              <Button
+                onClick={() => setModal({ open: true, initial: null })}
+                className="h-10 gap-2 rounded-xl font-semibold shadow-md shadow-primary/20"
+              >
+                <Plus className="h-4 w-4" />
+                Add Staff
+              </Button>
+            )}
           </div>
         }
       />
@@ -488,57 +494,70 @@ export default function StaffSettingsPage() {
                       )}
                     </div>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          disabled={isUpdatingAccess}
-                          className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 ${
-                            hasAccess
-                              ? "bg-success/15 text-success hover:bg-success/25"
-                              : "bg-destructive/10 text-destructive hover:bg-destructive/20"
-                          }`}
-                        >
-                          {isUpdatingAccess ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Shield className="h-3.5 w-3.5" />
+                    {can(perms.edit) ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            disabled={isUpdatingAccess}
+                            className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 ${
+                              hasAccess
+                                ? "bg-success/15 text-success hover:bg-success/25"
+                                : "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                            }`}
+                          >
+                            {isUpdatingAccess ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Shield className="h-3.5 w-3.5" />
+                            )}
+                            {hasAccess ? "Access" : "No Access"}
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40 rounded-xl">
+                          {hasAccess && wifiAccessUntil && (
+                            <div className="border-b border-border/60 px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                              <div className="flex items-center gap-1.5">
+                                <CalendarClock className="h-3 w-3 shrink-0" />
+                                <span>Expires</span>
+                              </div>
+                              <div className="mt-1 normal-case tracking-normal text-foreground">
+                                {formatExpiry(wifiAccessUntil)}
+                              </div>
+                            </div>
                           )}
-                          {hasAccess ? "Access" : "No Access"}
-                          <ChevronDown className="h-3 w-3" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40 rounded-xl">
-                        {hasAccess && wifiAccessUntil && (
-                          <div className="border-b border-border/60 px-2 py-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                            <div className="flex items-center gap-1.5">
-                              <CalendarClock className="h-3 w-3 shrink-0" />
-                              <span>Expires</span>
-                            </div>
-                            <div className="mt-1 normal-case tracking-normal text-foreground">
-                              {formatExpiry(wifiAccessUntil)}
-                            </div>
-                          </div>
-                        )}
-                        {ACCESS_OPTIONS.map((opt) => (
-                          <DropdownMenuItem
-                            key={opt.value}
-                            onClick={() => updateAccess(s, opt)}
-                            className="font-medium cursor-pointer"
-                          >
-                            Grant for {opt.label}
-                          </DropdownMenuItem>
-                        ))}
-                        {hasAccess && (
-                          <DropdownMenuItem
-                            onClick={() => updateAccess(s, null)}
-                            className="text-destructive font-bold cursor-pointer"
-                          >
-                            Revoke Access
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          {ACCESS_OPTIONS.map((opt) => (
+                            <DropdownMenuItem
+                              key={opt.value}
+                              onClick={() => updateAccess(s, opt)}
+                              className="font-medium cursor-pointer"
+                            >
+                              Grant for {opt.label}
+                            </DropdownMenuItem>
+                          ))}
+                          {hasAccess && (
+                            <DropdownMenuItem
+                              onClick={() => updateAccess(s, null)}
+                              className="text-destructive font-bold cursor-pointer"
+                            >
+                              Revoke Access
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold shadow-sm ${
+                          hasAccess
+                            ? "bg-success/15 text-success"
+                            : "bg-destructive/10 text-destructive"
+                        }`}
+                      >
+                        <Shield className="h-3.5 w-3.5" />
+                        {hasAccess ? "Access" : "No Access"}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-col items-center text-center relative z-10 flex-grow">
@@ -575,37 +594,39 @@ export default function StaffSettingsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 flex items-center justify-between gap-2 border-t border-border/50 pt-4 relative z-10">
-                    <button
-                      type="button"
-                      onClick={() => setStatusConfirm(s)}
-                      disabled={statusUpdatingId === s.id}
-                      title={s.active ? "Deactivate Staff" : "Activate Staff"}
-                      className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
-                        s.active
-                          ? "border-success/30 bg-success/10 text-success hover:bg-success/20"
-                          : "border-muted-foreground/30 bg-muted text-muted-foreground hover:bg-muted-foreground/20"
-                      } ${statusUpdatingId === s.id ? "opacity-70 pointer-events-none" : ""}`}
-                    >
-                      {statusUpdatingId === s.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Check className="h-3.5 w-3.5" />
-                      )}
-                      {s.active ? "Active" : "Inactive"}
-                    </button>
-
-                    <div className="flex items-center gap-1.5">
+                  {can(perms.edit) && (
+                    <div className="mt-6 flex items-center justify-between gap-2 border-t border-border/50 pt-4 relative z-10">
                       <button
                         type="button"
-                        onClick={() => setModal({ open: true, initial: s })}
-                        title="Edit Staff"
-                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors hover:bg-primary/20 active:scale-95"
+                        onClick={() => setStatusConfirm(s)}
+                        disabled={statusUpdatingId === s.id}
+                        title={s.active ? "Deactivate Staff" : "Activate Staff"}
+                        className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
+                          s.active
+                            ? "border-success/30 bg-success/10 text-success hover:bg-success/20"
+                            : "border-muted-foreground/30 bg-muted text-muted-foreground hover:bg-muted-foreground/20"
+                        } ${statusUpdatingId === s.id ? "opacity-70 pointer-events-none" : ""}`}
                       >
-                        <Pencil className="h-4 w-4" />
+                        {statusUpdatingId === s.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Check className="h-3.5 w-3.5" />
+                        )}
+                        {s.active ? "Active" : "Inactive"}
                       </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setModal({ open: true, initial: s })}
+                          title="Edit Staff"
+                          className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors hover:bg-primary/20 active:scale-95"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
