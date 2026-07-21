@@ -59,8 +59,8 @@ const getValidationSchema = (key) => {
     time: z.string().min(1, "Time is required"),
   };
 
-  if (["breakfast", "lunch", "late_snacks", "bottle"].includes(key)) {
-    schema.item = z.string().min(1, `${key === "bottle" ? "Bottle details" : "Item"} is required`);
+  if (["breakfast", "lunch", "late_snacks"].includes(key)) {
+    schema.item = z.string().min(1, "Item is required");
   }
 
   if (key === "lunch") {
@@ -131,7 +131,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
       payload.time = data.time;
     }
 
-    if (["breakfast", "lunch", "late_snacks", "bottle"].includes(key)) {
+    if (["breakfast", "lunch", "late_snacks"].includes(key)) {
       payload.item = data.item;
     }
 
@@ -218,17 +218,14 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
                   </div>
                 )}
 
-                {["breakfast", "lunch", "late_snacks", "bottle"].includes(key) && (
+                {["breakfast", "lunch", "late_snacks"].includes(key) && (
                   <div className="space-y-1.5">
                     <Label>
-                      {key === "bottle" ? "Bottle Details" : "Item"}{" "}
-                      <span className="text-red-500">*</span>
+                      Item <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       {...register("item")}
-                      placeholder={
-                        key === "bottle" ? "e.g. 120ml formula" : "e.g. Toast with butter"
-                      }
+                      placeholder="e.g. Toast with butter"
                     />
                     {errors.item && <p className="text-red-500 text-xs">{errors.item.message}</p>}
                   </div>
@@ -267,7 +264,7 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
                     Nappy Status <span className="text-red-500">*</span>
                   </Label>
                   <div className="flex flex-wrap gap-2">
-                    {["clean", "wet", "soiled", "successfully"].map((s) => (
+                    {["clean", "wet", "soiled", "successful"].map((s) => (
                       <button
                         key={s}
                         type="button"

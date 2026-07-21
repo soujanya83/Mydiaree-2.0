@@ -107,10 +107,8 @@ const getValidationSchema = (activity) => {
     time: z.string().min(1, "Time is required"),
   };
 
-  if (["breakfast", "lunch", "late_snacks", "bottle"].includes(activity)) {
-    schema.item = z
-      .string()
-      .min(1, `${activity === "bottle" ? "Bottle details" : "Item"} is required`);
+  if (["breakfast", "lunch", "late_snacks"].includes(activity)) {
+    schema.item = z.string().min(1, "Item is required");
   }
 
   if (activity === "lunch") {
@@ -335,7 +333,7 @@ export function NewEntryModal({
     toast.error(`Please fix: ${errorMessages}`);
   };
 
-  const valueLabel = activity === "bottle" ? "Volume (ml)" : `${current.label} Item`;
+  const valueLabel = `${current.label} Item`;
 
   const timeLabel =
     activity === "sleep"
@@ -571,16 +569,14 @@ export function NewEntryModal({
                       )}
                     </div>
                   ) : (
-                    ["breakfast", "lunch", "late_snacks", "bottle"].includes(activity) && (
+                    ["breakfast", "lunch", "late_snacks"].includes(activity) && (
                       <div className="space-y-1.5">
                         <Label>
                           {valueLabel} <span className="text-red-500">*</span>
                         </Label>
                         <Input
                           {...register("item")}
-                          placeholder={`e.g. ${
-                            activity === "bottle" ? "120ml formula" : "Toast with butter"
-                          }`}
+                          placeholder="e.g. Toast with butter"
                         />
                         {errors.item && (
                           <p className="text-red-500 text-xs">{errors.item.message}</p>
@@ -622,7 +618,7 @@ export function NewEntryModal({
                       Nappy Status <span className="text-red-500">*</span>
                     </Label>
                     <div className="flex flex-wrap gap-2">
-                      {["clean", "wet", "soiled", "successfully"].map((s) => (
+                      {["clean", "wet", "soiled", "successful"].map((s) => (
                         <button
                           key={s}
                           type="button"
