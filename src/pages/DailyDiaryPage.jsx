@@ -198,11 +198,10 @@ export default function DailyDiaryPage() {
               delete res.time;
             }
 
-            if (key === "lunch") {
-              const serve = a.serve ?? a.server ?? a.noOfServe;
-              if (serve !== undefined && serve !== null && serve !== "") {
-                res.serve = String(serve);
-              }
+            const serve = a.number_of_serves ?? a.serve ?? a.server ?? a.noOfServe;
+            if (serve !== undefined && serve !== null && serve !== "") {
+              res.serve = String(serve);
+              res.number_of_serves = String(serve);
             }
 
             if (a.signature) res.signature = a.signature;
@@ -309,6 +308,12 @@ export default function DailyDiaryPage() {
         apiPayload.serve = payload.serve ?? payload.server ?? payload.noOfServe;
         delete apiPayload.server;
         delete apiPayload.noOfServe;
+      } else if (["breakfast", "morning_tea", "afternoon_tea", "late_snacks"].includes(activityKey)) {
+        const serveVal = payload.number_of_serves ?? payload.serve;
+        if (serveVal !== undefined && serveVal !== null && serveVal !== "") {
+          apiPayload.number_of_serves = serveVal;
+        }
+        delete apiPayload.serve;
       }
 
       // Omit optional fields if empty
@@ -574,6 +579,12 @@ export default function DailyDiaryPage() {
               data.serve = payload.serve ?? payload.server ?? payload.noOfServe;
               delete data.server;
               delete data.noOfServe;
+            } else if (["breakfast", "morning_tea", "afternoon_tea", "late_snacks"].includes(activity)) {
+              const serveVal = payload.number_of_serves ?? payload.serve;
+              if (serveVal !== undefined && serveVal !== null && serveVal !== "") {
+                data.number_of_serves = serveVal;
+              }
+              delete data.serve;
             }
 
             // Omit optional fields if empty

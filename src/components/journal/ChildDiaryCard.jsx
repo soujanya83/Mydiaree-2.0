@@ -135,9 +135,11 @@ function detailFor(def, entry) {
     return `${sleepTime} - ${wakeTime}`;
   }
 
-  if (def.key === "lunch") {
-    const serve = entry.serve ?? entry.server ?? entry.noOfServe;
-    return [entry.time, entry.item, serve ? `${serve} serve` : null].filter(Boolean).join(" - ");
+  if (["breakfast", "morning_tea", "lunch", "afternoon_tea", "late_snacks"].includes(def.key)) {
+    const serve = entry.number_of_serves ?? entry.serve ?? entry.server ?? entry.noOfServe;
+    return [entry.time, entry.item, serve ? `${serve} serve${Number(serve) > 1 ? "s" : ""}` : null]
+      .filter(Boolean)
+      .join(" - ");
   }
 
   return [entry.time, entry.item, entry.comments].filter(Boolean).join(" - ") || "Entry added";
@@ -164,6 +166,7 @@ function EntryDetails({ def, entry }) {
     entry.comments ||
     entry.status ||
     entry.sleepTime ||
+    entry.number_of_serves ||
     entry.serve ||
     entry.server ||
     entry.noOfServe;
@@ -181,8 +184,8 @@ function EntryDetails({ def, entry }) {
     );
   }
 
-  if (def.key === "lunch") {
-    const serve = entry.serve ?? entry.server ?? entry.noOfServe;
+  if (["breakfast", "morning_tea", "lunch", "afternoon_tea", "late_snacks"].includes(def.key)) {
+    const serve = entry.number_of_serves ?? entry.serve ?? entry.server ?? entry.noOfServe;
     return (
       <div className="flex flex-col gap-1 min-w-0 w-full">
         {renderRow("Time", entry.time)}
@@ -450,7 +453,9 @@ export function ChildDiaryCard({
     const entry = entries[def.key];
     return Array.isArray(entry) ? entry.length > 0 : Boolean(entry);
   }).length;
-  const meals = ["breakfast", "lunch", "afternoon_tea"].filter((k) => entries[k]).length;
+  const meals = ["breakfast", "morning_tea", "lunch", "afternoon_tea", "late_snacks"].filter(
+    (k) => entries[k],
+  ).length;
   const naps = Array.isArray(entries.sleep) ? entries.sleep.length : entries.sleep ? 1 : 0;
   const progress = Math.round((completedActivities / totalActivities) * 100);
 

@@ -40,6 +40,8 @@ const activityMeta = {
   bottle: { icon: MilkIcon, hint: "Bottle time and volume details" },
 };
 
+const MEAL_KEYS = ["breakfast", "morning_tea", "lunch", "afternoon_tea", "late_snacks"];
+
 // Define schema generator
 const getValidationSchema = (key) => {
   const baseSchema = {
@@ -65,6 +67,8 @@ const getValidationSchema = (key) => {
 
   if (key === "lunch") {
     schema.serve = z.string().min(1, "Serve is required");
+  } else if (["breakfast", "morning_tea", "afternoon_tea", "late_snacks"].includes(key)) {
+    schema.serve = z.string().optional();
   }
 
   if (["sunscreen", "toileting"].includes(key)) {
@@ -105,18 +109,26 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
   useEffect(() => {
     if (open) {
       const currentTime = nowHHMM();
+      const existingServe = initial?.number_of_serves ?? initial?.serve ?? initial?.server ?? initial?.noOfServe;
+      const initialServe =
+        existingServe !== undefined && existingServe !== null && existingServe !== ""
+          ? String(existingServe)
+          : key === "lunch"
+            ? "1"
+            : "";
+
       reset({
         time: initial?.time || currentTime,
         item: initial?.item || "",
         comments: initial?.comments || "",
-        serve: String(initial?.serve ?? initial?.server ?? initial?.noOfServe ?? "1"),
+        serve: initialServe,
         sleepTime: initial?.sleepTime || currentTime,
         wakeTime: initial?.wakeTime || "",
         signature: initial?.signature || "",
         status: initial?.status || "clean",
       });
     }
-  }, [open, initial, reset]);
+  }, [open, initial, reset, key]);
 
   const onSubmitForm = async (data) => {
     const payload = {
@@ -137,6 +149,11 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
 
     if (key === "lunch") {
       payload.serve = data.serve;
+    } else if (["breakfast", "morning_tea", "afternoon_tea", "late_snacks"].includes(key)) {
+      if (data.serve) {
+        payload.serve = data.serve;
+        payload.number_of_serves = data.serve;
+      }
     }
 
     if (["sunscreen", "toileting"].includes(key)) {
@@ -232,17 +249,26 @@ export function ActivityEditModal({ open, onOpenChange, activityLabel, initial, 
                 )}
               </div>
 
-              {key === "lunch" && (
+              {MEAL_KEYS.includes(key) && (
                 <div className="mt-4 space-y-2">
                   <Label>
-                    No of Serve <span className="text-red-500">*</span>
+                    No of Serve {key === "lunch" ? <span className="text-red-500">*</span> : <span className="text-xs text-muted-foreground font-normal">(Optional)</span>}
                   </Label>
                   <div className="flex flex-wrap gap-2">
                     {[1, 2, 3, 4, 5].map((val) => (
                       <button
                         key={val}
                         type="button"
-                        onClick={() => setValue("serve", String(val))}
+                        onClick={() =>
+                          setValue(
+                            "serve",
+                            key === "lunch"
+                              ? String(val)
+                              : watchServe === String(val)
+                                ? ""
+                                : String(val)
+                          )
+                        }
                         className={cn(
                           "h-9 rounded-full border px-4 text-sm font-medium transition",
                           watchServe === String(val)

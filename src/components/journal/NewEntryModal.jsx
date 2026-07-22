@@ -87,6 +87,8 @@ function childLastName(child) {
   return (child.last_name || child.lastname || "").trim();
 }
 
+const MEAL_ACTIVITIES = ["breakfast", "morning_tea", "lunch", "afternoon_tea", "late_snacks"];
+
 const getValidationSchema = (activity) => {
   const baseSchema = {
     date: z.string().min(1, "Date is required"),
@@ -113,6 +115,8 @@ const getValidationSchema = (activity) => {
 
   if (activity === "lunch") {
     schema.serve = z.string().min(1, "Serve is required");
+  } else if (["breakfast", "morning_tea", "afternoon_tea", "late_snacks"].includes(activity)) {
+    schema.serve = z.string().optional();
   }
 
   if (["sunscreen", "toileting"].includes(activity)) {
@@ -299,6 +303,7 @@ export function NewEntryModal({
     if (open) {
       setValue("time", nowHHMM());
       setValue("activity", "breakfast"); // Ensure it has a value on open
+      setValue("serve", "");
     }
   }, [open, setValue]);
 
@@ -586,17 +591,27 @@ export function NewEntryModal({
                   )}
                 </div>
 
-                {activity === "lunch" && (
+                {MEAL_ACTIVITIES.includes(activity) && (
                   <div className="space-y-1.5">
                     <Label>
-                      No of Serve <span className="text-red-500">*</span>
+                      No of Serve {activity === "lunch" ? <span className="text-red-500">*</span> : <span className="text-xs text-muted-foreground font-normal">(Optional)</span>}
                     </Label>
                     <div className="flex flex-wrap gap-2">
                       {[1, 2, 3, 4, 5].map((val) => (
                         <button
                           key={val}
                           type="button"
-                          onClick={() => setValue("serve", String(val), { shouldValidate: true })}
+                          onClick={() =>
+                            setValue(
+                              "serve",
+                              activity === "lunch"
+                                ? String(val)
+                                : watchServe === String(val)
+                                  ? ""
+                                  : String(val),
+                              { shouldValidate: true },
+                            )
+                          }
                           className={cn(
                             "rounded-full border px-4 py-1.5 text-xs font-medium transition",
                             watchServe === String(val)

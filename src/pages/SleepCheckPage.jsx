@@ -392,10 +392,32 @@ export default function SleepCheckPage() {
     });
   };
 
+  function addMinutesToHHMM(timeStr, minsToAdd = 10) {
+    if (!timeStr || !timeStr.includes(":")) return nowHHMM();
+    const [hStr, mStr] = timeStr.split(":");
+    let h = parseInt(hStr, 10);
+    let m = parseInt(mStr, 10);
+    if (isNaN(h) || isNaN(m)) return nowHHMM();
+
+    let totalMins = h * 60 + m + minsToAdd;
+    totalMins = ((totalMins % 1440) + 1440) % 1440;
+    const newH = Math.floor(totalMins / 60);
+    const newM = totalMins % 60;
+    return `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
+  }
+
   const addEntry = (childId) => {
+    const currentCard = getCard(childId);
+    const lastEntry =
+      currentCard.entries && currentCard.entries.length > 0
+        ? currentCard.entries[currentCard.entries.length - 1]
+        : null;
+    const nextTime =
+      lastEntry && lastEntry.time ? addMinutesToHHMM(lastEntry.time, 10) : nowHHMM();
+
     const entry = {
       id: crypto.randomUUID(),
-      time: nowHHMM(),
+      time: nextTime,
       breathing: "Regular",
       temperature: "Normal",
       notes: "",
