@@ -19,6 +19,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NotificationDropdown } from "@/components/layout/NotificationDropdown";
 import { IMG_BASE_API } from "../../api/imageapi";
+import { EC2_IMG_BASE_API } from "../../api/imageapi";
 
 export function Header() {
   const toggleMobile = useUiStore((s) => s.toggleMobileSidebar);
@@ -87,7 +88,7 @@ export function Header() {
             <button className="flex items-center gap-2 rounded-full p-1 transition hover:bg-muted">
               <Avatar className="h-8 w-8">
                 {user?.imageUrl && (
-                  <AvatarImage src={`${IMG_BASE_API}${user.imageUrl}`} alt={user.name} />
+                  <AvatarImage src={`${EC2_IMG_BASE_API}${user.imageUrl}`} alt={user.name} />
                 )}
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
                   {initials}
