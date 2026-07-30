@@ -4,10 +4,12 @@ import { ThemeSwitcher } from "@/components/common/ThemeSwitcher";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import logoLong from "@/assets/mydiaree_long_logo.png";
+import logoShort from "@/assets/mydiearee_short_logo.png";
 
 import { useParentDashboardStore } from "@/stores/parentDashboardStore";
 import { isParentUser } from "@/constants/parentAccess";
 import { ParentChildSelect } from "@/components/dashboard/ParentChildSelect";
+import { ParentPortfolioDownload } from "@/components/layout/ParentPortfolioDownload";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,12 +51,13 @@ export function Header() {
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Logo in center */}
+      {/* Logo in center on desktop, left on mobile */}
       <div
-        className=" flex flex-1 justify-center cursor-pointer"
+        className="flex items-center cursor-pointer lg:flex-1 lg:justify-center"
         onClick={() => navigate("/dashboard")}
       >
-        <img src={logoLong} alt="MyDiaree" className=" h-14 sm:h-16 w-auto" />
+        <img src={logoLong} alt="MyDiaree" className="hidden lg:block h-14 sm:h-16 w-auto" />
+        <img src={logoShort} alt="MyDiaree" className="block lg:hidden h-9 w-auto" />
       </div>
 
       {/* Search */}
@@ -67,14 +70,17 @@ export function Header() {
         />
       </div> */}
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         {isParent && (
-          <ParentChildSelect
-            children={parentChildren}
-            value={selectedChildId}
-            onChange={setSelectedChildId}
-            className="h-9 min-w-[180px] sm:w-[220px]"
-          />
+          <>
+            <ParentChildSelect
+              children={parentChildren}
+              value={selectedChildId}
+              onChange={setSelectedChildId}
+              className="h-9 w-[110px] sm:w-[180px] md:w-[220px]"
+            />
+            <ParentPortfolioDownload selectedChildId={selectedChildId} />
+          </>
         )}
         {/* Theme switcher */}
         <ThemeSwitcher />

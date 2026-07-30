@@ -24,9 +24,11 @@ export function ParentChildSelect({ children = [], value, onChange, className })
   return (
     <Select value={selectedValue} onValueChange={onChange}>
       <SelectTrigger className={className ?? "h-10 w-full min-w-[200px] sm:w-[240px]"}>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0 w-full text-left">
           <Baby className="h-4 w-4 shrink-0 text-primary" />
-          <SelectValue placeholder={hasChildren ? "Select child" : "No child found"} />
+          <div className="min-w-0 flex-1 truncate">
+            <SelectValue placeholder={hasChildren ? "Select child" : "No child found"} />
+          </div>
         </div>
       </SelectTrigger>
       <SelectContent>
@@ -36,14 +38,14 @@ export function ParentChildSelect({ children = [], value, onChange, className })
             const img = childImageUrl(child.imageUrl);
             return (
               <SelectItem key={child.id} value={String(child.id)}>
-                <span className="flex items-center gap-2">
-                  <Avatar className="h-6 w-6">
+                <span className="flex items-center gap-2 min-w-0 w-full">
+                  <Avatar className="h-6 w-6 shrink-0">
                     {img && <AvatarImage src={img} alt={name} />}
                     <AvatarFallback className="text-[9px]">
                       {name.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  {name}
+                  <span className="truncate min-w-0 flex-1">{name}</span>
                 </span>
               </SelectItem>
             );

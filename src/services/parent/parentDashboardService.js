@@ -28,4 +28,19 @@ export const parentDashboardService = {
     });
     return res.data;
   },
+
+  async getPortfolioOptions() {
+    const res = await api.get("/parent/portfolio/options");
+    return res.data;
+  },
+
+  async downloadPortfolio(formData) {
+    const res = await api.post("/parent/portfolio/download", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      responseType: "blob",
+    });
+    return res;
+  },
 };
