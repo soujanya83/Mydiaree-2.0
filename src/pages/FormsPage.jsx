@@ -190,7 +190,7 @@ export default function FormsPage() {
   const yearOptions = useMemo(() => {
     if (meta?.years && Array.isArray(meta.years)) return meta.years;
     if (meta?.available_years && Array.isArray(meta.available_years)) return meta.available_years;
-    return [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+    return [2021, 2022, 2023, 2024, 2025, 2026, 2027];
   }, [meta]);
 
   const fetchMeta = useCallback(async () => {
