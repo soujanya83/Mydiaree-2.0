@@ -15,6 +15,7 @@ export function usePermissions() {
 
   const isSuperadmin = user?.userType === "Superadmin";
   const isCenteradmin = user?.userType === "Centeradmin";
+  const isStaff = String(user?.userType || "").toLowerCase() === "staff";
   const hasFullAccess = isSuperadmin || isCenteradmin;
   const isParent = isParentUser(user);
 
@@ -53,5 +54,5 @@ export function usePermissions() {
     return permissionNames.every((name) => userPermissions[name] === 1);
   };
 
-  return { can, canAny, canAll, isSuperadmin, isCenteradmin, hasFullAccess, isParent };
+  return { can, canAny, canAll, isSuperadmin, isCenteradmin, hasFullAccess, isParent, isStaff };
 }

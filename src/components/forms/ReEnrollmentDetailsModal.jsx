@@ -71,7 +71,9 @@ export default function ReEnrollmentDetailsModal({ open, onOpenChange, submissio
           <div className="md:col-span-2 space-y-4 rounded-2xl bg-card p-5 shadow-sm ring-1 ring-border/50">
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-3">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Current Days (2025)</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Current Days ({submission.reEnrolmentYear ? submission.reEnrolmentYear - 1 : 2025})
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {submission.currentDays?.length
                     ? submission.currentDays.map((d) => (
@@ -84,7 +86,9 @@ export default function ReEnrollmentDetailsModal({ open, onOpenChange, submissio
               </div>
 
               <div className="space-y-3">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Requested Days (2026)</h3>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Requested Days ({submission.reEnrolmentYear || 2026})
+                </h3>
                 <div className="flex flex-wrap gap-2">
                   {submission.requestedDays?.length
                     ? submission.requestedDays.map((d) => (

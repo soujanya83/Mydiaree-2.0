@@ -1,28 +1,49 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FileText, Mail, Table as TableIcon, LayoutGrid,
-  Users, CheckCircle2, Clock, Calendar, Search, Eye, MoreHorizontal,
-  Loader2, ChevronLeft, ChevronRight,
+  FileText,
+  Mail,
+  Table as TableIcon,
+  LayoutGrid,
+  Users,
+  CheckCircle2,
+  Clock,
+  Calendar,
+  Search,
+  Eye,
+  MoreHorizontal,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/common/PageLoader";
 import { Input } from "@/components/ui/input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
 } from "@/components/ui/table";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getFormOptions } from "@/services/admin/formOptionsService";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  sessionOptions as mockSessionOptions, kinderOptions as mockKinderOptions, dayShort,
-  formatSubmittedAt, formatDob,
+  sessionOptions as mockSessionOptions,
+  kinderOptions as mockKinderOptions,
+  dayShort,
+  formatSubmittedAt,
+  formatDob,
 } from "@/components/forms/reEnrollmentData";
 import ReEnrollmentDetailsModal from "@/components/forms/ReEnrollmentDetailsModal";
 import SendReEnrollmentEmailModal from "@/components/forms/SendReEnrollmentEmailModal";
@@ -33,20 +54,26 @@ const VIEW = { FORM: "form", TABLE: "table", CARDS: "cards" };
 
 function StatTile({ label, value, icon: Icon, gradient }) {
   return (
-    <div className={cn(
-      "group relative overflow-hidden rounded-3xl p-[1px] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
-      gradient
-    )}>
+    <div
+      className={cn(
+        "group relative overflow-hidden rounded-3xl p-[1px] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
+        gradient,
+      )}
+    >
       <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
       <div className="relative flex h-full flex-col items-center justify-center rounded-[23px] bg-background/95 p-6 text-center backdrop-blur-xl transition-colors duration-300 group-hover:bg-background/80">
-        <div className={cn(
-          "mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-inner",
-          gradient
-        )}>
+        <div
+          className={cn(
+            "mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-inner",
+            gradient,
+          )}
+        >
           <Icon className="h-6 w-6" />
         </div>
         <p className="text-4xl font-extrabold tracking-tight text-foreground">{value}</p>
-        <p className="mt-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="mt-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </p>
       </div>
     </div>
   );
@@ -59,12 +86,17 @@ function ViewToggleButton({ active, onClick, icon: Icon, children, color = "prim
       onClick={onClick}
       className={cn(
         "group relative flex items-center gap-2 overflow-hidden rounded-full px-5 py-2 text-sm font-semibold transition-all duration-300",
-        active 
+        active
           ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-md"
-          : "bg-transparent text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+          : "bg-transparent text-muted-foreground hover:bg-muted/80 hover:text-foreground",
       )}
     >
-      <Icon className={cn("h-4 w-4 transition-transform duration-300", active ? "scale-110" : "group-hover:scale-110")} />
+      <Icon
+        className={cn(
+          "h-4 w-4 transition-transform duration-300",
+          active ? "scale-110" : "group-hover:scale-110",
+        )}
+      />
       <span>{children}</span>
       {active && (
         <span className="absolute inset-0 rounded-full ring-2 ring-primary ring-offset-2 ring-offset-background animate-in fade-in zoom-in duration-300" />
@@ -106,19 +138,18 @@ function CurrentDayChips({ days }) {
 }
 
 function KinderBadge({ value, meta }) {
-  const label = meta?.kinder_programs[value] || mockKinderOptions.find((k) => k.value === value)?.label?.replace(" at Nextgen", "") || value;
+  const label =
+    meta?.kinder_programs[value] ||
+    mockKinderOptions.find((k) => k.value === value)?.label?.replace(" at Nextgen", "") ||
+    value;
   if (value === "not_attending" || value === "Not Attending" || !value) {
     return <span className="text-sm text-muted-foreground">None</span>;
   }
   if (value === "unfunded" || value === "Unfunded") {
-    return (
-      <Badge className="bg-warning text-warning-foreground hover:bg-warning">UNFUNDED</Badge>
-    );
+    return <Badge className="bg-warning text-warning-foreground hover:bg-warning">UNFUNDED</Badge>;
   }
   return (
-    <Badge className="bg-success text-success-foreground hover:bg-success uppercase">
-      {label}
-    </Badge>
+    <Badge className="bg-success text-success-foreground hover:bg-success uppercase">{label}</Badge>
   );
 }
 
@@ -136,13 +167,15 @@ export default function FormsPage() {
   const [submissions, setSubmissions] = useState([]);
   const [view, setView] = useState(VIEW.TABLE);
   const [search, setSearch] = useState("");
+  const [yearFilter, setYearFilter] = useState("all");
+  const [displayYear, setDisplayYear] = useState(null);
   const [sessionFilter, setSessionFilter] = useState("all");
   const [kinderFilter, setKinderFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState(null);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState({ total: 0, processed: 0, pending: 0, thisWeek: 0 });
   const [meta, setMeta] = useState(null);
@@ -152,6 +185,12 @@ export default function FormsPage() {
   const [formModalOpen, setFormModalOpen] = useState(false);
   const [formOptions, setFormOptions] = useState([]);
   const [isLoadingFormOptions, setIsLoadingFormOptions] = useState(false);
+
+  const yearOptions = useMemo(() => {
+    if (meta?.years && Array.isArray(meta.years)) return meta.years;
+    if (meta?.available_years && Array.isArray(meta.available_years)) return meta.available_years;
+    return [2024, 2025, 2026, 2027, 2028, 2029, 2030];
+  }, [meta]);
 
   const fetchMeta = useCallback(async () => {
     try {
@@ -168,6 +207,7 @@ export default function FormsPage() {
     setIsLoading(true);
     try {
       const res = await reEnrollmentService.getFilteredSubmissions({
+        year: yearFilter,
         search,
         session_option: sessionFilter,
         kinder_program: kinderFilter,
@@ -176,14 +216,22 @@ export default function FormsPage() {
         page,
       });
       if (res.status) {
+        if (res.year) {
+          setDisplayYear(res.year);
+        } else if (res.filters?.year) {
+          setDisplayYear(res.filters.year);
+        }
         // Map API data to UI structure
-        const mapped = res.data.map(item => ({
+        const mapped = res.data.map((item) => ({
           id: item.id,
+          reEnrolmentYear: item.re_enrolment_year,
           childName: item.child_name,
           dob: item.child_dob,
           parentEmail: item.parent_email,
-          currentDays: item.current_days ? item.current_days.split(",").map(d => d.trim()) : [],
-          requestedDays: item.requested_days ? item.requested_days.split(",").map(d => d.trim()) : [],
+          currentDays: item.current_days ? item.current_days.split(",").map((d) => d.trim()) : [],
+          requestedDays: item.requested_days
+            ? item.requested_days.split(",").map((d) => d.trim())
+            : [],
           session: item.session_option,
           kinder: item.kinder_program,
           submittedAt: item.submitted_at,
@@ -197,7 +245,7 @@ export default function FormsPage() {
           total: res.stats.total,
           processed: res.stats.completed,
           pending: res.stats.pending,
-          thisWeek: res.stats.this_week
+          thisWeek: res.stats.this_week,
         });
         setPagination(res.pagination);
       }
@@ -206,7 +254,7 @@ export default function FormsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [search, sessionFilter, kinderFilter, dateFrom, dateTo, page]);
+  }, [yearFilter, search, sessionFilter, kinderFilter, dateFrom, dateTo, page]);
 
   useEffect(() => {
     fetchMeta();
@@ -258,7 +306,9 @@ export default function FormsPage() {
       {/* Header + view toggles */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-primary">Re-Enrollment Dashboard 2026</h1>
+          <h1 className="text-3xl font-bold text-primary">
+            Re-Enrollment Dashboard {displayYear || (yearFilter !== "all" ? yearFilter : "2026")}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage and view all re-enrollment submissions
           </p>
@@ -327,7 +377,7 @@ export default function FormsPage() {
       {/* Filters */}
       <div className="relative overflow-hidden rounded-3xl border border-border/50 bg-card/60 p-5 shadow-sm backdrop-blur-xl transition-shadow hover:shadow-md">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent opacity-50" />
-        <div className="relative grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="relative grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
           <div className="relative lg:col-span-1 sm:col-span-2">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/70" />
             <Input
@@ -337,42 +387,91 @@ export default function FormsPage() {
               className="rounded-full border-border/50 bg-background/50 pl-9 transition-colors focus:bg-background"
             />
           </div>
-          <Select value={sessionFilter} onValueChange={(v) => { setSessionFilter(v); setPage(1); }}>
+          <Select
+            value={yearFilter}
+            onValueChange={(v) => {
+              setYearFilter(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs">
+              <SelectValue placeholder="All Years" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {yearOptions.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={sessionFilter}
+            onValueChange={(v) => {
+              setSessionFilter(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs">
               <SelectValue placeholder="All Sessions" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Sessions</SelectItem>
-              {meta ? Object.entries(meta.session_options).map(([val, label]) => (
-                <SelectItem key={val} value={val}>{label}</SelectItem>
-              )) : mockSessionOptions.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
+              {meta
+                ? Object.entries(meta.session_options).map(([val, label]) => (
+                    <SelectItem key={val} value={val}>
+                      {label}
+                    </SelectItem>
+                  ))
+                : mockSessionOptions.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
             </SelectContent>
           </Select>
-          <Select value={kinderFilter} onValueChange={(v) => { setKinderFilter(v); setPage(1); }}>
+          <Select
+            value={kinderFilter}
+            onValueChange={(v) => {
+              setKinderFilter(v);
+              setPage(1);
+            }}
+          >
             <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs">
               <SelectValue placeholder="All Kinder" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Kinder</SelectItem>
-              {meta ? Object.entries(meta.kinder_programs).map(([val, label]) => (
-                <SelectItem key={val} value={val}>{label}</SelectItem>
-              )) : mockKinderOptions.map((k) => (
-                <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>
-              ))}
+              {meta
+                ? Object.entries(meta.kinder_programs).map(([val, label]) => (
+                    <SelectItem key={val} value={val}>
+                      {label}
+                    </SelectItem>
+                  ))
+                : mockKinderOptions.map((k) => (
+                    <SelectItem key={k.value} value={k.value}>
+                      {k.label}
+                    </SelectItem>
+                  ))}
             </SelectContent>
           </Select>
           <Input
             type="date"
             value={dateFrom}
-            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setDateFrom(e.target.value);
+              setPage(1);
+            }}
             className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs"
           />
           <Input
             type="date"
             value={dateTo}
-            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setDateTo(e.target.value);
+              setPage(1);
+            }}
             className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs"
           />
         </div>
@@ -385,20 +484,21 @@ export default function FormsPage() {
           {view === VIEW.TABLE ? (
             <TableView rows={submissions} onView={setOpenId} meta={meta} />
           ) : (
-            <CardsView rows={submissions} onView={setOpenId} meta={meta} />
+            <CardsView rows={submissions} onView={setOpenId} meta={meta} displayYear={displayYear} />
           )}
 
           {pagination && pagination.last_page > 1 && (
             <div className="flex items-center justify-between px-2 pt-4">
               <p className="text-sm text-muted-foreground">
-                Showing <span className="font-medium">{pagination.count}</span> of <span className="font-medium">{pagination.total}</span> results
+                Showing <span className="font-medium">{pagination.count}</span> of{" "}
+                <span className="font-medium">{pagination.total}</span> results
               </p>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   disabled={page === 1}
-                  onClick={() => setPage(p => p - 1)}
+                  onClick={() => setPage((p) => p - 1)}
                   className="rounded-full"
                 >
                   <ChevronLeft className="h-4 w-4" /> Previous
@@ -420,7 +520,7 @@ export default function FormsPage() {
                   variant="outline"
                   size="sm"
                   disabled={page === pagination.last_page}
-                  onClick={() => setPage(p => p + 1)}
+                  onClick={() => setPage((p) => p + 1)}
                   className="rounded-full"
                 >
                   Next <ChevronRight className="h-4 w-4" />
@@ -444,7 +544,9 @@ export default function FormsPage() {
       <Dialog open={formModalOpen} onOpenChange={setFormModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="mb-2 text-2xl font-bold text-primary">Select a Form</DialogTitle>
+            <DialogTitle className="mb-2 text-2xl font-bold text-primary">
+              Select a Form
+            </DialogTitle>
             <p className="mt-0 text-sm text-muted-foreground">Choose a form below to proceed.</p>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-y-auto pr-2 py-2">
@@ -468,12 +570,28 @@ export default function FormsPage() {
                         <FileText className="h-6 w-6" />
                       </div>
                       <div className="overflow-hidden">
-                        <h4 className="text-lg font-bold text-foreground transition-colors group-hover:text-primary">{form.name}</h4>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground max-w-[250px]">{form.url}</p>
+                        <h4 className="text-lg font-bold text-foreground transition-colors group-hover:text-primary">
+                          {form.name}
+                        </h4>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground max-w-[250px]">
+                          {form.url}
+                        </p>
                       </div>
                     </div>
                     <div className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-muted/50 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1 group-hover:bg-primary/20 group-hover:text-primary">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
                     </div>
                   </button>
                 ))}
@@ -483,7 +601,9 @@ export default function FormsPage() {
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                   <FileText className="h-6 w-6 text-muted-foreground/50" />
                 </div>
-                <p className="text-sm font-medium text-muted-foreground">No forms available at the moment.</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  No forms available at the moment.
+                </p>
               </div>
             )}
           </div>
@@ -533,28 +653,47 @@ function TableView({ rows, onView, meta }) {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <a href={`mailto:${r.parentEmail}`} className="text-sm text-primary transition-colors hover:text-primary/80 hover:underline">
+                    <a
+                      href={`mailto:${r.parentEmail}`}
+                      className="text-sm text-primary transition-colors hover:text-primary/80 hover:underline"
+                    >
                       {r.parentEmail}
                     </a>
                   </TableCell>
-                  <TableCell><CurrentDayChips days={r.currentDays} /></TableCell>
-                  <TableCell><DayChips days={r.requestedDays} /></TableCell>
+                  <TableCell>
+                    <CurrentDayChips days={r.currentDays} />
+                  </TableCell>
+                  <TableCell>
+                    <DayChips days={r.requestedDays} />
+                  </TableCell>
                   <TableCell className="text-center">
                     <span className="inline-flex items-center rounded-md bg-info/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-info">
                       {meta?.session_options[r.session] || r.session}
                     </span>
                   </TableCell>
-                  <TableCell className="text-center"><KinderBadge value={r.kinder} meta={meta} /></TableCell>
+                  <TableCell className="text-center">
+                    <KinderBadge value={r.kinder} meta={meta} />
+                  </TableCell>
                   <TableCell className="text-sm">
                     <div className="font-medium text-foreground">{submitted.date}</div>
                     <div className="text-xs text-muted-foreground">{submitted.time}</div>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-muted/50 transition-colors hover:bg-primary/10 hover:text-primary" onClick={() => onView(r.id)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-muted/50 transition-colors hover:bg-primary/10 hover:text-primary"
+                        onClick={() => onView(r.id)}
+                      >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-muted/50 transition-colors hover:bg-primary/10 hover:text-primary" onClick={() => onView(r.id)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-muted/50 transition-colors hover:bg-primary/10 hover:text-primary"
+                        onClick={() => onView(r.id)}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
                     </div>
@@ -579,13 +718,18 @@ function TableView({ rows, onView, meta }) {
   );
 }
 
-function CardsView({ rows, onView, meta }) {
+function CardsView({ rows, onView, meta, displayYear }) {
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {rows.map((r) => {
         const submitted = formatSubmittedAt(r.submittedAt);
+        const reqYear = r.reEnrolmentYear || displayYear || 2026;
+        const curYear = r.reEnrolmentYear ? r.reEnrolmentYear - 1 : (displayYear ? displayYear - 1 : 2025);
         return (
-          <div key={r.id} className="group overflow-hidden rounded-3xl border border-border/50 bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5">
+          <div
+            key={r.id}
+            className="group overflow-hidden rounded-3xl border border-border/50 bg-card shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/5"
+          >
             <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-slate-700 to-slate-500 px-6 py-4 text-white">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
                 <Users className="h-4 w-4" />
@@ -605,26 +749,39 @@ function CardsView({ rows, onView, meta }) {
               </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Parent Email</p>
-                <a href={`mailto:${r.parentEmail}`} className="font-medium text-primary transition-colors hover:text-primary/80 hover:underline">
+                <a
+                  href={`mailto:${r.parentEmail}`}
+                  className="font-medium text-primary transition-colors hover:text-primary/80 hover:underline"
+                >
                   {r.parentEmail}
                 </a>
               </div>
               <div className="space-y-3 border-y border-border/50 py-3">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Current Days (2025)</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Current Days ({curYear})
+                  </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {r.currentDays.map((d) => (
-                      <span key={d} className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground">
+                      <span
+                        key={d}
+                        className="rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-foreground"
+                      >
                         {d}
                       </span>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Requested Days (2026)</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Requested Days ({reqYear})
+                  </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {r.requestedDays.map((d) => (
-                      <span key={d} className="rounded-md bg-warning/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warning-foreground shadow-sm">
+                      <span
+                        key={d}
+                        className="rounded-md bg-warning/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warning-foreground shadow-sm"
+                      >
                         {d}
                       </span>
                     ))}
@@ -636,19 +793,23 @@ function CardsView({ rows, onView, meta }) {
                   {meta?.session_options[r.session] || r.session}
                 </span>
                 {r.kinder && r.kinder !== "not_attending" && r.kinder !== "Not Attending" && (
-                  <span className="inline-flex items-center"><KinderBadge value={r.kinder} meta={meta} /></span>
+                  <span className="inline-flex items-center">
+                    <KinderBadge value={r.kinder} meta={meta} />
+                  </span>
                 )}
               </div>
               {r.holidayPlans && (
                 <div className="rounded-xl bg-muted/20 p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Holiday Plans</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Holiday Plans
+                  </p>
                   <p className="mt-1 text-sm text-foreground/90">{r.holidayPlans}</p>
                 </div>
               )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full rounded-full border-primary/20 bg-primary/5 text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground group-hover:border-primary/50" 
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full rounded-full border-primary/20 bg-primary/5 text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground group-hover:border-primary/50"
                 onClick={() => onView(r.id)}
               >
                 <Eye className="mr-2 h-4 w-4" /> View Details
@@ -662,7 +823,9 @@ function CardsView({ rows, onView, meta }) {
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
             <Users className="h-6 w-6 text-muted-foreground/50" />
           </div>
-          <p className="text-sm font-medium text-muted-foreground">No submissions match your filters.</p>
+          <p className="text-sm font-medium text-muted-foreground">
+            No submissions match your filters.
+          </p>
         </div>
       )}
     </div>

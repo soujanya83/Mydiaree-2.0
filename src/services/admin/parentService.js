@@ -1,8 +1,20 @@
 import api from "../../api/api";
 
 export const parentService = {
-  async getParentSettings({ center_id, search = "", page = 1, per_page = 10 }) {
+  async getParentSettings(params) {
     try {
+      let center_id, search, page, per_page;
+      if (params && typeof params === "object") {
+        center_id = params.center_id;
+        search = params.search ?? "";
+        page = params.page ?? 1;
+        per_page = params.per_page ?? 10;
+      } else {
+        center_id = params;
+        search = "";
+        page = 1;
+        per_page = 10;
+      }
       const res = await api.get(`/settings/parent_settings`, {
         params: { center_id, search, page, per_page },
       });

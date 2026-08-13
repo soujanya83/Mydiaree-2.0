@@ -11,6 +11,7 @@ import {
   Camera,
   Building2,
   Megaphone,
+  FileText,
 } from "lucide-react";
 
 /** Sidebar config for parent users — grouped like staff navigation. */
@@ -47,5 +48,12 @@ export const parentNavConfig = [
     label: "Centre Management",
     icon: Building2,
     items: [{ label: "Events", to: "/events", icon: Megaphone }],
+  },
+  {
+    key: "forms",
+    label: "Forms",
+    icon: FileText,
+    to: "https://api.mydiaree.com.au/re-enrollment/form",
+    external: true,
   },
 ];

@@ -27,7 +27,7 @@ export function Sidebar() {
   const pathname = useLocation().pathname;
   const isActive = (to) => pathname === to || pathname.startsWith(to + "/");
 
-  const { canAny, isSuperadmin, isCenteradmin, hasFullAccess, isParent } = usePermissions();
+  const { canAny, isSuperadmin, isCenteradmin, hasFullAccess, isParent, isStaff } = usePermissions();
 
   // ----- Filter nav items by permission -----
   const filteredNav = useMemo(() => {
@@ -39,11 +39,19 @@ export function Sidebar() {
       .map((group) => {
         // Single-link group (e.g. Dashboard) — always visible
         if (group.to && !group.items) {
+          if (group.to === "/forms" && isStaff) {
+            return null;
+          }
           return group;
         }
 
         // Group with sub-items — filter children
         const visibleItems = (group.items || []).filter((item) => {
+          // Hide Forms navigation for Staff users
+          if (item.to === "/forms" && isStaff) {
+            return false;
+          }
+
           // Superadmin + Centeradmin (e.g. IP Management)
           if (FULL_ACCESS_ADMIN_ROUTES.includes(item.to)) {
             return hasFullAccess;
@@ -74,7 +82,7 @@ export function Sidebar() {
         return { ...group, items: visibleItems };
       })
       .filter(Boolean);
-  }, [canAny, isSuperadmin, isCenteradmin, hasFullAccess, isParent]);
+  }, [canAny, isSuperadmin, isCenteradmin, hasFullAccess, isParent, isStaff]);
 
   return (
     <>
@@ -155,8 +163,29 @@ export function Sidebar() {
             {filteredNav.map((group) => {
               const Icon = group.icon;
 
-              // Single-link group (Dashboard)
+              // Single-link group (Dashboard or external link)
               if (group.to && !group.items) {
+                const isExternal = group.external || group.to.startsWith("http");
+                if (isExternal) {
+                  return (
+                    <li key={group.key}>
+                      <a
+                        href={group.to}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setMobileOpen(false)}
+                        className={cn(
+                          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-sidebar-foreground/90 hover:bg-primary/15 hover:text-sidebar-foreground",
+                          collapsed && "justify-center px-2",
+                        )}
+                        title={collapsed ? group.label : undefined}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        {!collapsed && <span>{group.label}</span>}
+                      </a>
+                    </li>
+                  );
+                }
                 const active = isActive(group.to);
                 return (
                   <li key={group.key}>
@@ -211,6 +240,25 @@ export function Sidebar() {
                     <ul className="mt-0.5 space-y-0.5 pl-7">
                       {group.items.map((item) => {
                         const SubIcon = item.icon;
+                        const isExternal = item.external || (item.to && item.to.startsWith("http"));
+                        if (isExternal) {
+                          return (
+                            <li key={item.label}>
+                              <a
+                                href={item.to}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setMobileOpen(false)}
+                                className={cn(
+                                  "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] transition-colors text-sidebar-foreground/75 hover:bg-primary/10 hover:text-sidebar-foreground",
+                                )}
+                              >
+                                {SubIcon && <SubIcon className="h-3.5 w-3.5" />}
+                                <span>{item.label}</span>
+                              </a>
+                            </li>
+                          );
+                        }
                         const active = isActive(item.to);
                         return (
                           <li key={item.to}>

@@ -2,6 +2,7 @@ import api from "../../api/api";
 export const reEnrollmentService = {
   getFilteredSubmissions: async (filters) => {
     const formData = new FormData();
+    if (filters.year && filters.year !== "all") formData.append("year", filters.year);
     if (filters.search) formData.append("search", filters.search);
     if (filters.session_option && filters.session_option !== "all") 
       formData.append("session_option", filters.session_option);

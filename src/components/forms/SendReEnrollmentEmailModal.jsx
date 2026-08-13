@@ -34,13 +34,18 @@ export default function SendReEnrollmentEmailModal({ open, onOpenChange }) {
 
   useEffect(() => {
     if (open && activeCentreId) {
-      const fetchParents = async () => {
+      const timer = setTimeout(async () => {
         setIsLoading(true);
         try {
-          const res = await parentService.getParentSettings(activeCentreId);
-          if (res.success && res.data && res.data.parents) {
+          const res = await parentService.getParentSettings({
+            center_id: activeCentreId,
+            search,
+            per_page: 100,
+          });
+          const rawParents = res.data?.parents?.data || res.data?.parents || [];
+          if (Array.isArray(rawParents)) {
             setParents(
-              res.data.parents
+              rawParents
                 .filter((p) => p.email)
                 .map((p) => ({
                   id: p.id,
@@ -58,25 +63,16 @@ export default function SendReEnrollmentEmailModal({ open, onOpenChange }) {
         } finally {
           setIsLoading(false);
         }
-      };
-      fetchParents();
+      }, 300);
+
+      return () => clearTimeout(timer);
     } else if (open) {
       setParents([]);
     }
-  }, [open, activeCentreId]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return parents;
-    return parents.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.email.toLowerCase().includes(q)
-    );
-  }, [parents, search]);
+  }, [open, activeCentreId, search]);
 
   const allSelected =
-    filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+    parents.length > 0 && parents.every((p) => selected.has(p.id));
 
   const toggleOne = (id) => {
     setSelected((prev) => {
@@ -90,8 +86,8 @@ export default function SendReEnrollmentEmailModal({ open, onOpenChange }) {
   const toggleAll = (on) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (on) filtered.forEach((p) => next.add(p.id));
-      else filtered.forEach((p) => next.delete(p.id));
+      if (on) parents.forEach((p) => next.add(p.id));
+      else parents.forEach((p) => next.delete(p.id));
       return next;
     });
   };
@@ -107,10 +103,15 @@ export default function SendReEnrollmentEmailModal({ open, onOpenChange }) {
       toast.error("Select at least one parent");
       return;
     }
+    if (!activeCentreId) {
+      toast.error("Please select a centre");
+      return;
+    }
     
     setIsSending(true);
     try {
       const fd = new FormData();
+      fd.append("center_id", activeCentreId);
       selected.forEach(id => fd.append("parent_ids[]", id));
       
       const res = await sendReEnrollmentEmail(fd);
@@ -118,7 +119,7 @@ export default function SendReEnrollmentEmailModal({ open, onOpenChange }) {
          toast.success(res.message || `Re-enrollment link sent to ${selected.size} parent(s)`);
          handleClose();
       } else {
-         toast.error("Failed to send emails");
+         toast.error(res.message || "Failed to send emails");
       }
     } catch(err) {
        console.error("Error sending emails:", err);
@@ -185,7 +186,7 @@ export default function SendReEnrollmentEmailModal({ open, onOpenChange }) {
                 <Loader2 className="mb-3 h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm font-medium">Loading parents...</p>
               </div>
-            ) : filtered.length === 0 ? (
+            ) : parents.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/50 bg-muted/10 py-12 text-center">
                 <Search className="mb-3 h-8 w-8 text-muted-foreground/30" />
                 <p className="text-sm font-medium text-muted-foreground">
@@ -195,7 +196,7 @@ export default function SendReEnrollmentEmailModal({ open, onOpenChange }) {
                 </p>
               </div>
             ) : (
-              filtered.map((p) => {
+              parents.map((p) => {
                 const checked = selected.has(p.id);
                 return (
                   <label
