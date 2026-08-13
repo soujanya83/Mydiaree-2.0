@@ -166,9 +166,10 @@ export default function FormsPage() {
   const navigate = useNavigate();
   const [submissions, setSubmissions] = useState([]);
   const [view, setView] = useState(VIEW.TABLE);
+  const defaultYear = String(new Date().getFullYear() + 1);
   const [search, setSearch] = useState("");
-  const [yearFilter, setYearFilter] = useState("all");
-  const [displayYear, setDisplayYear] = useState(null);
+  const [yearFilter, setYearFilter] = useState(defaultYear);
+  const [displayYear, setDisplayYear] = useState(defaultYear);
   const [sessionFilter, setSessionFilter] = useState("all");
   const [kinderFilter, setKinderFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -307,7 +308,7 @@ export default function FormsPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-primary">
-            Re-Enrollment Dashboard {displayYear || (yearFilter !== "all" ? yearFilter : "2026")}
+            Re-Enrollment Dashboard {displayYear || yearFilter}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Manage and view all re-enrollment submissions
@@ -395,10 +396,9 @@ export default function FormsPage() {
             }}
           >
             <SelectTrigger className="rounded-full border-border/50 bg-background/50 transition-colors focus:bg-background text-xs">
-              <SelectValue placeholder="All Years" />
+              <SelectValue placeholder="Select Year" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Years</SelectItem>
               {yearOptions.map((y) => (
                 <SelectItem key={y} value={String(y)}>
                   {y}
