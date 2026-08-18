@@ -5,10 +5,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import {
-  STATUS_MAP,
-  nextStatus,
-} from "@/components/lessonplan/progressData";
+import { STATUS_MAP, nextStatus } from "@/components/lessonplan/progressData";
 import { StatusTriangle } from "@/components/lessonplan/StatusTriangle";
 import { cn } from "@/lib/utils";
 import { learningProgressService } from "@/services/learning/learningProgressService";
@@ -20,21 +17,21 @@ const STATUS_BADGE = {
 };
 
 const API_STATUS_TO_UI = {
-  "Introduced": "introduced",
-  "Practicing": "practicing",
-  "Completed": "completed",
+  Introduced: "introduced",
+  Working: "practicing",
+  Completed: "completed",
 };
 
 const UI_STATUS_TO_API = {
-  "introduced": "Introduced",
-  "practicing": "Practicing",
-  "completed": "Completed",
+  introduced: "Introduced",
+  practicing: "Practicing",
+  completed: "Completed",
 };
 
 export default function ChildProgressPage() {
   const { childId } = useParams();
   const navigate = useNavigate();
-  
+
   const [child, setChild] = useState(null);
   const [plan, setPlan] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +43,7 @@ export default function ChildProgressPage() {
       const response = await learningProgressService.getChildProgress(childId);
       if (response.status && response.data) {
         setChild(response.data.child);
-        
+
         // Transform progress_plan to UI structure
         const rawPlan = response.data.progress_plan || [];
         const grouped = rawPlan.reduce((acc, item) => {
@@ -54,25 +51,25 @@ export default function ChildProgressPage() {
           const act = subAct.activity || {};
           const subject = act.subject || {};
           const categoryName = subject.name || "General";
-          
+
           if (!acc[categoryName]) {
             acc[categoryName] = {
               category: categoryName,
-              items: []
+              items: [],
             };
           }
-          
+
           acc[categoryName].items.push({
             id: item.id,
             subId: item.subid,
             group: act.title || "Misc",
             title: subAct.title || "No Title",
-            status: API_STATUS_TO_UI[item.status] || "introduced"
+            status: API_STATUS_TO_UI[item.status] || "introduced",
           });
-          
+
           return acc;
         }, {});
-        
+
         setPlan(Object.values(grouped));
       }
     } catch (error) {
@@ -120,9 +117,16 @@ export default function ChildProgressPage() {
   if (!child) {
     return (
       <div>
-        <PageHeader title="Child not found" breadcrumbs={[{ label: "Learning & Progress", to: "/learning-progress" }, { label: "Not found" }]} />
+        <PageHeader
+          title="Child not found"
+          breadcrumbs={[
+            { label: "Learning & Progress", to: "/learning-progress" },
+            { label: "Not found" },
+          ]}
+        />
         <Button variant="outline" onClick={() => navigate("/learning-progress")}>
-          <ArrowLeft className="mr-2 h-4 w-4" />Back
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
         </Button>
       </div>
     );
@@ -140,7 +144,8 @@ export default function ChildProgressPage() {
         actions={
           <Button variant="outline" asChild>
             <Link to="/learning-progress">
-              <ArrowLeft className="mr-2 h-4 w-4" />Back
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
             </Link>
           </Button>
         }
@@ -175,7 +180,7 @@ export default function ChildProgressPage() {
                       <div className="flex items-center gap-4">
                         <StatusTriangle
                           status={item.status}
-                          onClick={() => cycleStatus(ci, ii)}
+                          // onClick={() => cycleStatus(ci, ii)}
                           size={56}
                         />
                         <div>
@@ -212,7 +217,7 @@ function Legend() {
       <span className="font-semibold text-muted-foreground">Legend:</span>
       {items.map((i) => (
         <div key={i.key} className="flex items-center gap-2">
-          <StatusTriangle status={i.key} onClick={() => { }} size={28} />
+          <StatusTriangle status={i.key} onClick={() => {}} size={28} />
           <span>{i.label}</span>
         </div>
       ))}
