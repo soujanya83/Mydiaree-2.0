@@ -1547,7 +1547,10 @@ export default function ObservationCreatePage() {
                     {uploadingMediaCount > 0 && (
                       <div className="grid grid-cols-1 gap-3">
                         {Array.from({ length: uploadingMediaCount }).map((_, i) => (
-                          <div key={i} className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-border bg-muted/30">
+                          <div
+                            key={i}
+                            className="flex aspect-video items-center justify-center rounded-xl border border-dashed border-border bg-muted/30"
+                          >
                             <Loader2 className="h-6 w-6 animate-spin text-primary/50" />
                           </div>
                         ))}
@@ -1596,7 +1599,10 @@ export default function ObservationCreatePage() {
                       onValueChange={async (newStatus) => {
                         setStatus(newStatus);
                         try {
-                          await observationService.updateStatus(id, newStatus === "published" ? "Published" : "Draft");
+                          await observationService.updateStatus(
+                            id,
+                            newStatus === "published" ? "Published" : "Draft",
+                          );
                           toast.success("Observation status updated successfully.");
                         } catch (error) {
                           toast.error("Failed to update status");
@@ -2573,7 +2579,7 @@ function MontessoriAssessmentPanel({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Introduced">Introduced</SelectItem>
-                        <SelectItem value="Working">Working</SelectItem>
+                        <SelectItem value="Working">Practicing</SelectItem>
                         <SelectItem value="Completed">Completed</SelectItem>
                       </SelectContent>
                     </Select>
@@ -2598,7 +2604,7 @@ function MontessoriLegend() {
       </div>
       <div className="flex items-center gap-2">
         <StatusTriangle status="practicing" onClick={() => {}} size={28} />
-        <span>Working</span>
+        <span>Practicing</span>
       </div>
       <div className="flex items-center gap-2">
         <StatusTriangle status="completed" onClick={() => {}} size={28} />
