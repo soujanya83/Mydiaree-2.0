@@ -482,7 +482,14 @@ export default function FormsPage() {
       ) : (
         <>
           {view === VIEW.TABLE ? (
-            <TableView rows={submissions} onView={setOpenId} meta={meta} />
+            <TableView
+              rows={submissions}
+              onView={setOpenId}
+              meta={meta}
+              stats={stats}
+              pagination={pagination}
+              page={page}
+            />
           ) : (
             <CardsView rows={submissions} onView={setOpenId} meta={meta} displayYear={displayYear} />
           )}
@@ -613,7 +620,11 @@ export default function FormsPage() {
   );
 }
 
-function TableView({ rows, onView, meta }) {
+function TableView({ rows, onView, meta, stats, pagination, page = 1 }) {
+  const totalRecords = pagination?.total ?? stats?.total ?? rows.length;
+  const currentPage = pagination?.current_page ?? page ?? 1;
+  const perPage = pagination?.per_page ?? 12;
+
   return (
     <div className="overflow-hidden rounded-3xl border border-border/50 bg-card shadow-lg">
       <div className="flex items-center gap-3 border-b border-white/10 bg-gradient-to-r from-primary/90 to-primary/70 px-6 py-4 text-primary-foreground backdrop-blur-md">
@@ -626,7 +637,7 @@ function TableView({ rows, onView, meta }) {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 hover:bg-muted/30">
-              <TableHead className="w-16 font-semibold">ID</TableHead>
+              <TableHead className="w-16 font-semibold">Sr No</TableHead>
               <TableHead className="font-semibold">Child Name</TableHead>
               <TableHead className="font-semibold">Parent Email</TableHead>
               <TableHead className="text-center font-semibold">Current Days</TableHead>
@@ -638,11 +649,12 @@ function TableView({ rows, onView, meta }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((r) => {
+            {rows.map((r, index) => {
               const submitted = formatSubmittedAt(r.submittedAt);
+              const srNo = totalRecords - ((currentPage - 1) * perPage + index);
               return (
                 <TableRow key={r.id} className="group hover:bg-muted/40 transition-colors">
-                  <TableCell className="font-semibold text-muted-foreground">#{r.id}</TableCell>
+                  <TableCell className="font-semibold text-muted-foreground">{srNo}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar name={r.childName} />
