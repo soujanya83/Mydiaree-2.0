@@ -852,10 +852,34 @@ export function ProgramPlanForm({
           subjectKey={picker}
           initial={data[SUBJECT_FIELDS[picker]] || []}
           onClose={() => setPicker(null)}
-          onSave={(items) => {
-            update(SUBJECT_FIELDS[picker], items);
-            setPicker(null);
-            setTimeout(() => triggerImmediateSave("experiences", buildPayload), 0);
+          onSave={async (items) => {
+            const field = SUBJECT_FIELDS[picker];
+            const payload = {
+              ...formRef.current,
+              [field]: items,
+            };
+            try {
+              const res = await programPlanService.saveProgramPlan(payload);
+              const isSuccess =
+                res?.status === true ||
+                res?.status === "success" ||
+                res?.status === 1 ||
+                res?.status === "1" ||
+                res?.success === true;
+
+              if (isSuccess) {
+                update(field, items);
+                toast.success(res?.message || "Activities saved successfully");
+                setPicker(null);
+              } else {
+                toast.error(res?.message || "Failed to save activities");
+                throw new Error(res?.message || "Failed to save activities");
+              }
+            } catch (err) {
+              console.error("Error saving activities:", err);
+              toast.error(err.message || "Failed to save activities");
+              throw err;
+            }
           }}
         />
       )}

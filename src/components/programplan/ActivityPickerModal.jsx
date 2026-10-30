@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { ChevronRight, ChevronDown, Search, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,14 +38,22 @@ export function ActivityPickerModal({ open, subjectKey, initial = [], onClose, o
   const [search, setSearch] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [activities, setActivities] = useState([]);
   const [subActivitiesMap, setSubActivitiesMap] = useState({});
   const [loadingGroups, setLoadingGroups] = useState({});
 
-  // Sync selected state when initial prop changes
+  const initialRef = useRef(initial);
   useEffect(() => {
-    setSelected(new Set(extractInitialTitles(initial)));
-  }, [initial, extractInitialTitles]);
+    initialRef.current = initial;
+  }, [initial]);
+
+  // Sync selected state when modal opens
+  useEffect(() => {
+    if (open) {
+      setSelected(new Set(extractInitialTitles(initialRef.current)));
+    }
+  }, [open, extractInitialTitles]);
 
   // Initial group map for lookup (activity title -> items)
   const initialMap = useMemo(() => {
@@ -89,7 +97,8 @@ export function ActivityPickerModal({ open, subjectKey, initial = [], onClose, o
 
               loadedActivities.forEach((act) => {
                 const actNorm = norm(act.title);
-                const hasMatchingInitial = (initial || []).some((g) => {
+                const currentInitial = initialRef.current || [];
+                const hasMatchingInitial = currentInitial.some((g) => {
                   const gActNorm = norm(g?.activity);
                   const gItems = g?.items || (typeof g === "string" ? [g] : []);
                   return (
@@ -141,7 +150,7 @@ export function ActivityPickerModal({ open, subjectKey, initial = [], onClose, o
     return () => {
       isMounted = false;
     };
-  }, [open, subjectKey, initial]);
+  }, [open, subjectKey]);
 
   const toggleGroup = async (activityId) => {
     const isNowOpen = !openGroups[activityId];
@@ -211,7 +220,7 @@ export function ActivityPickerModal({ open, subjectKey, initial = [], onClose, o
     return activities.filter((a) => a.title.toLowerCase().includes(q));
   }, [activities, search]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const result = [];
     const processedActivities = new Set();
 
@@ -264,19 +273,37 @@ export function ActivityPickerModal({ open, subjectKey, initial = [], onClose, o
       }
     });
 
-    onSave(result);
+    setIsSaving(true);
+    try {
+      if (onSave) {
+        await onSave(result);
+      }
+    } catch (err) {
+      console.error("Save selections error:", err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSaving) onClose();
+      }}
+    >
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-lg font-bold text-foreground">
             Select {SUBJECT_MAP[subjectKey] || "Subject"} Activities
           </h2>
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted">
+          <button
+            onClick={onClose}
+            disabled={isSaving}
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -372,10 +399,19 @@ export function ActivityPickerModal({ open, subjectKey, initial = [], onClose, o
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/30 px-6 py-4">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>Save selections</Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save selections"
+            )}
+          </Button>
         </div>
       </div>
     </div>
